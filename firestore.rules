@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /rooms/{roomId} {
+      function isAuthed() {
+        return request.auth != null;
+      }
+
+      function isController() {
+        return isAuthed() && resource.data.controllerUid == request.auth.uid;
+      }
+
+      // For family use we allow authenticated reads so join-by-code works.
+      allow read: if isAuthed();
+
+      // Room creator becomes controller.
+      allow create: if isAuthed()
+        && request.resource.data.controllerUid == request.auth.uid
+        && request.resource.data.raceTrackId == 'christmas_race_v1';
+
+      // Controller can update anything.
+      // Additionally: allow any authed user to start the race (lobby -> running)
+      // by changing ONLY status + raceStartedAt.
+      allow update: if isAuthed() && (
+        (resource.data.controllerUid == request.auth.uid)
+        || (
+          resource.data.status == 'lobby'
+          && request.resource.data.status == 'running'
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'raceStartedAt'])
+        )
+      );
+
+      allow delete: if isController();
+      
+      // Players subcollection
+      match /players/{playerId} {
+        allow read: if isAuthed();
+        
+        // Allow create if user is creating their own player doc
+        allow create: if isAuthed() && request.auth.uid == playerId;
+        
+        // Allow update if user is updating their own player doc or is controller
+        allow update: if isAuthed() && (
+          request.auth.uid == playerId
+          || get(/databases/$(database)/documents/rooms/$(roomId)).data.controllerUid == request.auth.uid
+        );
+        
+        // Allow delete if user is deleting their own doc or is controller
+        allow delete: if isAuthed() && (
+          request.auth.uid == playerId
+          || get(/databases/$(database)/documents/rooms/$(roomId)).data.controllerUid == request.auth.uid
+        );
+      }
+
+      // Optional TV event feed
+      match /events/{eventId} {
+        allow read: if isAuthed();
+        allow create: if isAuthed();
+        allow update, delete: if isController();
+      }
+    }
+  }
+}
+

@@ -1,0 +1,10 @@
+{
+  "livePreview.previewOnServerReady": true,
+  "livePreview.serverReadyAction": {
+    "action": "openExternally",
+    "pattern": ".*Local.*",
+    "uriFormat": "http://localhost:3000"
+  },
+  "livePreview.customExternalBrowser": "default"
+}
+
