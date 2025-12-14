@@ -60,5 +60,27 @@ service cloud.firestore {
       }
     }
   }
+
+  // Tradition Wheels
+  match /traditionWheels/{wheelId} {
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isController() {
+      return isAuthed() && resource.data.controllerUid == request.auth.uid;
+    }
+
+    allow read: if isAuthed();
+    allow create: if isAuthed() && request.resource.data.controllerUid == request.auth.uid;
+    allow update: if isAuthed() && (
+      isController()
+      || (
+        // Allow any authed user to update usedIds and lastSpunAt (for spinning)
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['usedIds', 'lastSpunAt'])
+      )
+    );
+    allow delete: if isController();
+  }
 }
 

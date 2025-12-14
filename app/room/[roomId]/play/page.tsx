@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useRoom } from '@/lib/hooks/useRoom';
 import { usePlayer } from '@/lib/hooks/usePlayer';
@@ -15,7 +15,8 @@ import { ensureStageInitialized, getStageByIndex, getTotalStages, submitCodeLock
 import { getCodePuzzleById, getEmojiClueById, getFinalRiddleById, getPhotoPromptById, getRiddleGateRiddleById, getTriviaQuestionById } from '@/lib/raceContent';
 import { completePhotoScavenger } from '@/lib/raceEngine';
 import { validatePhotoWithAI } from '@/lib/utils/openai';
-import type { Player, Room, RaceStageDefinition } from '@/types';
+import type { Player, Room, RaceStageDefinition, MiniGameType } from '@/types';
+import { MiniGameDashboard } from './MiniGameDashboard';
 
 const AVATARS = ['🎅', '🎄', '🎁', '❄️', '🦌', '⛄', '🎄', '🎁', '🎅', '❄️'];
 
@@ -156,15 +157,84 @@ export default function PlayPage() {
     );
   }
 
-  return <RacePlay roomId={roomId} room={room} player={player as Player} lang={lang} />;
+  // Render based on room mode (default to amazing_race for backward compatibility)
+  const roomMode = room.roomMode || 'amazing_race';
+  
+  if (roomMode === 'amazing_race') {
+    return <RacePlay roomId={roomId} room={room} player={player as Player} lang={lang} />;
+  }
+
+  if (roomMode === 'mini_games') {
+    return <MiniGameRouter roomId={roomId} room={room} player={player as Player} lang={lang} />;
+  }
+
+  if (roomMode === 'leaderboard') {
+    return (
+      <main className="min-h-screen px-4 py-8 md:py-12">
+        <div className="mx-auto max-w-4xl">
+          <div className="card">
+            <h1 className="game-show-title mb-4 text-center">🏆 Leaderboard</h1>
+            <p className="text-center text-white/70 mb-6">
+              This room is configured for leaderboard view. Open the TV view to see standings.
+            </p>
+            <div className="text-center">
+              <Link href={`/room/${roomId}/tv`} className="btn-primary inline-block">
+                📺 Open TV View
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen px-4 py-8">
+      <div className="mx-auto max-w-xl">
+        <div className="card text-center">
+          <p className="text-white/70">Unknown room mode</p>
+        </div>
+      </div>
+    </main>
+  );
 }
 
 function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en' | 'cs' }) {
   const { roomId, room, player, lang } = props;
   const trackId = room.raceTrackId;
-  const totalStages = useMemo(() => getTotalStages(trackId), [trackId]);
+  
+  // Safety check for trackId
+  if (!trackId) {
+    return (
+      <main className="min-h-screen px-4 py-8">
+        <div className="mx-auto max-w-xl">
+          <div className="card text-center">
+            <p className="text-white/70">{t('common.error', lang)}: Missing race track</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+  
+  const totalStages = useMemo(() => {
+    try {
+      return getTotalStages(trackId);
+    } catch (e) {
+      console.error('Error getting total stages:', e);
+      return 0;
+    }
+  }, [trackId]);
+  
   const stageIndex = player.stageIndex ?? 0;
-  const stage = useMemo(() => getStageByIndex(trackId, stageIndex), [trackId, stageIndex]);
+  const stage = useMemo(() => {
+    try {
+      return getStageByIndex(trackId, stageIndex);
+    } catch (e) {
+      console.error('Error getting stage:', e);
+      return null;
+    }
+  }, [trackId, stageIndex]);
+  
   const stageState = (player.stageState ?? {}) as Record<string, any>;
   const currentState = stage ? (stageState[(stage as RaceStageDefinition).id] ?? {}) : {};
 
@@ -175,9 +245,13 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
   }, []);
 
   useEffect(() => {
-    if (!stage) return;
-    ensureStageInitialized({ roomId, uid: player.uid, trackId, stageIndex }).catch(() => {});
-  }, [roomId, player.uid, trackId, stageIndex, stage]);
+    // Initialize stage even if it's null (will create the stage state)
+    if (room.status === 'running' && trackId) {
+      ensureStageInitialized({ roomId, uid: player.uid, trackId, stageIndex }).catch((err) => {
+        console.error('Error initializing stage:', err);
+      });
+    }
+  }, [roomId, player.uid, trackId, stageIndex, room.status]);
 
   const pct = totalStages > 0 ? Math.min(100, Math.round((stageIndex / totalStages) * 100)) : 0;
 
@@ -206,23 +280,20 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
   if (room.status === 'lobby') {
     return (
       <main className="min-h-screen px-4 py-10 md:py-16">
-        <div className="mx-auto max-w-xl">
-          <div className="card text-center">
-            <div className="text-5xl mb-4">{player.avatar}</div>
-            <h1 className="text-3xl font-black mb-2">{room.name}</h1>
-            <p className="text-white/75 mb-6">{t('race.lobbyPrompt', lang)}</p>
-            <button
-              className="btn-primary w-full"
-              onClick={async () => {
-                try {
-                  await startRace(roomId);
-                } catch {}
-              }}
-            >
-              🚦 {t('race.startMyRace', lang)}
-            </button>
-            <div className="mt-4 flex justify-center gap-3">
-              <Link href={`/room/${roomId}/tv`} className="btn-secondary text-center">
+        <div className="mx-auto max-w-2xl">
+          <div className="card text-center relative overflow-hidden">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
+            <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
+            <div className="relative">
+              <div className="text-5xl mb-4">{player.avatar}</div>
+              <h1 className="game-show-title mb-4">{room.name}</h1>
+              <p className="text-white/75 mb-6">
+                {t('race.waitingForStart', lang) || 'Waiting for the host to start the race...'}
+              </p>
+              <p className="text-sm text-white/60 mb-6">
+                {t('race.waitingDesc', lang) || 'The race will begin once the host starts it from the TV view.'}
+              </p>
+              <Link href={`/room/${roomId}/tv`} className="btn-secondary inline-block">
                 📺 {t('race.openTv', lang)}
               </Link>
             </div>
@@ -237,7 +308,10 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
       <main className="min-h-screen px-4 py-8">
         <div className="mx-auto max-w-xl">
           <div className="card text-center">
-            <p className="text-white/70">{t('common.loading', lang)}</p>
+            <p className="text-white/70 mb-4">{t('common.loading', lang)}</p>
+            <p className="text-sm text-white/50">
+              {trackId ? `Track: ${trackId}, Stage: ${stageIndex + 1}` : 'Initializing stage...'}
+            </p>
           </div>
         </div>
       </main>
@@ -652,3 +726,103 @@ function StageBody(props: {
   return <p className="text-white/70">{t('common.error', lang)}</p>;
 }
 
+function MiniGameRouter({ roomId, room, player, lang }: { roomId: string; room: Room; player: Player; lang: 'en' | 'cs' }) {
+  const router = useRouter();
+  const progress = player.miniGameProgress ?? {};
+  const enabledGames = room.miniGamesEnabled || [];
+
+  // Define game order (can be customized)
+  const gameOrder: MiniGameType[] = ['trivia', 'emoji', 'wyr', 'pictionary'];
+
+  // Track completion status for each enabled game
+  const completionStatus = useMemo(() => {
+    const status: Record<string, boolean> = {};
+    enabledGames.forEach(gameType => {
+      const gameProgress = progress[gameType];
+      status[gameType] = !!(gameProgress && gameProgress.completedAt);
+    });
+    return status;
+  }, [enabledGames, progress.trivia?.completedAt, progress.emoji?.completedAt, progress.wyr?.completedAt, progress.pictionary?.completedAt]);
+
+  // Find the first game that is enabled and not completed
+  const nextGame = useMemo(() => {
+    for (const gameType of gameOrder) {
+      if (!enabledGames.includes(gameType)) continue;
+      if (!completionStatus[gameType]) {
+        return gameType;
+      }
+    }
+    return null; // All games completed
+  }, [enabledGames, completionStatus]);
+
+  // Only redirect to games when room status is 'running' or 'finished'
+  // Wait in lobby if status is 'lobby'
+  useEffect(() => {
+    if (room.status !== 'lobby' && nextGame) {
+      router.replace(`/room/${roomId}/minigames/${nextGame}`);
+    }
+  }, [roomId, nextGame, router, room.status]);
+
+  // Show lobby/waiting screen if room hasn't started
+  if (room.status === 'lobby') {
+    return (
+      <main className="min-h-screen px-4 py-10 md:py-16">
+        <div className="mx-auto max-w-2xl">
+          <div className="card text-center relative overflow-hidden">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
+            <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
+            <div className="relative">
+              <div className="text-5xl mb-4">{player.avatar}</div>
+              <h1 className="game-show-title mb-4">{room.name}</h1>
+              <p className="text-white/75 mb-6">
+                {t('minigames.waitingForStart', lang) || 'Waiting for the host to start the games...'}
+              </p>
+              <p className="text-sm text-white/60 mb-6">
+                {t('minigames.waitingDesc', lang) || 'The games will begin once the host starts them from the TV view.'}
+              </p>
+              <Link href={`/room/${roomId}/tv`} className="btn-secondary inline-block">
+                📺 {t('race.openTv', lang)}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Show loading or completion screen while redirecting
+  if (!nextGame) {
+    // All games completed
+    return (
+      <main className="min-h-screen px-4 py-10 md:py-16">
+        <div className="mx-auto max-w-2xl">
+          <div className="card text-center">
+            <div className="text-6xl mb-4">🎉</div>
+            <h1 className="game-show-title mb-4">{t('minigames.allCompleted', lang) || 'All Games Completed!'}</h1>
+            <p className="text-white/75 mb-6">
+              {t('minigames.allCompletedDesc', lang) || 'You have completed all available mini games. Great job!'}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href={`/room/${roomId}/tv`} className="btn-secondary text-center">
+                📺 {t('race.openTv', lang)}
+              </Link>
+              <Link href={`/room/${roomId}/results`} className="btn-primary text-center">
+                🏆 {t('race.viewResults', lang)}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Show loading while redirecting
+  return (
+    <main className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-4xl mb-4">{t('common.loading', lang)}</div>
+        <p className="text-white/70">{t('minigames.loadingGame', lang) || 'Loading game...'}</p>
+      </div>
+    </main>
+  );
+}

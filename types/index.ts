@@ -1,4 +1,6 @@
 export type RoomStatus = 'lobby' | 'running' | 'finished';
+export type RoomMode = 'amazing_race' | 'mini_games' | 'leaderboard';
+export type MiniGameType = 'trivia' | 'emoji' | 'wyr' | 'pictionary';
 
 export interface Room {
   id: string;
@@ -10,17 +12,31 @@ export interface Room {
    * Optional when pinEnabled=false.
    */
   pinHash?: string;
+  pin?: string; // For spec compatibility (though we prefer pinHash)
   maxPlayers: number;
   createdAt: number; // ms since epoch
   controllerUid: string;
   status: RoomStatus;
-  raceTrackId: 'christmas_race_v1';
+  roomMode: RoomMode; // The mode this room is configured for
+  raceTrackId: 'christmas_race_v1'; // Only used when roomMode is 'amazing_race'
   raceStartedAt?: number; // ms since epoch
+  // Enabled mini games (only used when roomMode is 'mini_games')
+  miniGamesEnabled?: MiniGameType[];
+  // Mini games selected sets (generated once per room when mini games are enabled)
+  miniGames?: {
+    trivia?: { selectedIds: string[] };
+    emoji?: { selectedIds: string[] };
+    wyr?: { selectedIds: string[] };
+    pictionary?: { selectedIds: string[] };
+  };
   settings: {
     difficulty: 'easy' | 'medium' | 'hard';
     allowSkips: boolean;
   };
   eventsEnabled: boolean;
+  // Overall scoring (meta layer)
+  overallScoringEnabled?: boolean;
+  overallScoringMode?: 'placements' | 'sumMiniGameScores' | 'hybrid';
 }
 
 export type RaceStageType =
@@ -44,6 +60,20 @@ export interface Player {
   finishedAt?: number; // ms since epoch
   lastActiveAt?: number; // ms since epoch
   photoUploaded?: boolean; // convenience flag for TV (stage 5 bonus)
+  // Amazing Race (spec-compliant naming)
+  raceStageIndex?: number; // Alias for stageIndex
+  raceStageState?: Record<string, any>; // Alias for stageState
+  raceFinishedAt?: number; // Alias for finishedAt
+  // Mini games progress
+  miniGameProgress?: {
+    trivia?: { answers: number[]; score: number; completedAt?: number };
+    emoji?: { answers: string[]; score: number; completedAt?: number };
+    wyr?: { choices: ('A' | 'B')[]; score: number; completedAt?: number };
+    pictionary?: { drawings: Array<{ promptId: string; dataUrl?: string }>; score: number; completedAt?: number };
+  };
+  totalMiniGameScore?: number;
+  // Overall scoring (meta layer)
+  overallPoints?: number;
 }
 
 export interface TriviaQuestion {
@@ -112,4 +142,46 @@ export interface RoomEvent {
   playerName: string;
   stageTitle?: string;
   createdAt: number; // ms since epoch
+}
+
+// Mini game types
+export interface MiniGameTriviaProgress {
+  answers: number[]; // Array of selected indices (null = skipped)
+  score: number;
+  completedAt?: number;
+}
+
+export interface MiniGameEmojiProgress {
+  answers: string[]; // Array of answer strings
+  score: number;
+  completedAt?: number;
+}
+
+export interface MiniGameWYRProgress {
+  choices: ('A' | 'B')[]; // Array of choices
+  score: number;
+  completedAt?: number;
+}
+
+export interface MiniGamePictionaryProgress {
+  drawings: Array<{ promptId: string; dataUrl?: string }>;
+  score: number;
+  completedAt?: number;
+}
+
+// Tradition Wheel
+export interface TraditionItem {
+  id: string;
+  en: string;
+  cs: string;
+}
+
+export interface TraditionWheel {
+  id: string;
+  name: string;
+  traditions: TraditionItem[];
+  usedIds: string[];
+  lastSpunAt?: number; // ms since epoch
+  createdAt: number; // ms since epoch
+  controllerUid: string;
 }

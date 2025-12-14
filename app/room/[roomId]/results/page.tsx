@@ -6,6 +6,8 @@ import { usePlayers } from '@/lib/hooks/usePlayers';
 import { getLanguage, t } from '@/lib/i18n';
 import Link from 'next/link';
 import { getRaceTrack } from '@/lib/raceEngine';
+import { calculateOverallScoring } from '@/lib/utils/overallScoring';
+import { useMemo } from 'react';
 
 export default function ResultsPage() {
   const params = useParams();
@@ -13,6 +15,11 @@ export default function ResultsPage() {
   const { room, loading: roomLoading } = useRoom(roomId);
   const { players, loading: playersLoading } = usePlayers(roomId);
   const lang = getLanguage();
+
+  const overallScoring = useMemo(() => {
+    if (!room || !players.length) return null;
+    return calculateOverallScoring(players, room);
+  }, [room, players]);
 
   if (roomLoading || playersLoading) {
     return (
@@ -33,17 +40,27 @@ export default function ResultsPage() {
   const track = getRaceTrack(room.raceTrackId);
   const totalStages = track.stages.length;
 
-  const sortedPlayers = [...players].sort((a: any, b: any) => {
-    const aStage = a.stageIndex ?? 0;
-    const bStage = b.stageIndex ?? 0;
-    if (bStage !== aStage) return bStage - aStage;
-    const aFinished = a.finishedAt ?? Number.POSITIVE_INFINITY;
-    const bFinished = b.finishedAt ?? Number.POSITIVE_INFINITY;
-    if (aFinished !== bFinished) return aFinished - bFinished;
-    const aScore = a.score ?? 0;
-    const bScore = b.score ?? 0;
-    return bScore - aScore;
-  });
+  // Use overall scoring if enabled, otherwise use race scoring
+  const sortedPlayers = useMemo(() => {
+    if (overallScoring && overallScoring.length > 0) {
+      return overallScoring.map((result) => {
+        const player = players.find((p: any) => p.uid === result.playerUid);
+        return { ...player, overallPoints: result.overallPoints };
+      });
+    }
+    return [...players].sort((a: any, b: any) => {
+      const aStage = a.stageIndex ?? 0;
+      const bStage = b.stageIndex ?? 0;
+      if (bStage !== aStage) return bStage - aStage;
+      const aFinished = a.finishedAt ?? Number.POSITIVE_INFINITY;
+      const bFinished = b.finishedAt ?? Number.POSITIVE_INFINITY;
+      if (aFinished !== bFinished) return aFinished - bFinished;
+      const aScore = a.score ?? 0;
+      const bScore = b.score ?? 0;
+      return bScore - aScore;
+    });
+  }, [players, overallScoring]);
+
   const top3 = sortedPlayers.slice(0, 3);
   const rest = sortedPlayers.slice(3);
 
@@ -62,13 +79,27 @@ export default function ResultsPage() {
           </h1>
         </div>
 
+        {/* Overall Scoring Info */}
+        {overallScoring && overallScoring.length > 0 && (
+          <div className="card mb-6">
+            <h2 className="text-2xl font-bold mb-4 text-center">{t('results.overallScoring', lang)}</h2>
+            <p className="text-center text-white/70 mb-4">
+              {room?.overallScoringMode === 'placements' && t('scoring.placements', lang)}
+              {room?.overallScoringMode === 'sumMiniGameScores' && t('scoring.sumMiniGameScores', lang)}
+              {room?.overallScoringMode === 'hybrid' && t('scoring.hybrid', lang)}
+            </p>
+          </div>
+        )}
+
         {/* Podium */}
         <div className="card mb-8 relative overflow-hidden">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
           <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-red/15 blur-3xl" />
 
           <div className="relative">
-            <h2 className="text-3xl font-bold mb-6 text-center">🏆 Podium</h2>
+            <h2 className="text-3xl font-bold mb-6 text-center">
+              {overallScoring && overallScoring.length > 0 ? `🏆 ${t('results.christmasChampion', lang)}` : '🏆 Podium'}
+            </h2>
             <div className="flex justify-center items-end gap-4">
           {top3[1] && (
             <div className="flex flex-col items-center">
@@ -77,7 +108,11 @@ export default function ResultsPage() {
                 <span className="text-4xl font-bold">2</span>
               </div>
               <p className="text-2xl font-bold mt-2">{top3[1].name}</p>
-              <p className="text-xl text-christmas-gold">{top3[1].score} {t('common.score', lang)}</p>
+              <p className="text-xl text-christmas-gold">
+                {overallScoring && overallScoring.length > 0
+                  ? `${top3[1].overallPoints || 0} ${t('scoring.totalPoints', lang)}`
+                  : `${top3[1].score} ${t('common.score', lang)}`}
+              </p>
             </div>
           )}
           {top3[0] && (
@@ -87,7 +122,11 @@ export default function ResultsPage() {
                 <span className="text-4xl font-bold">1</span>
               </div>
               <p className="text-2xl font-bold mt-2">{top3[0].name}</p>
-              <p className="text-xl text-christmas-gold">{top3[0].score} {t('common.score', lang)}</p>
+              <p className="text-xl text-christmas-gold">
+                {overallScoring && overallScoring.length > 0
+                  ? `${top3[0].overallPoints || 0} ${t('scoring.totalPoints', lang)}`
+                  : `${top3[0].score} ${t('common.score', lang)}`}
+              </p>
             </div>
           )}
           {top3[2] && (
@@ -97,7 +136,11 @@ export default function ResultsPage() {
                 <span className="text-4xl font-bold">3</span>
               </div>
               <p className="text-2xl font-bold mt-2">{top3[2].name}</p>
-              <p className="text-xl text-christmas-gold">{top3[2].score} {t('common.score', lang)}</p>
+              <p className="text-xl text-christmas-gold">
+                {overallScoring && overallScoring.length > 0
+                  ? `${top3[2].overallPoints || 0} ${t('scoring.totalPoints', lang)}`
+                  : `${top3[2].score} ${t('common.score', lang)}`}
+              </p>
             </div>
           )}
             </div>
@@ -133,7 +176,11 @@ export default function ResultsPage() {
                       : `${t('race.stage', lang)} ${(player.stageIndex ?? 0) + 1}/${totalStages}`}
                   </p>
                 </div>
-                <p className="text-2xl font-bold">{player.score}</p>
+                <p className="text-2xl font-bold">
+                  {overallScoring && overallScoring.length > 0
+                    ? player.overallPoints || 0
+                    : player.score}
+                </p>
               </div>
               );
             })}

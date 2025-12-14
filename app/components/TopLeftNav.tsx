@@ -118,6 +118,17 @@ export default function TopLeftNav() {
         >
           CS
         </button>
+
+        <div className="h-6 w-px bg-white/20 mx-1" />
+
+        <Link
+          href="/traditions"
+          className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
+          aria-label="Tradition Wheel"
+        >
+          🎡
+          <span className="hidden sm:inline">Traditions</span>
+        </Link>
       </div>
     </div>
   )

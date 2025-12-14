@@ -91,8 +91,8 @@ export default function TVPage() {
   }
 
   const isController = Boolean(viewerUid && room.controllerUid === viewerUid);
-  const track = getRaceTrack(room.raceTrackId);
-  const totalStages = track.stages.length;
+  const track = room.roomMode === 'amazing_race' ? getRaceTrack(room.raceTrackId) : null;
+  const totalStages = track?.stages.length ?? 0;
 
   const sortedPlayers = [...players].sort((a: any, b: any) => {
     const aStage = a.stageIndex ?? 0;
@@ -176,9 +176,9 @@ export default function TVPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {sortedPlayers.map((p: any) => {
                 const idx = p.stageIndex ?? 0;
-                const finished = idx >= totalStages;
+                const finished = room.roomMode === 'amazing_race' ? idx >= totalStages : false;
                 const pct = totalStages > 0 ? Math.min(100, Math.round((Math.min(idx, totalStages) / totalStages) * 100)) : 0;
-                const currentStage = track.stages[Math.min(idx, totalStages - 1)];
+                const currentStage = track?.stages[Math.min(idx, totalStages - 1)];
                 return (
                   <div key={p.uid} className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <div className="flex items-center justify-between gap-3">
@@ -187,11 +187,21 @@ export default function TVPage() {
                           <span className="mr-2 text-2xl">{p.avatar}</span>
                           {p.name}
                         </p>
-                        <p className="text-sm text-white/70">
-                          {finished
-                            ? t('tv.finished', lang)
-                            : `${t('race.stage', lang)} ${idx + 1}/${totalStages} • ${currentStage?.title?.[lang] ?? ''}`}
-                        </p>
+                    {room.roomMode === 'amazing_race' && (
+                      <p className="text-sm text-white/70">
+                        {finished
+                          ? t('tv.finished', lang)
+                          : `${t('race.stage', lang)} ${idx + 1}/${totalStages} • ${currentStage?.title?.[lang] ?? ''}`}
+                      </p>
+                    )}
+                    {room.roomMode === 'mini_games' && p.miniGameProgress && room.miniGamesEnabled && (
+                      <div className="mt-2 flex gap-1 text-xs">
+                        {room.miniGamesEnabled.includes('trivia') && p.miniGameProgress.trivia?.completedAt && <span className="px-2 py-1 bg-christmas-gold/25 rounded">⚡</span>}
+                        {room.miniGamesEnabled.includes('emoji') && p.miniGameProgress.emoji?.completedAt && <span className="px-2 py-1 bg-christmas-gold/25 rounded">🎬</span>}
+                        {room.miniGamesEnabled.includes('wyr') && p.miniGameProgress.wyr?.completedAt && <span className="px-2 py-1 bg-christmas-gold/25 rounded">🎄</span>}
+                        {room.miniGamesEnabled.includes('pictionary') && p.miniGameProgress.pictionary?.completedAt && <span className="px-2 py-1 bg-christmas-gold/25 rounded">🎨</span>}
+                      </div>
+                    )}
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-black text-christmas-gold">{p.score ?? 0}</p>
@@ -199,9 +209,11 @@ export default function TVPage() {
                       </div>
                     </div>
 
-                    <div className="mt-3 h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-2 bg-christmas-gold" style={{ width: `${pct}%` }} />
-                    </div>
+                    {room.roomMode === 'amazing_race' && totalStages > 0 && (
+                      <div className="mt-3 h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-2 bg-christmas-gold" style={{ width: `${pct}%` }} />
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -224,9 +236,11 @@ export default function TVPage() {
                   <span className="text-2xl">{player.avatar}</span>
                   <div className="flex-1">
                     <p className="font-semibold">{player.name}</p>
-                    <p className="text-xs text-white/60">
-                      {t('race.stage', lang)} {Math.min((player.stageIndex ?? 0) + 1, totalStages)}/{totalStages}
-                    </p>
+                    {room.roomMode === 'amazing_race' && totalStages > 0 && (
+                      <p className="text-xs text-white/60">
+                        {t('race.stage', lang)} {Math.min((player.stageIndex ?? 0) + 1, totalStages)}/{totalStages}
+                      </p>
+                    )}
                   </div>
                   <p className="text-xl font-bold">{player.score}</p>
                 </div>
@@ -236,16 +250,20 @@ export default function TVPage() {
 
           {/* Race Status */}
           <div className="card">
-            <h2 className="text-3xl font-bold mb-4">{t('tv.raceStatus', lang)}</h2>
+            <h2 className="text-3xl font-bold mb-4">
+              {room.roomMode === 'amazing_race' ? t('tv.raceStatus', lang) : room.roomMode === 'mini_games' ? 'Mini Games Status' : 'Room Status'}
+            </h2>
             <div className="space-y-4">
               <div>
                 <p className="text-lg mb-2">
                   {t('tv.status', lang)}: <span className="font-bold">{room.status}</span>
                 </p>
-                <p className="text-white/70">
-                  {t('tv.progressSummary', lang)}: {completedCount}/{players.length} • {t('tv.lead', lang)}{' '}
-                  {Math.min(leadStage + 1, totalStages)}/{totalStages}
-                </p>
+                {room.roomMode === 'amazing_race' && totalStages > 0 && (
+                  <p className="text-white/70">
+                    {t('tv.progressSummary', lang)}: {completedCount}/{players.length} • {t('tv.lead', lang)}{' '}
+                    {Math.min(leadStage + 1, totalStages)}/{totalStages}
+                  </p>
+                )}
               </div>
 
               {isController && (
@@ -257,12 +275,12 @@ export default function TVPage() {
                         onClick={async () => {
                           await updateRoom({
                             status: 'running',
-                            raceStartedAt: Date.now(),
+                            ...(room.roomMode === 'amazing_race' && { raceStartedAt: Date.now() }),
                           });
                         }}
                         className="btn-primary"
                       >
-                        {t('controller.startRace', lang)}
+                        {room.roomMode === 'amazing_race' ? t('controller.startRace', lang) : 'Start Games'}
                       </button>
                     )}
 
@@ -311,33 +329,140 @@ export default function TVPage() {
           </div>
         </div>
 
-        <div className="card mt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-3xl font-bold">{t('tv.raceMap', lang)}</h2>
-            <p className="text-sm text-white/70">
-              {t('tv.track', lang)}: {track.title[lang]}
-            </p>
-          </div>
+        {/* Race Map - Only show for Amazing Race */}
+        {room.roomMode === 'amazing_race' && track && (
+          <div className="card mt-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 className="text-3xl font-bold">{t('tv.raceMap', lang)}</h2>
+              <p className="text-sm text-white/70">
+                {t('tv.track', lang)}: {track.title[lang]}
+              </p>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {track.stages.map((s, idx) => {
-              const countAtOrBeyond = players.filter((p: any) => (p.stageIndex ?? 0) > idx).length;
-              return (
-                <div key={s.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-bold">
-                      {t('race.stage', lang)} {idx + 1}: {s.title[lang]}
-                    </p>
-                    <p className="text-sm text-white/70">
-                      {countAtOrBeyond}/{players.length}
-                    </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {track.stages.map((s, idx) => {
+                const countAtOrBeyond = players.filter((p: any) => (p.stageIndex ?? 0) > idx).length;
+                return (
+                  <div key={s.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-bold">
+                        {t('race.stage', lang)} {idx + 1}: {s.title[lang]}
+                      </p>
+                      <p className="text-sm text-white/70">
+                        {countAtOrBeyond}/{players.length}
+                      </p>
+                    </div>
+                    <p className="mt-1 text-sm text-white/70">{s.description[lang]}</p>
                   </div>
-                  <p className="mt-1 text-sm text-white/70">{s.description[lang]}</p>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Mini Games Status - Only show for Mini Games mode and only show selected games */}
+        {room.roomMode === 'mini_games' && room.miniGamesEnabled && room.miniGamesEnabled.length > 0 && (
+          <div className="card mt-6">
+            <h2 className="text-3xl font-bold mb-4">{t('tv.miniGames', lang)}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Trivia */}
+              {room.miniGamesEnabled.includes('trivia') && (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <h3 className="text-xl font-bold mb-3">⚡ {t('game.triviaBlitz', lang)}</h3>
+                  <div className="space-y-2">
+                    <p className="text-sm text-white/70">
+                      {t('tv.completedBy', lang)}: {players.filter((p: any) => p.miniGameProgress?.trivia?.completedAt).length}/{players.length}
+                    </p>
+                    {(() => {
+                      const completed = players.filter((p: any) => p.miniGameProgress?.trivia?.completedAt);
+                      if (completed.length === 0) {
+                        return <p className="text-sm text-white/60">{t('tv.noCompletions', lang)}</p>;
+                      }
+                      const topScorer = [...completed].sort((a: any, b: any) => (b.miniGameProgress?.trivia?.score ?? 0) - (a.miniGameProgress?.trivia?.score ?? 0))[0];
+                      return (
+                        <p className="text-sm text-white/80">
+                          {t('tv.topScorer', lang)}: <span className="font-bold">{topScorer.name}</span> ({topScorer.miniGameProgress?.trivia?.score ?? 0})
+                        </p>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Emoji */}
+              {room.miniGamesEnabled.includes('emoji') && (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <h3 className="text-xl font-bold mb-3">🎬 {t('game.emojiMovie', lang)}</h3>
+                  <div className="space-y-2">
+                    <p className="text-sm text-white/70">
+                      {t('tv.completedBy', lang)}: {players.filter((p: any) => p.miniGameProgress?.emoji?.completedAt).length}/{players.length}
+                    </p>
+                    {(() => {
+                      const completed = players.filter((p: any) => p.miniGameProgress?.emoji?.completedAt);
+                      if (completed.length === 0) {
+                        return <p className="text-sm text-white/60">{t('tv.noCompletions', lang)}</p>;
+                      }
+                      const topScorer = [...completed].sort((a: any, b: any) => (b.miniGameProgress?.emoji?.score ?? 0) - (a.miniGameProgress?.emoji?.score ?? 0))[0];
+                      return (
+                        <p className="text-sm text-white/80">
+                          {t('tv.topScorer', lang)}: <span className="font-bold">{topScorer.name}</span> ({topScorer.miniGameProgress?.emoji?.score ?? 0})
+                        </p>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Would You Rather */}
+              {room.miniGamesEnabled.includes('wyr') && (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <h3 className="text-xl font-bold mb-3">🎄 {t('game.wouldYouRather', lang)}</h3>
+                  <div className="space-y-2">
+                    <p className="text-sm text-white/70">
+                      {t('tv.completedBy', lang)}: {players.filter((p: any) => p.miniGameProgress?.wyr?.completedAt).length}/{players.length}
+                    </p>
+                    {(() => {
+                      const completed = players.filter((p: any) => p.miniGameProgress?.wyr?.completedAt);
+                      if (completed.length === 0) {
+                        return <p className="text-sm text-white/60">{t('tv.noCompletions', lang)}</p>;
+                      }
+                      const topScorer = [...completed].sort((a: any, b: any) => (b.miniGameProgress?.wyr?.score ?? 0) - (a.miniGameProgress?.wyr?.score ?? 0))[0];
+                      return (
+                        <p className="text-sm text-white/80">
+                          {t('tv.topScorer', lang)}: <span className="font-bold">{topScorer.name}</span> ({topScorer.miniGameProgress?.wyr?.score ?? 0})
+                        </p>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Pictionary */}
+              {room.miniGamesEnabled.includes('pictionary') && (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <h3 className="text-xl font-bold mb-3">🎨 {t('game.pictionary', lang)}</h3>
+                  <div className="space-y-2">
+                    <p className="text-sm text-white/70">
+                      {t('tv.completedBy', lang)}: {players.filter((p: any) => p.miniGameProgress?.pictionary?.completedAt).length}/{players.length}
+                    </p>
+                    {(() => {
+                      const completed = players.filter((p: any) => p.miniGameProgress?.pictionary?.completedAt);
+                      if (completed.length === 0) {
+                        return <p className="text-sm text-white/60">{t('tv.noCompletions', lang)}</p>;
+                      }
+                      const topScorer = [...completed].sort((a: any, b: any) => (b.miniGameProgress?.pictionary?.score ?? 0) - (a.miniGameProgress?.pictionary?.score ?? 0))[0];
+                      return (
+                        <p className="text-sm text-white/80">
+                          {t('tv.topScorer', lang)}: <span className="font-bold">{topScorer.name}</span> ({topScorer.miniGameProgress?.pictionary?.score ?? 0})
+                        </p>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

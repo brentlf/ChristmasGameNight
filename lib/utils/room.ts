@@ -1,8 +1,9 @@
 import { collection, addDoc, query, where, getDocs, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { signInAnonymously } from 'firebase/auth';
-import type { Player, Room } from '@/types';
+import type { Player, Room, RoomMode, MiniGameType } from '@/types';
 import { sha256Hex } from '@/lib/utils/crypto';
+import { initializeMiniGameSets } from '@/lib/miniGameEngine';
 
 const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -21,12 +22,16 @@ export function generateRoomCode(): string {
 }
 
 export async function createRoom(data: {
+  roomMode: RoomMode;
   name: string;
   maxPlayers: number;
   pinEnabled: boolean;
   pin?: string;
   settings?: Partial<Room['settings']>;
   eventsEnabled?: boolean;
+  overallScoringEnabled?: boolean;
+  overallScoringMode?: 'placements' | 'sumMiniGameScores' | 'hybrid';
+  miniGamesEnabled?: MiniGameType[];
 }): Promise<string> {
   const user = await ensureAuthed();
 
@@ -62,16 +67,32 @@ export async function createRoom(data: {
     createdAt: Date.now(),
     controllerUid: user.uid,
     status: 'lobby',
-    raceTrackId: 'christmas_race_v1',
+    roomMode: data.roomMode,
+    raceTrackId: 'christmas_race_v1', // Only used for amazing_race mode
+    ...(data.roomMode === 'mini_games' && data.miniGamesEnabled ? { miniGamesEnabled: data.miniGamesEnabled } : {}),
     settings: {
       difficulty: data.settings?.difficulty ?? 'easy',
       allowSkips: data.settings?.allowSkips ?? false,
     },
     eventsEnabled: data.eventsEnabled ?? true,
+    overallScoringEnabled: data.overallScoringEnabled ?? false,
+    overallScoringMode: data.overallScoringMode ?? 'hybrid',
   };
 
   const docRef = await addDoc(collection(db, 'rooms'), roomData);
-  return docRef.id;
+  const roomId = docRef.id;
+  
+  // Initialize mini game sets only if mini_games mode and games are enabled
+  if (data.roomMode === 'mini_games' && data.miniGamesEnabled && data.miniGamesEnabled.length > 0) {
+    try {
+      await initializeMiniGameSets(roomId, data.miniGamesEnabled);
+    } catch (error) {
+      console.error('Failed to initialize mini game sets:', error);
+      // Continue anyway - mini games can be initialized later
+    }
+  }
+  
+  return roomId;
 }
 
 export async function findRoomByCode(code: string): Promise<string | null> {
