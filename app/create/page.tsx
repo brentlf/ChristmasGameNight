@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getLanguage, t } from '@/lib/i18n';
 import { createRoom } from '@/lib/utils/room';
@@ -8,7 +8,19 @@ import toast from 'react-hot-toast';
 import type { RoomMode, MiniGameType } from '@/types';
 import Link from 'next/link';
 
+// This page depends on URL search params (`mode`), so it can't be statically prerendered.
+export const dynamic = 'force-dynamic';
+
 export default function CreatePage() {
+  // `useSearchParams()` requires a suspense boundary at the page level.
+  return (
+    <Suspense fallback={null}>
+      <CreatePageInner />
+    </Suspense>
+  );
+}
+
+function CreatePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const lang = getLanguage();

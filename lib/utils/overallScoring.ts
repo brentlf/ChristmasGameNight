@@ -82,8 +82,7 @@ export function calculateOverallScoring(
       .sort((a, b) => (b.miniGameProgress?.pictionary?.score || 0) - (a.miniGameProgress?.pictionary?.score || 0)),
   };
 
-  const miniGamePlacementPoints = (placement: number | null): number => {
-    if (placement === null) return 0;
+  const miniGamePlacementPoints = (placement: number): number => {
     if (placement === 1) return 15;
     if (placement === 2) return 10;
     if (placement === 3) return 5;
@@ -96,20 +95,24 @@ export function calculateOverallScoring(
     const racePoints = racePlacementPoints(racePlacement);
 
     // Mini game points
-    const triviaPlacement = miniGameRankings.trivia.findIndex((p) => p.uid === player.uid) + 1 || null;
-    const triviaPoints = triviaPlacement > 0 ? miniGamePlacementPoints(triviaPlacement) : 0;
+    const triviaIndex = miniGameRankings.trivia.findIndex((p) => p.uid === player.uid);
+    const triviaPlacement = triviaIndex === -1 ? 0 : triviaIndex + 1;
+    const triviaPoints = miniGamePlacementPoints(triviaPlacement);
     const triviaParticipation = player.miniGameProgress?.trivia?.completedAt ? 5 : 0;
 
-    const emojiPlacement = miniGameRankings.emoji.findIndex((p) => p.uid === player.uid) + 1 || null;
-    const emojiPoints = emojiPlacement > 0 ? miniGamePlacementPoints(emojiPlacement) : 0;
+    const emojiIndex = miniGameRankings.emoji.findIndex((p) => p.uid === player.uid);
+    const emojiPlacement = emojiIndex === -1 ? 0 : emojiIndex + 1;
+    const emojiPoints = miniGamePlacementPoints(emojiPlacement);
     const emojiParticipation = player.miniGameProgress?.emoji?.completedAt ? 5 : 0;
 
-    const wyrPlacement = miniGameRankings.wyr.findIndex((p) => p.uid === player.uid) + 1 || null;
-    const wyrPoints = wyrPlacement > 0 ? miniGamePlacementPoints(wyrPlacement) : 0;
+    const wyrIndex = miniGameRankings.wyr.findIndex((p) => p.uid === player.uid);
+    const wyrPlacement = wyrIndex === -1 ? 0 : wyrIndex + 1;
+    const wyrPoints = miniGamePlacementPoints(wyrPlacement);
     const wyrParticipation = player.miniGameProgress?.wyr?.completedAt ? 5 : 0;
 
-    const pictionaryPlacement = miniGameRankings.pictionary.findIndex((p) => p.uid === player.uid) + 1 || null;
-    const pictionaryPoints = pictionaryPlacement > 0 ? miniGamePlacementPoints(pictionaryPlacement) : 0;
+    const pictionaryIndex = miniGameRankings.pictionary.findIndex((p) => p.uid === player.uid);
+    const pictionaryPlacement = pictionaryIndex === -1 ? 0 : pictionaryIndex + 1;
+    const pictionaryPoints = miniGamePlacementPoints(pictionaryPlacement);
     const pictionaryParticipation = player.miniGameProgress?.pictionary?.completedAt ? 5 : 0;
 
     const participationTotal = triviaParticipation + emojiParticipation + wyrParticipation + pictionaryParticipation;
