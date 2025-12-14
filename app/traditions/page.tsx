@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getLanguage, t } from '@/lib/i18n';
 import { traditionsChristmasPool } from '@/content/traditions_christmas';
-import type { TraditionItem, TraditionWheel } from '@/types';
+import type { TraditionItem, TraditionWheel as TraditionWheelType } from '@/types';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
@@ -16,15 +16,18 @@ const STORAGE_KEY_MODE = 'traditionWheel_mode';
 const STORAGE_KEY_WHEEL_ID = 'traditionWheel_id';
 
 export default function TraditionsPage() {
+  const DEBUG = process.env.NODE_ENV !== 'production';
   const lang = getLanguage();
   const router = useRouter();
   const [mode, setMode] = useState<'local' | 'synced'>('local');
   const [wheelId, setWheelId] = useState<string | null>(null);
-  const [wheel, setWheel] = useState<TraditionWheel | null>(null);
+  const [wheel, setWheel] = useState<TraditionWheelType | null>(null);
   const [loading, setLoading] = useState(true);
   const [spinning, setSpinning] = useState(false);
   const [selectedTradition, setSelectedTradition] = useState<TraditionItem | null>(null);
   const [pendingSelection, setPendingSelection] = useState<TraditionItem | null>(null);
+  // Freeze the wheel segments for a spin so they don't change after we mark a tradition as used.
+  const [wheelTraditions, setWheelTraditions] = useState<TraditionItem[]>(traditionsChristmasPool);
   const [userUid, setUserUid] = useState<string | null>(null);
 
   useEffect(() => {
@@ -77,7 +80,7 @@ export default function TraditionsPage() {
       const wheelRef = doc(db, 'traditionWheels', wheelId);
       const unsubscribe = onSnapshot(wheelRef, (snap) => {
         if (snap.exists()) {
-          const data = snap.data() as TraditionWheel;
+          const data = snap.data() as TraditionWheelType;
           setWheel({ ...data, id: snap.id });
           if (data.lastSpunAt) {
             const lastSpunDate = new Date(data.lastSpunAt);
@@ -108,6 +111,9 @@ export default function TraditionsPage() {
   }, [mode, wheelId]);
 
   const availableTraditions = useMemo(() => {
+    // `localStorage` is not available during server rendering, even in client components.
+    if (typeof window === 'undefined') return traditionsChristmasPool;
+
     if (mode === 'local') {
       const stored = localStorage.getItem(STORAGE_KEY_LOCAL);
       const usedIds: string[] = stored ? (JSON.parse(stored).usedIds || []) : [];
@@ -118,7 +124,19 @@ export default function TraditionsPage() {
     return traditionsChristmasPool;
   }, [mode, wheel]);
 
+  // Keep the wheel showing the current available set *until the next spin starts*.
+  // (This prevents a post-spin re-render from removing the selected slice and shifting the top segment.)
+  useEffect(() => {
+    if (spinning) return;
+    if (pendingSelection) return;
+    if (selectedTradition) return;
+    setWheelTraditions(availableTraditions);
+  }, [availableTraditions, pendingSelection, selectedTradition, spinning]);
+
   const usedTraditions = useMemo(() => {
+    // `localStorage` is not available during server rendering, even in client components.
+    if (typeof window === 'undefined') return [];
+
     if (mode === 'local') {
       const stored = localStorage.getItem(STORAGE_KEY_LOCAL);
       const usedIds: string[] = stored ? (JSON.parse(stored).usedIds || []) : [];
@@ -135,12 +153,25 @@ export default function TraditionsPage() {
       return;
     }
 
-    // Select the tradition before spinning
-    const randomIndex = Math.floor(Math.random() * availableTraditions.length);
-    const selected = availableTraditions[randomIndex];
-    setPendingSelection(selected);
+    // Freeze the segment list for this spin (so the visual wheel can't shift after completion)
+    const snapshot = availableTraditions;
+    setWheelTraditions(snapshot);
+
+    // Wheel will decide the final slice and report it back.
+    setPendingSelection(null);
     setSelectedTradition(null); // Clear previous selection during spin
     setSpinning(true);
+
+    if (DEBUG) {
+      console.log('[TraditionsPage] spin clicked', {
+        mode,
+        availableLen: availableTraditions.length,
+        wheelTraditionsLen: snapshot.length,
+        usedLen: usedTraditions.length,
+        lastSelectedId: selectedTradition?.id ?? null,
+        lastSelectedLabel: selectedTradition?.[lang] ?? null,
+      });
+    }
   };
 
   const handleSpinComplete = async (actualSelectedTradition: TraditionItem) => {
@@ -153,6 +184,15 @@ export default function TraditionsPage() {
     const selected = actualSelectedTradition;
     setSelectedTradition(selected);
     setPendingSelection(null);
+
+    if (DEBUG) {
+      console.log('[TraditionsPage] spin complete callback', {
+        selectedId: selected.id,
+        selectedLabel: selected[lang],
+        wheelTraditionsLen: wheelTraditions.length,
+        availableLenBeforeUpdate: availableTraditions.length,
+      });
+    }
 
     if (mode === 'local') {
       const stored = localStorage.getItem(STORAGE_KEY_LOCAL);
@@ -213,7 +253,7 @@ export default function TraditionsPage() {
       return;
     }
 
-    const newWheel: Omit<TraditionWheel, 'id'> = {
+    const newWheel: Omit<TraditionWheelType, 'id'> = {
       name,
       traditions: traditionsChristmasPool,
       usedIds: [],
@@ -325,7 +365,7 @@ export default function TraditionsPage() {
             {/* Spinning Wheel */}
             <div className="mb-8">
               <TraditionWheel
-                traditions={availableTraditions}
+                traditions={wheelTraditions}
                 selectedTradition={pendingSelection || selectedTradition}
                 spinning={spinning}
                 lang={lang}

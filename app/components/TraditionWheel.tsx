@@ -18,6 +18,7 @@ export default function TraditionWheel({
   lang,
   onSpinComplete,
 }: TraditionWheelProps) {
+  const DEBUG = process.env.NODE_ENV !== 'production';
   const wheelRef = useRef<HTMLDivElement>(null);
   const rotationRef = useRef(0);
   const [rotation, setRotation] = useState(0);
@@ -27,6 +28,48 @@ export default function TraditionWheel({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const selectedIndexRef = useRef<number | null>(null);
 
+  const norm = (deg: number) => ((deg % 360) + 360) % 360;
+  const angDist = (a: number, b: number) => {
+    let d = Math.abs(a - b);
+    if (d > 180) d = 360 - d;
+    return d;
+  };
+  const indexAtTop = (rotationDeg: number): number | null => {
+    const n = traditions.length;
+    if (!n) return null;
+    const segmentAngle = 360 / n;
+
+    // Our segments are drawn with 0° at TOP, increasing clockwise.
+    // CSS rotate(+) rotates the wheel clockwise, so a point at angle theta moves to theta + rotation.
+    // The pointer is fixed at top (absolute 0°). The wheel angle that ends up at the pointer is:
+    //   theta + rotation = 0  (mod 360)  =>  theta = -rotation (mod 360) = 360 - rotationNorm
+    const pointerTheta = norm(360 - norm(rotationDeg));
+
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < n; i++) {
+      const center = i * segmentAngle + segmentAngle / 2;
+      const d = angDist(pointerTheta, center);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    if (DEBUG && n <= 24) {
+      // Keeping this readable; n can get big.
+      console.log('[TraditionWheel] indexAtTop()', {
+        rotationDeg,
+        rotationNorm: norm(rotationDeg),
+        pointerTheta,
+        best,
+        bestCenter: best * segmentAngle + segmentAngle / 2,
+        bestD,
+        n,
+      });
+    }
+    return best;
+  };
+
   const colors = [
     { from: '#DC2626', to: '#B91C1C' }, // red
     { from: '#16A34A', to: '#15803D' }, // green
@@ -35,40 +78,55 @@ export default function TraditionWheel({
   ];
 
   useEffect(() => {
-    if (spinning && traditions.length > 0 && selectedTradition) {
+    // Simplest reliable logic:
+    // - When a spin starts, pick a final index (or honor selectedTradition if provided)
+    // - Compute a target rotation that places THAT index at the top
+    // - Use only INTEGER full turns (never fractional), so the final angle is deterministic
+    // - After the spin, compute the index-at-top from the final rotation and return it
+    if (spinning && traditions.length > 0) {
       setIsAnimating(true);
       setHighlightedIndex(null);
+      setHoveredIndex(null);
       
-      // Find the index of the selected tradition
-      const selectedIndex = traditions.findIndex(t => t.id === selectedTradition.id);
-      if (selectedIndex === -1) {
-        setIsAnimating(false);
-        return;
+      const n = traditions.length;
+      const segmentAngle = 360 / n;
+      
+      // Decide which index we are spinning to.
+      const desiredIndex =
+        selectedTradition ? traditions.findIndex((t) => t.id === selectedTradition.id) : -1;
+      const finalIndex = desiredIndex >= 0 ? desiredIndex : Math.floor(Math.random() * n);
+      selectedIndexRef.current = finalIndex;
+      
+      // Target rotation so the selected segment center is under the top pointer.
+      // We want: pointerTheta == selectedCenter
+      // pointerTheta = 360 - rotationNorm  =>  360 - rotationNorm = selectedCenter  =>  rotationNorm = 360 - selectedCenter
+      const selectedCenter = finalIndex * segmentAngle + segmentAngle / 2;
+      const targetNorm = norm(360 - selectedCenter);
+      
+      // Add multiple full rotations for a spinning effect (4-6 full rotations) — MUST be integer.
+      const fullTurns = 4 + Math.floor(Math.random() * 3); // 4,5,6
+      
+      const currentNorm = norm(rotationRef.current);
+      const rotationNeeded = norm(targetNorm - currentNorm); // [0, 360)
+      const targetRotation = rotationRef.current + fullTurns * 360 + rotationNeeded;
+
+      if (DEBUG) {
+        console.log('[TraditionWheel] spin start', {
+          traditionsLen: traditions.length,
+          selectedTraditionId: selectedTradition?.id ?? null,
+          desiredIndex,
+          finalIndex,
+          segmentAngle,
+          selectedCenter,
+          targetNorm,
+          fullTurns,
+          currentRotation: rotationRef.current,
+          currentNorm,
+          rotationNeeded,
+          targetRotation,
+          targetRotationNorm: norm(targetRotation),
+        });
       }
-      selectedIndexRef.current = selectedIndex;
-      
-      // Calculate the angle for each segment
-      const segmentAngle = 360 / traditions.length;
-      
-      // Calculate target rotation to position selected segment at top (0°)
-      // Segments are drawn starting from top (0°), going clockwise
-      // Segment centers: index * segmentAngle + segmentAngle/2
-      // The pointer is at 0° (top)
-      // When wheel rotates clockwise by `rotation`, what was at angle `theta` is now at `theta - rotation` relative to pointer
-      // To get segment center at pointer: selectedSegmentCenter - rotation = 0 (mod 360)
-      // So: rotation = selectedSegmentCenter (mod 360)
-      const selectedSegmentCenter = selectedIndex * segmentAngle + segmentAngle / 2;
-      
-      // Add multiple full rotations for a spinning effect (4-6 full rotations)
-      const fullRotations = 4 + Math.random() * 2; // 4-6 rotations
-      
-      // Calculate target: we want final rotation (mod 360) to equal selectedSegmentCenter
-      // This positions the selected segment center at the top pointer
-      const currentNormalized = ((rotationRef.current % 360) + 360) % 360;
-      let rotationNeeded = selectedSegmentCenter - currentNormalized;
-      if (rotationNeeded < 0) rotationNeeded += 360;
-      
-      const targetRotation = rotationRef.current + fullRotations * 360 + rotationNeeded;
       
       // Update highlighted index during spin
       const startTime = Date.now();
@@ -86,26 +144,8 @@ export default function TraditionWheel({
         rotationRef.current = currentRotation;
         setRotation(currentRotation);
         
-        // Calculate which segment is currently at the top (0 degrees)
-        // When wheel rotates, what was at angle `r` is now at 0°
-        // So the segment at the top is the one whose center was originally at `r`
-        // We need to find which segment center is closest to the current rotation (mod 360)
-        const normalizedRotation = ((currentRotation % 360) + 360) % 360;
-        // Find which segment center is closest to normalizedRotation
-        // Segment centers are at: index * segmentAngle + segmentAngle/2
-        let currentSegmentIndex = 0;
-        let minDistance = Infinity;
-        for (let i = 0; i < traditions.length; i++) {
-          const centerAngle = i * segmentAngle + segmentAngle / 2;
-          // Calculate distance considering wrap-around
-          let distance = Math.abs(normalizedRotation - centerAngle);
-          if (distance > 180) distance = 360 - distance;
-          if (distance < minDistance) {
-            minDistance = distance;
-            currentSegmentIndex = i;
-          }
-        }
-        setHighlightedIndex(currentSegmentIndex);
+        const idx = indexAtTop(currentRotation);
+        if (idx !== null) setHighlightedIndex(idx);
         
         if (progress < 1) {
           requestAnimationFrame(animate);
@@ -113,37 +153,24 @@ export default function TraditionWheel({
           setIsAnimating(false);
           rotationRef.current = targetRotation;
           setRotation(targetRotation);
-          
-          // After animation, determine which segment is actually at the top (0°)
-          // The pointer is at 0°, so we find which segment center is closest to 0°
-          const finalNormalizedRotation = ((targetRotation % 360) + 360) % 360;
-          // When wheel is rotated by `finalNormalizedRotation`, what was at that angle is now at 0°
-          // So the segment at the top is the one whose center is at `finalNormalizedRotation`
-          let finalSegmentIndex = 0;
-          let minDistance = Infinity;
-          for (let i = 0; i < traditions.length; i++) {
-            const centerAngle = i * segmentAngle + segmentAngle / 2;
-            // Calculate distance considering wrap-around
-            let distance = Math.abs(finalNormalizedRotation - centerAngle);
-            if (distance > 180) distance = 360 - distance;
-            if (distance < minDistance) {
-              minDistance = distance;
-              finalSegmentIndex = i;
-            }
+          const topIdx = indexAtTop(targetRotation);
+          if (topIdx === null) return;
+
+          setHighlightedIndex(topIdx);
+          selectedIndexRef.current = topIdx;
+
+          const actualSelectedTradition = traditions[topIdx];
+          if (DEBUG) {
+            console.log('[TraditionWheel] spin end', {
+              targetRotation,
+              targetRotationNorm: norm(targetRotation),
+              computedTopIdx: topIdx,
+              computedTopId: actualSelectedTradition?.id ?? null,
+              computedTopLabel: actualSelectedTradition?.[lang] ?? null,
+              n: traditions.length,
+            });
           }
-          
-          setHighlightedIndex(finalSegmentIndex);
-          // Update the selectedIndexRef to match what's actually at the top
-          selectedIndexRef.current = finalSegmentIndex;
-          
-          // Get the tradition that's actually at the top
-          const actualSelectedTradition = traditions[finalSegmentIndex];
-          
-          if (onSpinComplete && actualSelectedTradition) {
-            setTimeout(() => {
-              onSpinComplete(actualSelectedTradition);
-            }, 200);
-          }
+          if (onSpinComplete && actualSelectedTradition) onSpinComplete(actualSelectedTradition);
         }
       };
       
@@ -265,6 +292,7 @@ export default function TraditionWheel({
                     </linearGradient>
                   </defs>
                   <path
+                    data-seg-index={index}
                     d={`M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`}
                     fill={`url(#gradient-${index})`}
                     stroke={isHovered ? 'rgba(245, 158, 11, 0.8)' : 'rgba(255, 255, 255, 0.4)'}
