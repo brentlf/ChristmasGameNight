@@ -1,22 +1,29 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { useRoom } from '@/lib/hooks/useRoom';
 import { usePlayer } from '@/lib/hooks/usePlayer';
+import { usePlayers } from '@/lib/hooks/usePlayers';
 import { getLanguage, t } from '@/lib/i18n';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { submitPictionaryDrawing } from '@/lib/miniGameEngine';
+import { 
+  initializePictionaryGame, 
+  startPictionaryRound, 
+  updatePictionaryDrawing, 
+  submitPictionaryGuess, 
+  endPictionaryRound 
+} from '@/lib/miniGameEngine';
 import { getPictionaryItemById } from '@/lib/miniGameContent';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
 export default function PictionaryPage() {
   const params = useParams();
-  const router = useRouter();
   const roomId = params.roomId as string;
   const { room } = useRoom(roomId);
+  const { players } = usePlayers(roomId);
   const [playerUid, setPlayerUid] = useState<string | null>(null);
   const { player } = usePlayer(roomId, playerUid);
   const lang = getLanguage();
@@ -38,145 +45,326 @@ export default function PictionaryPage() {
     );
   }
 
-  const selectedIds = room.miniGames?.pictionary?.selectedIds ?? [];
-  const progress = player.miniGameProgress?.pictionary;
-  
-  const isCompleted = progress?.completedAt !== undefined;
-  
-  // Find the first unanswered question (drawing is null, undefined, or missing promptId)
-  let currentIndex = 0;
-  if (!isCompleted && progress?.drawings && progress.drawings.length > 0) {
-    const firstUnanswered = progress.drawings.findIndex((d, idx) => 
-      idx < selectedIds.length && (!d || !d.promptId)
-    );
-    currentIndex = firstUnanswered >= 0 ? firstUnanswered : Math.min(progress.drawings.length, selectedIds.length);
+  const gameState = room.pictionaryGameState;
+
+  // Initialize game if not started - only show to controller if enough players
+  if (!gameState) {
+    if (players.length >= 2) {
+      return <PictionaryInitialization roomId={roomId} room={room} player={player} lang={lang} />;
+    } else {
+      return (
+        <main className="min-h-screen px-4 py-10">
+          <div className="max-w-xl mx-auto">
+            <div className="card text-center">
+              <p className="text-white/70">Waiting for more players (need at least 2)</p>
+            </div>
+          </div>
+        </main>
+      );
+    }
   }
 
-  if (isCompleted) {
+
+  // Game completed
+  if (gameState.status === 'completed') {
     return (
       <main className="min-h-screen px-4 py-10">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
             <div className="text-6xl mb-4">🎉</div>
-            <h1 className="game-show-title mb-3">{t('pictionary.completed', lang)}</h1>
+            <h1 className="game-show-title mb-3">Game Complete!</h1>
             <p className="text-white/80 mb-6">
-              {t('pictionary.finalScore', lang)}: <span className="font-bold text-christmas-gold text-3xl">{progress?.score ?? 0}</span> {t('pictionary.points', lang)}
+              Your Score: <span className="font-bold text-christmas-gold text-3xl">{player.miniGameProgress?.pictionary?.score ?? 0}</span>
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href={`/room/${roomId}/play`} className="btn-secondary text-center">
-                {t('common.back', lang)}
-              </Link>
-              <Link href={`/room/${roomId}/results`} className="btn-primary text-center">
-                {t('pictionary.viewLeaderboard', lang)}
-              </Link>
-            </div>
+            <Link href={`/room/${roomId}/play`} className="btn-primary text-center inline-block">
+              {t('common.back', lang)}
+            </Link>
           </div>
         </div>
       </main>
     );
   }
 
-  if (currentIndex >= selectedIds.length) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-2xl">{t('common.loading', lang)}</div>
-      </div>
-    );
+  // Waiting to start - only show waiting screen if status is 'waiting' AND round is 0
+  // Once round starts (currentRound > 0), everyone should see the game
+  if (gameState.status === 'waiting' && gameState.currentRound === 0) {
+    return <PictionaryWaiting roomId={roomId} room={room} player={player} gameState={gameState} lang={lang} />;
   }
 
-  const promptId = selectedIds[currentIndex];
-  const item = getPictionaryItemById(promptId);
+  // Round ended - show results
+  if (gameState.status === 'round_end') {
+    return <PictionaryRoundEnd roomId={roomId} room={room} player={player} gameState={gameState} players={players} lang={lang} />;
+  }
 
-  if (!item) {
+  // Active round - show drawer or guesser view
+  const isDrawer = gameState.currentDrawerUid === player.uid;
+
+  if (isDrawer) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-2xl">{t('common.error', lang)}</div>
-      </div>
+      <PictionaryDrawer
+        roomId={roomId}
+        player={player}
+        gameState={gameState}
+        lang={lang}
+      />
     );
   }
 
   return (
-    <PictionaryDrawing
+    <PictionaryGuesser
       roomId={roomId}
-      uid={player.uid}
-      item={item}
-      questionIndex={currentIndex}
-      totalQuestions={selectedIds.length}
+      player={player}
+      gameState={gameState}
+      players={players}
       lang={lang}
     />
   );
 }
 
-function PictionaryDrawing({
+function PictionaryInitialization({ roomId, room, player, lang }: { roomId: string; room: any; player: any; lang: 'en' | 'cs' }) {
+  const isController = room.controllerUid === player.uid;
+  const [initializing, setInitializing] = useState(false);
+
+  const handleStart = async () => {
+    if (!isController) return;
+    setInitializing(true);
+    try {
+      await initializePictionaryGame(roomId);
+      await startPictionaryRound(roomId);
+      toast.success('Game started!');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to start game');
+    } finally {
+      setInitializing(false);
+    }
+  };
+
+  if (!isController) {
+    return (
+      <main className="min-h-screen px-4 py-10">
+        <div className="max-w-xl mx-auto">
+          <div className="card text-center">
+            <h1 className="text-2xl font-bold mb-4">🎨 Pictionary</h1>
+            <p className="text-white/70">Waiting for host to start the game...</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen px-4 py-10">
+      <div className="max-w-xl mx-auto">
+        <div className="card text-center">
+          <h1 className="text-2xl font-bold mb-4">🎨 Pictionary</h1>
+          <p className="text-white/70 mb-6">Ready to start the game!</p>
+          <button
+            onClick={handleStart}
+            disabled={initializing}
+            className="btn-primary w-full"
+          >
+            {initializing ? t('common.loading', lang) : 'Start Game'}
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function PictionaryWaiting({ 
+  roomId, 
+  room, 
+  player, 
+  gameState, 
+  lang 
+}: { 
+  roomId: string; 
+  room: any;
+  player: any;
+  gameState: any; 
+  lang: 'en' | 'cs' 
+}) {
+  const isController = room.controllerUid === player.uid;
+  const handleStartRound = async () => {
+    try {
+      await startPictionaryRound(roomId);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to start round');
+    }
+  };
+
+  return (
+    <main className="min-h-screen px-4 py-10">
+      <div className="max-w-xl mx-auto">
+        <div className="card text-center">
+          <h1 className="text-2xl font-bold mb-4">🎨 Pictionary</h1>
+          {isController ? (
+            <>
+              <p className="text-white/70 mb-6">Ready to start the game!</p>
+              <button onClick={handleStartRound} className="btn-primary">
+                Start Game
+              </button>
+            </>
+          ) : (
+            <p className="text-white/70">Waiting for host to start the game...</p>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function PictionaryRoundEnd({ 
+  roomId, 
+  room,
+  player,
+  gameState, 
+  players, 
+  lang 
+}: { 
+  roomId: string; 
+  room: any;
+  player: any;
+  gameState: any; 
+  players: any[]; 
+  lang: 'en' | 'cs' 
+}) {
+  const isController = room.controllerUid === player.uid;
+  const handleNextRound = async () => {
+    if (!isController) return;
+    try {
+      await startPictionaryRound(roomId);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to start next round');
+    }
+  };
+
+  const drawer = players.find((p) => p.uid === gameState.currentDrawerUid);
+  const prompt = gameState.currentPromptId ? getPictionaryItemById(gameState.currentPromptId) : null;
+
+  return (
+    <main className="min-h-screen px-4 py-10">
+      <div className="max-w-xl mx-auto">
+        <div className="card text-center">
+          <h1 className="text-2xl font-bold mb-4">Round {gameState.currentRound} Complete!</h1>
+          
+          {drawer && (
+            <div className="mb-4">
+              <p className="text-white/70 mb-2">Drawer: {drawer.name}</p>
+              {prompt && (
+                <p className="text-christmas-gold font-bold text-xl mb-2">{prompt.prompt[lang]}</p>
+              )}
+              <p className="text-white/70">Score: {drawer.miniGameProgress?.pictionary?.score ?? 0}</p>
+            </div>
+          )}
+
+          {gameState.correctGuessers && gameState.correctGuessers.length > 0 && (
+            <div className="mb-6">
+              <p className="text-white/70 mb-2">Correct guessers:</p>
+              {gameState.correctGuessers.map((uid: string) => {
+                const guesser = players.find((p) => p.uid === uid);
+                return guesser ? <p key={uid} className="text-christmas-gold">{guesser.name}</p> : null;
+              })}
+            </div>
+          )}
+
+          {isController ? (
+            <button 
+              onClick={handleNextRound} 
+              className="btn-primary w-full"
+              disabled={gameState.currentRound >= gameState.totalRounds}
+            >
+              {gameState.currentRound >= gameState.totalRounds ? 'Game Complete!' : 'Next Round'}
+            </button>
+          ) : (
+            <p className="text-white/70">Waiting for host to start next round...</p>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function PictionaryDrawer({
   roomId,
-  uid,
-  item,
-  questionIndex,
-  totalQuestions,
+  player,
+  gameState,
   lang,
 }: {
   roomId: string;
-  uid: string;
-  item: ReturnType<typeof getPictionaryItemById>;
-  questionIndex: number;
-  totalQuestions: number;
+  player: any;
+  gameState: any;
   lang: 'en' | 'cs';
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const router = useRouter();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const prompt = gameState.currentPromptId ? getPictionaryItemById(gameState.currentPromptId) : null;
+  const [now, setNow] = useState(Date.now());
 
-  if (!item) return null;
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const roundStartTime = gameState.roundStartTime || now;
+  const elapsed = Math.floor((now - roundStartTime) / 1000);
+  const remaining = Math.max(0, (gameState.timeLimit || 60) - elapsed);
+
+  // Auto-end round when time runs out
+  useEffect(() => {
+    if (remaining === 0 && gameState.status === 'drawing') {
+      endPictionaryRound(roomId).catch(console.error);
+    }
+  }, [remaining, gameState.status, roomId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size - use a fixed size for consistency
-    // Mobile-friendly: 800x600 works well for most devices
     const setCanvasSize = () => {
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      const displayWidth = rect.width;
-      const displayHeight = rect.height;
-      
-      // Set actual size in memory (scaled for device pixel ratio)
-      canvas.width = displayWidth * dpr;
-      canvas.height = displayHeight * dpr;
-      
-      // Scale the drawing context to match
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
       ctx.scale(dpr, dpr);
-      
-      // Set drawing style
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = isFullscreen ? 4 : 3;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
     };
 
     setCanvasSize();
-    
-    // Recalculate on resize
     const handleResize = () => setCanvasSize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [isFullscreen]);
+
+  // Sync drawing to Firestore (throttled)
+  const syncTimeoutRef = useRef<NodeJS.Timeout>();
+  const syncDrawing = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    clearTimeout(syncTimeoutRef.current);
+    syncTimeoutRef.current = setTimeout(() => {
+      const dataUrl = canvas.toDataURL('image/png');
+      updatePictionaryDrawing(roomId, dataUrl).catch(console.error);
+    }, 200); // Throttle to every 200ms
+  };
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     setIsDrawing(true);
     const rect = canvas.getBoundingClientRect();
-    // Since we scaled the context by dpr, we use display coordinates directly
     const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
     const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
     ctx.beginPath();
@@ -186,22 +374,23 @@ function PictionaryDrawing({
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
     e.preventDefault();
+    e.stopPropagation();
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const rect = canvas.getBoundingClientRect();
-    // Since we scaled the context by dpr, we use display coordinates directly
     const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
     const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
     ctx.lineTo(x, y);
     ctx.stroke();
+    syncDrawing();
   };
 
   const stopDrawing = () => {
     setIsDrawing(false);
+    syncDrawing();
   };
 
   const clearCanvas = () => {
@@ -209,104 +398,98 @@ function PictionaryDrawing({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    syncDrawing();
   };
 
-  const handleSubmit = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      toast.error('Canvas not available');
-      return;
-    }
-
-    // Check if canvas has any content (not just blank)
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      toast.error('Canvas context not available');
-      return;
-    }
-
-    // Sample pixels to check if there's any drawing (more efficient than checking all pixels)
-    const sampleSize = 50; // Sample every 50th pixel
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    let hasContent = false;
-    
-    for (let i = 0; i < imageData.data.length; i += sampleSize * 4) {
-      const alpha = imageData.data[i + 3]; // Alpha channel
-      if (alpha > 10) { // Allow some threshold for anti-aliasing
-        hasContent = true;
-        break;
-      }
-    }
-
-    if (!hasContent) {
-      toast.error(t('pictionary.drawSomething', lang) || 'Please draw something before submitting');
-      return;
-    }
-
-    let dataUrl: string;
+  const handleEndRound = async () => {
     try {
-      dataUrl = canvas.toDataURL('image/png');
-      if (!dataUrl || dataUrl.length < 100) {
-        toast.error('Failed to generate image. Please try again.');
-        return;
-      }
-    } catch (error) {
-      console.error('Error generating data URL:', error);
-      toast.error('Failed to generate image. Please try again.');
-      return;
-    }
-    
-    // Check if dataUrl is too large (Firestore has 1MB limit per field)
-    // A typical canvas dataUrl is around 50-200KB, but we'll check for safety
-    const sizeInBytes = (dataUrl.length * 3) / 4; // Approximate size
-    if (sizeInBytes > 900000) { // 900KB safety margin
-      toast.error(t('pictionary.imageTooLarge', lang) || 'Image is too large. Please try a simpler drawing.');
-      return;
-    }
-
-    setBusy(true);
-    try {
-      await submitPictionaryDrawing({
-        roomId,
-        uid,
-        questionIndex,
-        dataUrl,
-      });
-      toast.success(t('common.submit', lang) || 'Drawing submitted!');
-      // Clear canvas - the component will automatically update via Firestore listener
-      clearCanvas();
+      await endPictionaryRound(roomId);
     } catch (error: any) {
-      console.error('Error submitting pictionary drawing:', error);
-      toast.error(error.message || t('common.error', lang) || 'Failed to submit drawing');
-    } finally {
-      setBusy(false);
+      toast.error(error.message || 'Failed to end round');
     }
   };
 
+  // Fullscreen view
+  if (isFullscreen) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black" style={{ touchAction: 'none' }}>
+        <div className="absolute top-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm p-4 flex items-center justify-between">
+          <button
+            onClick={() => setIsFullscreen(false)}
+            className="flex items-center justify-center w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+            type="button"
+          >
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          
+          <div className="flex-1 text-center px-4">
+            <p className="text-white/90 font-semibold text-sm">{prompt?.prompt[lang]}</p>
+            <p className="text-white/60 text-xs mt-1">Time: {remaining}s</p>
+          </div>
+
+          <button
+            onClick={handleEndRound}
+            className="flex items-center justify-center w-12 h-12 rounded-full bg-christmas-gold hover:bg-christmas-gold/80 transition-colors"
+            type="button"
+          >
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="absolute inset-0 pt-20 pb-24">
+          <canvas
+            ref={canvasRef}
+            className="w-full h-full bg-white/5 touch-none"
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={stopDrawing}
+            onMouseLeave={stopDrawing}
+            onTouchStart={startDrawing}
+            onTouchMove={draw}
+            onTouchEnd={stopDrawing}
+          />
+        </div>
+
+        <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm p-4">
+          <button className="btn-secondary w-full" onClick={clearCanvas} type="button">
+            Clear
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal view
   return (
     <main className="min-h-screen px-4 py-6 md:py-10">
       <div className="max-w-xl mx-auto">
         <div className="card mb-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold">{t('pictionary.title', lang)}</h1>
+            <h1 className="text-xl font-bold">🎨 You're Drawing!</h1>
             <Link href={`/room/${roomId}/play`} className="btn-secondary text-sm">
               {t('common.back', lang)}
             </Link>
           </div>
           <div className="mt-4">
             <p className="text-sm text-white/70">
-              {t('pictionary.questionNumber', lang)} {questionIndex + 1} {t('pictionary.of', lang)} {totalQuestions}
+              Round {gameState.currentRound} / {gameState.totalRounds}
             </p>
+            <p className="text-2xl font-bold text-christmas-gold mt-2">Time: {remaining}s</p>
           </div>
         </div>
 
         <div className="card">
           <h2 className="text-2xl font-semibold mb-4 text-center">
-            {t('pictionary.drawPrompt', lang)}: <span className="text-christmas-gold">{item.prompt[lang]}</span>
+            Draw: <span className="text-christmas-gold">{prompt?.prompt[lang]}</span>
           </h2>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 mb-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 mb-4 relative">
             <canvas
               ref={canvasRef}
               className="w-full h-64 bg-white/5 rounded-lg touch-none"
@@ -318,25 +501,199 @@ function PictionaryDrawing({
               onTouchMove={draw}
               onTouchEnd={stopDrawing}
             />
+            
+            <button
+              onClick={() => setIsFullscreen(true)}
+              className="absolute top-6 right-6 flex items-center justify-center w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 transition-colors backdrop-blur-sm"
+              type="button"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
           </div>
 
           <div className="flex gap-3">
-            <button
-              className="btn-secondary flex-1"
-              onClick={clearCanvas}
-              disabled={busy}
-              type="button"
-            >
-              {t('pictionary.clear', lang)}
+            <button className="btn-secondary flex-1" onClick={clearCanvas} type="button">
+              Clear
             </button>
-            <button
-              className="btn-primary flex-1"
-              onClick={handleSubmit}
-              disabled={busy}
-            >
-              {busy ? t('common.loading', lang) : t('pictionary.submit', lang)}
+            <button className="btn-primary flex-1" onClick={handleEndRound}>
+              End Round
             </button>
           </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function PictionaryGuesser({
+  roomId,
+  player,
+  gameState,
+  players,
+  lang,
+}: {
+  roomId: string;
+  player: any;
+  gameState: any;
+  players: any[];
+  lang: 'en' | 'cs';
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [guess, setGuess] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [hasGuessed, setHasGuessed] = useState(false);
+  const drawer = players.find((p) => p.uid === gameState.currentDrawerUid);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const roundStartTime = gameState.roundStartTime || now;
+  const elapsed = Math.floor((now - roundStartTime) / 1000);
+  const remaining = Math.max(0, (gameState.timeLimit || 60) - elapsed);
+
+  // Load drawing from gameState
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !gameState.drawingData) return;
+    
+    const img = new Image();
+    img.onload = () => {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      ctx.drawImage(img, 0, 0, rect.width, rect.height);
+    };
+    img.src = gameState.drawingData;
+  }, [gameState.drawingData]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const setCanvasSize = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    };
+    setCanvasSize();
+    const handleResize = () => setCanvasSize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Check if player has already guessed correctly
+  useEffect(() => {
+    if (gameState.correctGuessers?.includes(player.uid)) {
+      setHasGuessed(true);
+    }
+  }, [gameState.correctGuessers, player.uid]);
+
+  const handleSubmitGuess = async () => {
+    if (!guess.trim() || submitting || hasGuessed) return;
+    
+    setSubmitting(true);
+    try {
+      const result = await submitPictionaryGuess(roomId, player.uid, guess);
+      if (result.correct) {
+        toast.success('Correct! 🎉');
+        setHasGuessed(true);
+        if (result.drawerScored) {
+          toast.success('Drawer scored a point!');
+        }
+      } else {
+        toast.error('Incorrect, keep trying!');
+      }
+      setGuess('');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to submit guess');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <main className="min-h-screen px-4 py-6 md:py-10">
+      <div className="max-w-xl mx-auto">
+        <div className="card mb-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold">🎨 Guess the Drawing!</h1>
+            <Link href={`/room/${roomId}/play`} className="btn-secondary text-sm">
+              {t('common.back', lang)}
+            </Link>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm text-white/70">
+              Round {gameState.currentRound} / {gameState.totalRounds}
+            </p>
+            <p className="text-2xl font-bold text-christmas-gold mt-2">Time: {remaining}s</p>
+            {drawer && (
+              <p className="text-white/70 text-sm mt-2">Drawing by: {drawer.name}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 mb-4">
+            <canvas
+              ref={canvasRef}
+              className="w-full h-64 bg-white/5 rounded-lg"
+            />
+          </div>
+
+          {hasGuessed ? (
+            <div className="text-center p-4 bg-christmas-gold/20 rounded-lg mb-4">
+              <p className="text-christmas-gold font-bold">✓ You guessed correctly!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={guess}
+                onChange={(e) => setGuess(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSubmitGuess()}
+                placeholder="Enter your guess..."
+                className="input-field"
+                disabled={submitting}
+              />
+              <button
+                onClick={handleSubmitGuess}
+                disabled={!guess.trim() || submitting}
+                className="btn-primary w-full"
+              >
+                {submitting ? 'Submitting...' : 'Submit Guess'}
+              </button>
+            </div>
+          )}
+
+          {gameState.correctGuessers && gameState.correctGuessers.length > 0 && (
+            <div className="mt-4 p-3 bg-white/5 rounded-lg">
+              <p className="text-sm text-white/70 mb-2">Correct guessers:</p>
+              <div className="flex flex-wrap gap-2">
+                {gameState.correctGuessers.map((uid: string) => {
+                  const guesser = players.find((p) => p.uid === uid);
+                  return guesser ? (
+                    <span key={uid} className="text-xs px-2 py-1 bg-christmas-gold/20 rounded">
+                      {guesser.name}
+                    </span>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </main>

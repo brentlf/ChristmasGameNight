@@ -29,6 +29,21 @@ export interface Room {
     wyr?: { selectedIds: string[] };
     pictionary?: { selectedIds: string[] };
   };
+  // Pictionary game state (for multiplayer rounds)
+  pictionaryGameState?: {
+    status: 'waiting' | 'drawing' | 'round_end' | 'completed';
+    currentRound: number; // 1-indexed
+    currentDrawerUid: string | null;
+    currentPromptId: string | null;
+    roundStartTime: number | null; // ms since epoch
+    timeLimit: number; // seconds
+    drawingData?: string; // base64 encoded canvas data for real-time sync
+    guesses: Array<{ uid: string; guess: string; timestamp: number }>;
+    correctGuessers: string[]; // UIDs who guessed correctly
+    roundScores: Record<string, number>; // uid -> points for current round
+    totalRounds: number; // total rounds (3 per player)
+    drawerOrder: string[]; // order of players who will draw
+  };
   settings: {
     difficulty: 'easy' | 'medium' | 'hard';
     allowSkips: boolean;
@@ -69,7 +84,12 @@ export interface Player {
     trivia?: { answers: number[]; score: number; completedAt?: number };
     emoji?: { answers: string[]; score: number; completedAt?: number };
     wyr?: { choices: ('A' | 'B')[]; score: number; completedAt?: number };
-    pictionary?: { drawings: Array<{ promptId: string; dataUrl?: string }>; score: number; completedAt?: number };
+    pictionary?: { 
+      score: number; 
+      completedAt?: number;
+      roundsDrawn?: number; // number of rounds this player has drawn
+      roundsGuessed?: number; // number of rounds this player has guessed correctly
+    };
   };
   totalMiniGameScore?: number;
   // Overall scoring (meta layer)

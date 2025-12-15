@@ -114,8 +114,8 @@ export function MiniGameDashboard({
               </span>
             </div>
             {wyrProgress && (
-              <p className="text-white/70 mb-2">
-                {t('minigames.score', lang)}: <span className="font-bold text-christmas-gold">{wyrProgress.score}</span>
+              <p className="text-white/70 mb-2 text-sm italic">
+                {t('wyr.noPoints', lang) || 'Just for fun - no points!'}
               </p>
             )}
             <Link href={`/room/${roomId}/minigames/wyr`} className="btn-primary w-full text-center block">

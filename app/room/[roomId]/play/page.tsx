@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRoom } from '@/lib/hooks/useRoom';
 import { usePlayer } from '@/lib/hooks/usePlayer';
 import { usePlayers } from '@/lib/hooks/usePlayers';
+import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { getLanguage, t } from '@/lib/i18n';
 import { joinRoom, startRace } from '@/lib/utils/room';
 import { auth } from '@/lib/firebase';
@@ -27,11 +28,13 @@ export default function PlayPage() {
   const [playerUid, setPlayerUid] = useState<string | null>(null);
   const { player, loading: playerLoading, updatePlayer } = usePlayer(roomId, playerUid);
   const { players } = usePlayers(roomId);
+  const { previousNames, loading: profileLoading } = useUserProfile();
   const lang = getLanguage();
   
   const [name, setName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
   const [joining, setJoining] = useState(false);
+  const [nameInputMode, setNameInputMode] = useState<'select' | 'manual'>('select');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -107,14 +110,63 @@ export default function PlayPage() {
                   <label className="block text-sm font-semibold mb-2 text-white/80">
                     {t('player.enterName', lang)}
                   </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={t('player.namePlaceholder', lang)}
-                    className="input-field"
-                    maxLength={20}
-                  />
+                  
+                  {!profileLoading && previousNames.length > 0 && nameInputMode === 'select' ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {previousNames.map((prevName) => (
+                          <button
+                            key={prevName}
+                            type="button"
+                            onClick={() => {
+                              setName(prevName);
+                              setNameInputMode('manual');
+                            }}
+                            className={`px-4 py-2 rounded-lg border text-sm transition ${
+                              name === prevName
+                                ? 'bg-christmas-gold/25 border-christmas-gold/40 text-white'
+                                : 'bg-white/5 border-white/20 text-white/80 hover:bg-white/10'
+                            }`}
+                          >
+                            {prevName}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNameInputMode('manual');
+                          setName('');
+                        }}
+                        className="text-xs text-white/60 hover:text-white/80 underline"
+                      >
+                        Or enter a new name
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder={t('player.namePlaceholder', lang)}
+                        className="input-field"
+                        maxLength={20}
+                      />
+                      {!profileLoading && previousNames.length > 0 && nameInputMode === 'manual' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNameInputMode('select');
+                            setName('');
+                          }}
+                          className="text-xs text-white/60 hover:text-white/80 underline"
+                        >
+                          Or pick from previous names
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>

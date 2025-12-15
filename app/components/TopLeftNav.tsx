@@ -69,7 +69,7 @@ export default function TopLeftNav() {
                 router.push('/')
               }
             }}
-            className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
+            className="hidden md:inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
             aria-label="Go back"
           >
             <IconArrowLeft className="h-5 w-5" />
@@ -80,7 +80,7 @@ export default function TopLeftNav() {
         {showHome && (
           <Link
             href="/"
-            className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
+            className="hidden md:inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
             aria-label="Go home"
           >
             <IconHome className="h-5 w-5" />
@@ -88,7 +88,9 @@ export default function TopLeftNav() {
           </Link>
         )}
 
-        <div className="h-6 w-px bg-white/20 mx-1" />
+        {(showBack || showHome) && (
+          <div className="hidden md:block h-6 w-px bg-white/20 mx-1" />
+        )}
 
         <button
           type="button"

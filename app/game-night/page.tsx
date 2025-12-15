@@ -61,7 +61,7 @@ export default function GameNightPage() {
     <main className="min-h-screen px-4 py-10 md:py-16">
       <div className="mx-auto max-w-4xl">
         <div className="mb-10 flex items-center justify-between gap-4">
-          <Link href="/" className="inline-flex items-center gap-3 rounded-full bg-white/10 border border-white/15 px-4 py-2 backdrop-blur-md hover:bg-white/20 transition">
+          <Link href="/" className="hidden md:inline-flex items-center gap-3 rounded-full bg-white/10 border border-white/15 px-4 py-2 backdrop-blur-md hover:bg-white/20 transition">
             <span>←</span>
             <span className="font-semibold">Back to Home</span>
           </Link>
@@ -127,17 +127,17 @@ export default function GameNightPage() {
                 </p>
               </button>
 
-              <button
-                onClick={() => handleModeSelect('leaderboard')}
+              <Link
+                href="/leaderboard"
                 className="card text-center p-6 hover:bg-white/10 transition cursor-pointer border-2 border-transparent hover:border-christmas-gold/40"
               >
                 <div className="text-5xl mb-3">🏆</div>
                 <h2 className="text-xl font-bold mb-2">Leaderboard</h2>
-                <p className="text-sm text-white/70 mb-3">Results View</p>
+                <p className="text-sm text-white/70 mb-3">Global Rankings</p>
                 <p className="text-xs text-white/60">
-                  Display standings and progress on the TV screen
+                  View all-time scores across all games
                 </p>
-              </button>
+              </Link>
             </div>
 
             <div className="pt-6 border-t border-white/10">
@@ -148,6 +148,18 @@ export default function GameNightPage() {
           </div>
         </div>
       </div>
+
+      {/* Active Rooms Button - Bottom Right */}
+      <Link
+        href="/active-rooms"
+        className="fixed bottom-6 right-6 z-50 inline-flex items-center gap-2 rounded-full bg-wood-dark/60 backdrop-blur-xl border border-wood-light/30 hover:border-fire-gold/60 px-5 py-3 text-white font-semibold transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
+        style={{ 
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 193, 7, 0.15)' 
+        }}
+      >
+        <span className="text-lg">🏠</span>
+        <span>Active Rooms</span>
+      </Link>
     </main>
   );
 }

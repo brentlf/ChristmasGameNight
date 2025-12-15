@@ -82,5 +82,17 @@ service cloud.firestore {
     );
     allow delete: if isController();
   }
+
+  // User profiles - users can read and write their own profile
+  match /users/{userId} {
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    allow read: if isAuthed() && request.auth.uid == userId;
+    allow create: if isAuthed() && request.auth.uid == userId;
+    allow update: if isAuthed() && request.auth.uid == userId;
+    allow delete: if isAuthed() && request.auth.uid == userId;
+  }
 }
 

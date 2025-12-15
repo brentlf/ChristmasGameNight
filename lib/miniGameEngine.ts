@@ -1,4 +1,4 @@
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Room, Player, MiniGameType } from '@/types';
 import { triviaChristmasPool } from '@/content/trivia_christmas';
@@ -69,20 +69,251 @@ export function calculateEmojiScore(answers: string[]): number {
   return Math.min(100, answers.length * 10);
 }
 
-// WYR scoring: +2 per answered, +10 completion bonus, max 30
+// WYR scoring: No points - just for fun/getting to know everyone
 export function calculateWYRScore(choices: ('A' | 'B')[]): number {
-  const answeredCount = choices.filter((c) => c === 'A' || c === 'B').length;
-  const baseScore = answeredCount * 2;
-  const completionBonus = answeredCount === 10 ? 10 : 0;
-  return Math.min(30, baseScore + completionBonus);
+  return 0;
 }
 
-// Pictionary scoring: +2 per drawing, +10 completion bonus, max 30
+// Pictionary scoring (old - no longer used, but kept for backward compatibility)
 export function calculatePictionaryScore(drawings: Array<{ promptId: string; dataUrl?: string }>): number {
   const drawingCount = drawings.length;
   const baseScore = drawingCount * 2;
   const completionBonus = drawingCount === 10 ? 10 : 0;
   return Math.min(30, baseScore + completionBonus);
+}
+
+// Initialize pictionary game (round-based multiplayer)
+export async function initializePictionaryGame(roomId: string): Promise<void> {
+  const roomRef = doc(db, 'rooms', roomId);
+  const roomSnap = await getDoc(roomRef);
+  if (!roomSnap.exists()) throw new Error('Room not found');
+  
+  const room = roomSnap.data() as Room;
+  const playersRef = collection(db, 'rooms', roomId, 'players');
+  const playersSnapshot = await getDocs(playersRef);
+  
+  const playerUids: string[] = [];
+  playersSnapshot.forEach((playerDoc) => {
+    playerUids.push(playerDoc.id);
+  });
+  
+  if (playerUids.length < 2) {
+    throw new Error('Need at least 2 players to start pictionary');
+  }
+  
+  // Shuffle drawer order
+  const drawerOrder = [...playerUids].sort(() => Math.random() - 0.5);
+  const totalRounds = drawerOrder.length * 3; // 3 rounds per player
+  
+  const gameState: Room['pictionaryGameState'] = {
+    status: 'waiting',
+    currentRound: 0,
+    currentDrawerUid: null,
+    currentPromptId: null,
+    roundStartTime: null,
+    timeLimit: 60, // 60 seconds per round
+    drawingData: undefined,
+    guesses: [],
+    correctGuessers: [],
+    roundScores: {},
+    totalRounds,
+    drawerOrder,
+  };
+  
+  await updateDoc(roomRef, { pictionaryGameState: gameState });
+}
+
+// Start a new round
+export async function startPictionaryRound(roomId: string): Promise<void> {
+  const roomRef = doc(db, 'rooms', roomId);
+  const roomSnap = await getDoc(roomRef);
+  if (!roomSnap.exists()) throw new Error('Room not found');
+  
+  const room = roomSnap.data() as Room;
+  const gameState = room.pictionaryGameState;
+  
+  if (!gameState) throw new Error('Game not initialized');
+  
+  const nextRound = gameState.currentRound + 1;
+  if (nextRound > gameState.totalRounds) {
+    // Game completed
+    await updateDoc(roomRef, {
+      'pictionaryGameState.status': 'completed',
+    });
+    return;
+  }
+  
+  // Get drawer for this round
+  const drawerIndex = (nextRound - 1) % gameState.drawerOrder.length;
+  const drawerUid = gameState.drawerOrder[drawerIndex];
+  
+  // Get a random prompt
+  const selectedIds = room.miniGames?.pictionary?.selectedIds ?? [];
+  if (selectedIds.length === 0) throw new Error('No prompts available');
+  const randomPromptId = selectedIds[Math.floor(Math.random() * selectedIds.length)];
+  
+  await updateDoc(roomRef, {
+    'pictionaryGameState.status': 'drawing',
+    'pictionaryGameState.currentRound': nextRound,
+    'pictionaryGameState.currentDrawerUid': drawerUid,
+    'pictionaryGameState.currentPromptId': randomPromptId,
+    'pictionaryGameState.roundStartTime': Date.now(),
+    'pictionaryGameState.drawingData': undefined,
+    'pictionaryGameState.guesses': [],
+    'pictionaryGameState.correctGuessers': [],
+    'pictionaryGameState.roundScores': {},
+  });
+}
+
+// Update drawing data (real-time sync)
+export async function updatePictionaryDrawing(roomId: string, drawingData: string): Promise<void> {
+  const roomRef = doc(db, 'rooms', roomId);
+  await updateDoc(roomRef, {
+    'pictionaryGameState.drawingData': drawingData,
+  });
+}
+
+// Submit a guess
+export async function submitPictionaryGuess(roomId: string, uid: string, guess: string): Promise<{ correct: boolean; drawerScored: boolean }> {
+  const roomRef = doc(db, 'rooms', roomId);
+  const roomSnap = await getDoc(roomRef);
+  if (!roomSnap.exists()) throw new Error('Room not found');
+  
+  const room = roomSnap.data() as Room;
+  const gameState = room.pictionaryGameState;
+  
+  if (!gameState || gameState.status !== 'drawing') {
+    throw new Error('Game not in drawing state');
+  }
+  
+  if (gameState.currentDrawerUid === uid) {
+    throw new Error('Drawer cannot guess');
+  }
+  
+  if (!gameState.currentPromptId) {
+    throw new Error('No prompt available');
+  }
+  
+  // Get the prompt to check the answer
+  const prompt = pictionaryChristmasPool.find((p) => p.id === gameState.currentPromptId);
+  if (!prompt) throw new Error('Prompt not found');
+  
+  // Check if guess is correct (case-insensitive, flexible matching)
+  const normalizedGuess = guess.trim().toLowerCase();
+  const correctAnswers = [
+    prompt.prompt.en.toLowerCase(),
+    prompt.prompt.cs.toLowerCase(),
+  ];
+  
+  // Try exact match first, then partial match
+  let isCorrect = false;
+  for (const answer of correctAnswers) {
+    if (normalizedGuess === answer) {
+      isCorrect = true;
+      break;
+    }
+    // Check if guess is a significant part of the answer (at least 3 chars)
+    if (normalizedGuess.length >= 3 && (answer.includes(normalizedGuess) || normalizedGuess.includes(answer))) {
+      isCorrect = true;
+      break;
+    }
+  }
+  
+  // Add guess to list
+  const newGuesses = [...(gameState.guesses || []), {
+    uid,
+    guess: guess.trim(),
+    timestamp: Date.now(),
+  }];
+  
+  let newCorrectGuessers = [...(gameState.correctGuessers || [])];
+  let drawerScored = false;
+  
+  if (isCorrect && !newCorrectGuessers.includes(uid)) {
+    newCorrectGuessers.push(uid);
+    
+    // If this is the first correct guess, give drawer a point
+    if (gameState.currentDrawerUid && newCorrectGuessers.length === 1) {
+      drawerScored = true;
+      const drawerPlayerRef = doc(db, 'rooms', roomId, 'players', gameState.currentDrawerUid);
+      const drawerPlayerSnap = await getDoc(drawerPlayerRef);
+      if (drawerPlayerSnap.exists()) {
+        const drawerPlayer = drawerPlayerSnap.data() as Player;
+        const currentProgress = drawerPlayer.miniGameProgress?.pictionary ?? { score: 0 };
+        const newScore = (currentProgress.score || 0) + 1;
+        const newRoundsDrawn = (currentProgress.roundsDrawn || 0) + 1;
+        
+        const updatedProgress = {
+          ...(drawerPlayer.miniGameProgress || {}),
+          pictionary: {
+            ...currentProgress,
+            score: newScore,
+            roundsDrawn: newRoundsDrawn,
+          },
+        };
+        
+        await updateDoc(drawerPlayerRef, {
+          miniGameProgress: updatedProgress,
+          totalMiniGameScore: calculateTotalMiniGameScore(updatedProgress),
+        });
+      }
+    }
+  }
+  
+  // Update guesser's progress
+  const guesserPlayerRef = doc(db, 'rooms', roomId, 'players', uid);
+  const guesserPlayerSnap = await getDoc(guesserPlayerRef);
+  if (guesserPlayerSnap.exists()) {
+    const guesserPlayer = guesserPlayerSnap.data() as Player;
+    if (isCorrect) {
+      await updateDoc(guesserPlayerRef, {
+        'miniGameProgress.pictionary.roundsGuessed': (guesserPlayer.miniGameProgress?.pictionary?.roundsGuessed ?? 0) + 1,
+      });
+    }
+  }
+  
+  await updateDoc(roomRef, {
+    'pictionaryGameState.guesses': newGuesses,
+    'pictionaryGameState.correctGuessers': newCorrectGuessers,
+  });
+  
+  return { correct: isCorrect, drawerScored };
+}
+
+// End current round
+export async function endPictionaryRound(roomId: string): Promise<void> {
+  const roomRef = doc(db, 'rooms', roomId);
+  const roomSnap = await getDoc(roomRef);
+  if (!roomSnap.exists()) throw new Error('Room not found');
+  
+  const room = roomSnap.data() as Room;
+  const gameState = room.pictionaryGameState;
+  if (!gameState) throw new Error('Game not initialized');
+  
+  // Mark round as ended
+  await updateDoc(roomRef, {
+    'pictionaryGameState.status': 'round_end',
+  });
+  
+  // If this was the last round, mark game as completed
+  if (gameState.currentRound >= gameState.totalRounds) {
+    await updateDoc(roomRef, {
+      'pictionaryGameState.status': 'completed',
+    });
+    
+    // Mark all players as completed
+    const playersRef = collection(db, 'rooms', roomId, 'players');
+    const playersSnapshot = await getDocs(playersRef);
+    const batch = playersSnapshot.docs.map((playerDoc) => {
+      const player = playerDoc.data() as Player;
+      const currentProgress = player.miniGameProgress?.pictionary ?? { score: 0 };
+      return updateDoc(playerDoc.ref, {
+        'miniGameProgress.pictionary.completedAt': Date.now(),
+        'miniGameProgress.pictionary.score': currentProgress.score || 0,
+      });
+    });
+    await Promise.all(batch);
+  }
 }
 
 // Submit trivia answer
@@ -244,6 +475,12 @@ export async function submitWYRChoice(params: {
 }): Promise<{ score: number }> {
   const { roomId, uid, questionIndex, choice } = params;
   
+  const roomRef = doc(db, 'rooms', roomId);
+  const roomSnap = await getDoc(roomRef);
+  if (!roomSnap.exists()) throw new Error('Room not found');
+  const room = roomSnap.data() as Room;
+  const selectedIds = room.miniGames?.wyr?.selectedIds ?? [];
+  
   const playerRef = doc(db, 'rooms', roomId, 'players', uid);
   const playerSnap = await getDoc(playerRef);
   if (!playerSnap.exists()) throw new Error('Player not found');
@@ -253,9 +490,11 @@ export async function submitWYRChoice(params: {
   const newChoices = [...currentProgress.choices];
   newChoices[questionIndex] = choice;
   
-  const newScore = calculateWYRScore(newChoices);
+  // WYR doesn't count for points - always 0
+  const newScore = 0;
   
-  const isCompleted = newChoices.length === 10 && newChoices.every((c) => c === 'A' || c === 'B');
+  // Check completion based on actual number of questions
+  const isCompleted = newChoices.length === selectedIds.length && newChoices.every((c, idx) => idx < selectedIds.length && (c === 'A' || c === 'B'));
   
   const wyrUpdate: any = {
     choices: newChoices,
@@ -342,7 +581,11 @@ export function calculateTotalMiniGameScore(progress: Player['miniGameProgress']
   let total = 0;
   if (progress.trivia) total += progress.trivia.score;
   if (progress.emoji) total += progress.emoji.score;
-  if (progress.wyr) total += progress.wyr.score;
-  if (progress.pictionary) total += progress.pictionary.score;
+  // WYR doesn't count for points - it's just for fun/getting to know everyone
+  // if (progress.wyr) total += progress.wyr.score;
+  // Pictionary uses new multiplayer scoring
+  if (progress.pictionary) {
+    total += progress.pictionary.score || 0;
+  }
   return total;
 }

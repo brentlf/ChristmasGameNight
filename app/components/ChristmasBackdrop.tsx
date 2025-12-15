@@ -4,14 +4,14 @@ export default function ChristmasBackdrop() {
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
       {/* Photo layer (kept subtle) */}
-      <div className="absolute inset-0 relative">
+      <div className="absolute inset-0 relative h-full w-full">
         <Image
-          src="/images/detail-lights.jpg"
+          src="/images/christmas-background.png"
           alt=""
           fill
           sizes="100vw"
-          className="object-cover opacity-20 saturate-150 contrast-120 brightness-90"
-          priority={false}
+          className="object-cover opacity-30 saturate-150 contrast-120 brightness-90"
+          priority={true}
         />
       </div>
 

@@ -21,27 +21,23 @@ export default function ResultsPage() {
     return calculateOverallScoring(players, room);
   }, [room, players]);
 
-  if (roomLoading || playersLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-4xl">{t('common.loading', lang)}</div>
-      </div>
-    );
-  }
+  // Get track safely - must be called before early returns to maintain hook order
+  const track = useMemo(() => {
+    if (!room?.raceTrackId) return null;
+    try {
+      return getRaceTrack(room.raceTrackId);
+    } catch {
+      return null;
+    }
+  }, [room?.raceTrackId]);
 
-  if (!room) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-4xl">{t('common.error', lang)}</div>
-      </div>
-    );
-  }
-
-  const track = getRaceTrack(room.raceTrackId);
-  const totalStages = track.stages.length;
+  const totalStages = track?.stages.length ?? 0;
 
   // Use overall scoring if enabled, otherwise use race scoring
+  // Must be called before early returns to maintain hook order
   const sortedPlayers = useMemo(() => {
+    if (!room || !players.length) return [];
+    
     if (overallScoring && overallScoring.length > 0) {
       return overallScoring.map((result) => {
         const player = players.find((p: any) => p.uid === result.playerUid);
@@ -59,7 +55,23 @@ export default function ResultsPage() {
       const bScore = b.score ?? 0;
       return bScore - aScore;
     });
-  }, [players, overallScoring]);
+  }, [players, overallScoring, room]);
+
+  if (roomLoading || playersLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-4xl">{t('common.loading', lang)}</div>
+      </div>
+    );
+  }
+
+  if (!room || !track) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-4xl">{t('common.error', lang)}</div>
+      </div>
+    );
+  }
 
   const top3 = sortedPlayers.slice(0, 3);
   const rest = sortedPlayers.slice(3);
@@ -192,7 +204,7 @@ export default function ResultsPage() {
           <Link href={`/room/${roomId}/tv`} className="btn-secondary">
             Back to TV View
           </Link>
-          <Link href="/" className="btn-primary">
+          <Link href="/game-night" className="btn-primary">
             Create New Room
           </Link>
         </div>

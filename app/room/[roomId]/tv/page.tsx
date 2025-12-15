@@ -13,9 +13,147 @@ import { getRaceTrack } from '@/lib/raceEngine';
 import { useEvents } from '@/lib/hooks/useEvents';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { getWYRItemById } from '@/lib/miniGameContent';
+import type { Player, Room } from '@/types';
 
 function isLocalhost(hostname: string) {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+}
+
+function WYRVisualSnapshot({ room, players, lang }: { room: Room; players: Player[]; lang: 'en' | 'cs' }) {
+  const selectedIds = room.miniGames?.wyr?.selectedIds ?? [];
+  const playersWithAnswers = players.filter((p) => p.miniGameProgress?.wyr?.choices && p.miniGameProgress.wyr.choices.length > 0);
+  
+  // Group answers by question
+  const questionAnswers = selectedIds.map((questionId, questionIndex) => {
+    const item = getWYRItemById(questionId);
+    const playersA: Player[] = [];
+    const playersB: Player[] = [];
+    
+    playersWithAnswers.forEach((player) => {
+      const choice = player.miniGameProgress?.wyr?.choices[questionIndex];
+      if (choice === 'A') {
+        playersA.push(player);
+      } else if (choice === 'B') {
+        playersB.push(player);
+      }
+    });
+    
+    const total = playersA.length + playersB.length;
+    const aPct = total > 0 ? Math.round((playersA.length / total) * 100) : 0;
+    const bPct = total > 0 ? Math.round((playersB.length / total) * 100) : 0;
+    
+    // Determine if it's a close split, dominant A, or dominant B
+    const isClose = Math.abs(aPct - bPct) <= 10 && total > 0;
+    const isDominantA = aPct > 60;
+    const isDominantB = bPct > 60;
+    
+    return {
+      questionId,
+      item,
+      questionIndex,
+      playersA,
+      playersB,
+      total,
+      aPct,
+      bPct,
+      isClose,
+      isDominantA,
+      isDominantB,
+    };
+  });
+
+  const completedCount = players.filter((p) => p.miniGameProgress?.wyr?.completedAt).length;
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xl font-bold">🎄 {t('game.wouldYouRather', lang)}</h3>
+        <span className="text-xs text-white/70">
+          {completedCount}/{players.length} {t('tv.completed', lang) || 'completed'}
+        </span>
+      </div>
+      
+      {completedCount === 0 ? (
+        <p className="text-sm text-white/60">{t('tv.noCompletions', lang)}</p>
+      ) : (
+        <div className="space-y-4 max-h-[600px] overflow-y-auto">
+          {questionAnswers.map((qa) => {
+            if (!qa.item) return null;
+            
+            return (
+              <div
+                key={qa.questionId}
+                className={`rounded-xl border p-3 ${
+                  qa.isClose
+                    ? 'border-yellow-500/30 bg-yellow-500/5'
+                    : qa.isDominantA || qa.isDominantB
+                    ? 'border-blue-500/30 bg-blue-500/5'
+                    : 'border-white/10 bg-white/5'
+                }`}
+              >
+                <p className="text-sm font-semibold mb-2 text-white/90">
+                  {qa.questionIndex + 1}. {qa.item.prompt[lang]}
+                </p>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Option A */}
+                  <div className={`rounded-lg p-2 ${
+                    qa.isDominantA ? 'bg-blue-500/20 border border-blue-500/40' : 'bg-white/5 border border-white/10'
+                  }`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-white/80">A: {qa.item.optionA[lang]}</span>
+                      <span className="text-xs text-white/70">{qa.aPct}%</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {qa.playersA.map((p) => (
+                        <span key={p.uid} className="text-lg" title={p.name}>
+                          {p.avatar}
+                        </span>
+                      ))}
+                      {qa.playersA.length === 0 && (
+                        <span className="text-xs text-white/50">—</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Option B */}
+                  <div className={`rounded-lg p-2 ${
+                    qa.isDominantB ? 'bg-blue-500/20 border border-blue-500/40' : 'bg-white/5 border border-white/10'
+                  }`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-white/80">B: {qa.item.optionB[lang]}</span>
+                      <span className="text-xs text-white/70">{qa.bPct}%</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {qa.playersB.map((p) => (
+                        <span key={p.uid} className="text-lg" title={p.name}>
+                          {p.avatar}
+                        </span>
+                      ))}
+                      {qa.playersB.length === 0 && (
+                        <span className="text-xs text-white/50">—</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Trend indicator */}
+                {qa.total > 0 && (
+                  <div className="mt-2 text-xs text-white/60">
+                    {qa.isClose && '⚖️ Close split!'}
+                    {qa.isDominantA && `📊 Most chose A (${qa.playersA.length} vs ${qa.playersB.length})`}
+                    {qa.isDominantB && `📊 Most chose B (${qa.playersB.length} vs ${qa.playersA.length})`}
+                    {!qa.isClose && !qa.isDominantA && !qa.isDominantB && `${qa.total} answered`}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function TVPage() {
@@ -519,26 +657,7 @@ export default function TVPage() {
 
               {/* Would You Rather */}
               {room.miniGamesEnabled.includes('wyr') && (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <h3 className="text-xl font-bold mb-3">🎄 {t('game.wouldYouRather', lang)}</h3>
-                  <div className="space-y-2">
-                    <p className="text-sm text-white/70">
-                      {t('tv.completedBy', lang)}: {players.filter((p: any) => p.miniGameProgress?.wyr?.completedAt).length}/{players.length}
-                    </p>
-                    {(() => {
-                      const completed = players.filter((p: any) => p.miniGameProgress?.wyr?.completedAt);
-                      if (completed.length === 0) {
-                        return <p className="text-sm text-white/60">{t('tv.noCompletions', lang)}</p>;
-                      }
-                      const topScorer = [...completed].sort((a: any, b: any) => (b.miniGameProgress?.wyr?.score ?? 0) - (a.miniGameProgress?.wyr?.score ?? 0))[0];
-                      return (
-                        <p className="text-sm text-white/80">
-                          {t('tv.topScorer', lang)}: <span className="font-bold">{topScorer.name}</span> ({topScorer.miniGameProgress?.wyr?.score ?? 0})
-                        </p>
-                      );
-                    })()}
-                  </div>
-                </div>
+                <WYRVisualSnapshot room={room} players={players} lang={lang} />
               )}
 
               {/* Pictionary */}

@@ -141,6 +141,14 @@ export async function joinRoom(roomId: string, playerName: string, avatar: strin
 
   await setDoc(playerRef, playerData);
 
+  // Save name to user profile for future use
+  try {
+    await saveNameToUserProfile(finalName);
+  } catch (error) {
+    // Non-critical - continue even if profile save fails
+    console.warn('Failed to save name to user profile:', error);
+  }
+
   if (room.status === 'lobby') {
     // Keep room in lobby; player can start their race later.
   }
@@ -180,5 +188,63 @@ export async function validateRoomPin(roomId: string, pin: string): Promise<bool
   if (!room.pinEnabled) return true;
   const hash = await sha256Hex(pin);
   return Boolean(room.pinHash && room.pinHash === hash);
+}
+
+// User profile functions to track previous names
+export interface UserProfile {
+  previousNames: string[];
+  lastUsedAt?: number;
+}
+
+export async function saveNameToUserProfile(name: string): Promise<void> {
+  const user = await ensureAuthed();
+  const userProfileRef = doc(db, 'users', user.uid);
+  const profileSnap = await getDoc(userProfileRef);
+  
+  const trimmedName = name.trim();
+  if (!trimmedName) return;
+  
+  if (profileSnap.exists()) {
+    const currentProfile = profileSnap.data() as UserProfile;
+    const previousNames = currentProfile.previousNames || [];
+    
+    // Add name if it's not already in the list (case-insensitive)
+    const nameLower = trimmedName.toLowerCase();
+    if (!previousNames.some(n => n.toLowerCase() === nameLower)) {
+      // Add to beginning and limit to last 10 names
+      const updatedNames = [trimmedName, ...previousNames].slice(0, 10);
+      await updateDoc(userProfileRef, {
+        previousNames: updatedNames,
+        lastUsedAt: Date.now(),
+      });
+    } else {
+      // Just update lastUsedAt
+      await updateDoc(userProfileRef, {
+        lastUsedAt: Date.now(),
+      });
+    }
+  } else {
+    // Create new profile
+    const newProfile: UserProfile = {
+      previousNames: [trimmedName],
+      lastUsedAt: Date.now(),
+    };
+    await setDoc(userProfileRef, newProfile);
+  }
+}
+
+export async function getUserProfile(): Promise<UserProfile | null> {
+  try {
+    const user = await ensureAuthed();
+    const userProfileRef = doc(db, 'users', user.uid);
+    const profileSnap = await getDoc(userProfileRef);
+    
+    if (profileSnap.exists()) {
+      return profileSnap.data() as UserProfile;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 

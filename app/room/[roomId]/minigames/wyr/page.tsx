@@ -60,14 +60,14 @@ export default function WYRPage() {
             <div className="text-6xl mb-4">🎉</div>
             <h1 className="game-show-title mb-3">{t('wyr.completed', lang)}</h1>
             <p className="text-white/80 mb-6">
-              {t('wyr.finalScore', lang)}: <span className="font-bold text-christmas-gold text-3xl">{progress?.score ?? 0}</span> {t('wyr.points', lang)}
+              {t('wyr.completedDescription', lang) || 'Thanks for sharing your choices! Check the TV screen to see how everyone answered.'}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link href={`/room/${roomId}/play`} className="btn-secondary text-center">
                 {t('common.back', lang)}
               </Link>
-              <Link href={`/room/${roomId}/results`} className="btn-primary text-center">
-                {t('wyr.viewLeaderboard', lang)}
+              <Link href={`/room/${roomId}/tv`} className="btn-primary text-center">
+                📺 {t('race.tv', lang) || 'View TV'}
               </Link>
             </div>
           </div>
