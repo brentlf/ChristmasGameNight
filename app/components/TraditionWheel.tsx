@@ -195,12 +195,12 @@ export default function TraditionWheel({
     <div className="relative w-full flex flex-col items-center">
       {/* Pointer indicator at the top */}
       <div className="relative z-20 mb-2">
-        <div className="w-0 h-0 border-l-[24px] border-l-transparent border-r-[24px] border-r-transparent border-t-[36px] border-t-christmas-gold drop-shadow-2xl filter brightness-110" />
+        <div className="w-0 h-0 border-l-[18px] sm:border-l-[24px] border-l-transparent border-r-[18px] sm:border-r-[24px] border-r-transparent border-t-[28px] sm:border-t-[36px] border-t-christmas-gold drop-shadow-2xl filter brightness-110" />
         <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-christmas-gold shadow-lg" />
       </div>
 
       {/* Wheel container */}
-      <div className="relative w-96 h-96 md:w-[28rem] md:h-[28rem]">
+      <div className="relative w-[90vw] h-[90vw] max-w-96 max-h-96 md:w-[28rem] md:h-[28rem]">
         {/* Outer glow ring */}
         <div className="absolute inset-0 rounded-full bg-gradient-to-r from-christmas-gold/30 via-christmas-green/30 to-christmas-red/30 blur-2xl animate-pulse-slow" />
         
@@ -380,8 +380,8 @@ export default function TraditionWheel({
               transform: 'translate(-50%, -120%)',
             }}
           >
-            <div className="bg-christmas-gold/95 backdrop-blur-md text-white px-4 py-2 rounded-lg shadow-2xl border-2 border-christmas-gold whitespace-nowrap animate-scale-in">
-              <p className="font-bold text-sm md:text-base drop-shadow-lg">
+            <div className="bg-christmas-gold/95 backdrop-blur-md text-white px-4 py-2 rounded-lg shadow-2xl border-2 border-christmas-gold max-w-[80vw] whitespace-normal break-words text-center animate-scale-in">
+              <p className="font-bold text-sm md:text-base drop-shadow-lg leading-snug">
                 {traditions[hoveredIndex]?.[lang]}
               </p>
               {/* Tooltip arrow pointing down */}

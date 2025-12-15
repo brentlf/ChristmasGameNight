@@ -88,6 +88,7 @@ export async function startMiniGameSession(params: {
   await setDoc(selectedRef, selectedDoc);
 
   await updateDoc(roomRef, {
+    roomMode: 'mini_games',
     status: 'session_intro',
     currentSession: {
       sessionId,
@@ -386,6 +387,7 @@ export async function controllerFinishSession(params: { roomId: string; sessionI
   const { roomId, sessionId } = params;
   const roomRef = doc(db, 'rooms', roomId);
   await updateDoc(roomRef, {
+    roomMode: 'mini_games',
     status: 'between_sessions',
     'currentSession.sessionId': sessionId,
     'currentSession.status': 'finished',

@@ -36,7 +36,7 @@ export default function EmojiPage() {
 
   if (!room || !player) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -58,7 +58,7 @@ export default function EmojiPage() {
 
   if (isCompleted) {
     return (
-      <main className="min-h-screen px-4 py-10">
+      <main className="min-h-dvh px-4 py-10">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
             <div className="text-6xl mb-4">🎉</div>
@@ -84,7 +84,7 @@ export default function EmojiPage() {
 
   if (currentIndex >= selectedIds.length) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -95,7 +95,7 @@ export default function EmojiPage() {
 
   if (!item) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.error', lang)}</div>
       </div>
     );
@@ -165,7 +165,7 @@ function EmojiQuestion({
   };
 
   return (
-    <main className="min-h-screen px-4 py-6 md:py-10">
+    <main className="min-h-dvh px-4 py-6 md:py-10">
       <div className="max-w-xl mx-auto">
         <div className="card mb-4">
           <div className="flex items-center justify-between">

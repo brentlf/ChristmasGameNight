@@ -59,7 +59,7 @@ export default function ResultsPage() {
 
   if (roomLoading || playersLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-4xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -67,7 +67,7 @@ export default function ResultsPage() {
 
   if (!room || !track) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-4xl">{t('common.error', lang)}</div>
       </div>
     );
@@ -77,7 +77,7 @@ export default function ResultsPage() {
   const rest = sortedPlayers.slice(3);
 
   return (
-    <main className="min-h-screen px-4 py-10 md:py-12">
+    <main className="min-h-dvh px-4 py-10 md:py-12">
       <div className="max-w-6xl mx-auto">
         <div className="mb-10 text-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md">

@@ -34,7 +34,7 @@ export function MiniGameDashboard({
   };
 
   return (
-    <main className="min-h-screen px-4 py-10 md:py-16">
+    <main className="min-h-dvh px-4 py-10 md:py-16">
       <div className="mx-auto max-w-4xl">
         <div className="card mb-6">
           <div className="text-center">

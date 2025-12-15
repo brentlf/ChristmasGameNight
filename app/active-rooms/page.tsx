@@ -164,7 +164,7 @@ export default function ActiveRoomsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen px-4 py-10 md:py-16">
+      <main className="min-h-dvh px-4 py-10 md:py-16">
         <div className="mx-auto max-w-4xl">
           <div className="card text-center">
             <p className="text-white/70">{t('common.loading', lang)}</p>
@@ -175,7 +175,7 @@ export default function ActiveRoomsPage() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-10 md:py-16">
+    <main className="min-h-dvh px-4 py-10 md:py-16">
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link 
@@ -285,5 +285,6 @@ export default function ActiveRoomsPage() {
     </main>
   );
 }
+
 
 

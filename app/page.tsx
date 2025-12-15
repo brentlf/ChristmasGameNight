@@ -23,7 +23,7 @@ export default function Home() {
   };
 
     return (
-    <main className="min-h-screen px-4 py-10 md:py-16 flex items-center justify-center">
+    <main className="min-h-dvh px-4 py-10 md:py-16 flex items-center justify-center">
       <div className="mx-auto max-w-4xl w-full">
         {/* Header with animation */}
         <div className="mb-12 text-center animate-slide-up">

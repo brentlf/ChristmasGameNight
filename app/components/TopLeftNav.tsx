@@ -111,8 +111,8 @@ export default function TopLeftNav() {
   if (!showBack && !showHome) return null
 
   return (
-    <div className="fixed left-4 top-4 z-50">
-      <div className="flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-lg px-2 py-2">
+    <div className="fixed left-2 top-2 sm:left-4 sm:top-4 z-50 max-w-[calc(100vw-1rem)]">
+      <div className="flex flex-wrap items-center gap-1 sm:gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-lg px-2 py-2 max-w-full">
         {showReturnToActiveRoom && activeRoomId && (
           <Link
             href={`/room/${activeRoomId}/play`}

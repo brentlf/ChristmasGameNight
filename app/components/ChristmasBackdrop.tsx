@@ -2,7 +2,7 @@ import Image from 'next/image'
 
 export default function ChristmasBackdrop() {
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
       {/* Photo layer (kept subtle) */}
       <div className="absolute inset-0 relative h-full w-full">
         <Image

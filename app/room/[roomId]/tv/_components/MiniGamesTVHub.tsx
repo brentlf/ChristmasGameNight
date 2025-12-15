@@ -676,19 +676,22 @@ export default function MiniGamesTVHub(props: {
 
     if (sessionStatus === 'intro') {
       return (
-        <GameIntro
-          gameId={gameId}
-          lang={lang}
-          allowSkip={isController}
-          onSkip={async () => {
-            if (!isController) return;
-            if (gameId === 'pictionary') {
-              await controllerStartPictionaryRound({ roomId, sessionId, roundIndex: 0 });
-            } else {
-              await controllerStartQuestion({ roomId, sessionId, questionIndex: 0 });
-            }
-          }}
-        />
+        <div className="flex-1 min-h-0 flex flex-col">
+          <GameIntro
+            className="flex-1 min-h-0"
+            gameId={gameId}
+            lang={lang}
+            allowSkip={isController}
+            onSkip={async () => {
+              if (!isController) return;
+              if (gameId === 'pictionary') {
+                await controllerStartPictionaryRound({ roomId, sessionId, roundIndex: 0 });
+              } else {
+                await controllerStartQuestion({ roomId, sessionId, questionIndex: 0 });
+              }
+            }}
+          />
+        </div>
       );
     }
 

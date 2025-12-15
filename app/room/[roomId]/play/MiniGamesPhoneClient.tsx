@@ -93,7 +93,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   // Lobby / between sessions
   if (!currentSession || !sessionId || !gameId || status === 'between' || room.status === 'between_sessions') {
     return (
-      <main className="min-h-screen px-4 py-10 md:py-16">
+      <main className="min-h-dvh px-4 py-10 md:py-16">
         <div className="mx-auto max-w-xl">
           <div className="card text-center relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
@@ -127,7 +127,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   // Intro (players can locally dismiss; controller can skip globally)
   if (status === 'intro' && localIntroDismissedSessionId !== sessionId) {
     return (
-      <main className="min-h-screen px-4 py-10 md:py-12">
+      <main className="min-h-dvh px-4 py-10 md:py-12">
         <div className="mx-auto max-w-3xl">
           <GameIntro
             gameId={gameId}
@@ -175,7 +175,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
     }
 
     return (
-      <main className="min-h-screen px-4 py-6 md:py-10">
+      <main className="min-h-dvh px-4 py-6 md:py-10">
         <div className="max-w-xl mx-auto space-y-4">
           <div className="card">
             <div className="flex items-start justify-between gap-4">
@@ -288,7 +288,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
     const myScore = scoreMap.get(player.uid) ?? 0;
 
     return (
-      <main className="min-h-screen px-4 py-10">
+      <main className="min-h-dvh px-4 py-10">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
             {gameId === 'pictionary' ? (
@@ -346,7 +346,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
     const scoreMap = new Map(scores.map((s) => [s.uid, Number((s as any).score ?? 0)]));
     const myScore = scoreMap.get(player.uid) ?? 0;
     return (
-      <main className="min-h-screen px-4 py-10">
+      <main className="min-h-dvh px-4 py-10">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
             <div className="text-6xl mb-4">🏁</div>
@@ -363,7 +363,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center">
+    <main className="min-h-dvh flex items-center justify-center">
       <div className="text-white/70">{t('common.loading', lang)}</div>
     </main>
   );
@@ -487,7 +487,7 @@ function PictionaryDrawerPhone(props: {
   }, [canvasEl, roundIndex]);
 
   return (
-    <main className="min-h-screen px-4 py-6 md:py-10">
+    <main className="min-h-dvh px-4 py-6 md:py-10">
       <div className="max-w-xl mx-auto space-y-4">
         <div className="card">
           <div className="flex items-start justify-between gap-4">
@@ -566,7 +566,7 @@ function PictionaryGuesserPhone(props: {
   };
 
   return (
-    <main className="min-h-screen px-4 py-6 md:py-10">
+    <main className="min-h-dvh px-4 py-6 md:py-10">
       <div className="max-w-xl mx-auto space-y-4">
         <div className="card">
           <div className="flex items-start justify-between gap-4">

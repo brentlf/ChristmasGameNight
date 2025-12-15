@@ -19,8 +19,9 @@ export default function GameIntro(props: {
   lang?: 'en' | 'cs';
   allowSkip?: boolean;
   onSkip?: () => void;
+  className?: string;
 }) {
-  const { gameId, allowSkip = true, onSkip } = props;
+  const { gameId, allowSkip = true, onSkip, className } = props;
   const lang = props.lang ?? getLanguage();
   const { playSound } = useAudio();
 
@@ -53,11 +54,16 @@ export default function GameIntro(props: {
   }, [videoSrc]);
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/50 backdrop-blur-md p-6 md:p-10">
+    <div
+      className={[
+        'relative overflow-hidden rounded-3xl border border-white/10 bg-black/50 backdrop-blur-md p-6 md:p-10 flex flex-col h-full min-h-0',
+        className ?? '',
+      ].join(' ')}
+    >
       <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
       <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
 
-      <div className="relative">
+      <div className="relative flex flex-col flex-1 min-h-0">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md mb-4">
@@ -86,8 +92,8 @@ export default function GameIntro(props: {
           )}
         </div>
 
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-          <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch flex-1 min-h-0">
+          <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden min-h-0">
             {videoOk ? (
               <video
                 className="w-full h-full object-cover"
@@ -98,7 +104,7 @@ export default function GameIntro(props: {
                 loop
               />
             ) : (
-              <div className="h-48 md:h-64 flex items-center justify-center">
+              <div className="h-full min-h-[12rem] flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-6xl mb-3 animate-pulse-slow">
                     {gameId === 'trivia' ? '⚡' : gameId === 'emoji' ? '🎬' : gameId === 'wyr' ? '🎄' : '🎨'}
@@ -111,8 +117,8 @@ export default function GameIntro(props: {
             )}
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <div className="space-y-3">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col min-h-0">
+            <div className="space-y-3 flex-1 min-h-0 overflow-auto pr-1">
               {lines.map((l, idx) => (
                 <div key={idx} className="rounded-xl border border-white/10 bg-black/20 p-3">
                   <p className="text-white/90 font-semibold">{lang === 'cs' ? l.cs : l.en}</p>

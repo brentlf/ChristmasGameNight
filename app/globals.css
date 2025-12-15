@@ -10,10 +10,13 @@
   html,
   body {
     height: 100%;
+    width: 100%;
+    overflow-x: hidden;
   }
 
   body {
     @apply text-white antialiased;
+    min-height: 100dvh;
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
       'Apple Color Emoji', 'Segoe UI Emoji';
     /* Cosy Christmas night background - warm fireplace glow, soft candlelight */

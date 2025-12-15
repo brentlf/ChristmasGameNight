@@ -20,13 +20,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen">
+      <body className="min-h-dvh overflow-x-hidden">
         <AudioProvider>
           <ChristmasBackdrop />
           <TopLeftNav />
           <AudioPolicyClient />
           <AudioControls />
-          <div className="relative min-h-screen">
+          <div className="relative min-h-dvh">
             {children}
           </div>
           <Toaster position="top-center" />

@@ -324,7 +324,7 @@ export default function TVPage() {
 
   if (roomLoading || playersLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-4xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -332,7 +332,7 @@ export default function TVPage() {
 
   if (!room) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-4xl">{t('common.error', lang)}</div>
       </div>
     );
@@ -367,7 +367,7 @@ export default function TVPage() {
     });
 
     return (
-      <main className="min-h-screen flex flex-col px-4 py-10 md:py-12">
+      <main className="min-h-dvh flex flex-col px-4 py-10 md:py-12">
         <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
           {/* Header */}
           <div className="card mb-6 relative overflow-hidden">
@@ -522,7 +522,7 @@ export default function TVPage() {
     };
 
     return (
-      <main className="min-h-screen flex flex-col px-4 py-10 md:py-12">
+      <main className="min-h-dvh flex flex-col px-4 py-10 md:py-12">
         <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
           {/* Header */}
           <div className="card mb-6 relative overflow-hidden">
@@ -708,8 +708,8 @@ export default function TVPage() {
   };
 
   return (
-    <main className="min-h-screen px-4 py-10 md:py-12">
-      <div className="max-w-7xl mx-auto">
+    <main className="min-h-dvh flex flex-col px-4 py-10 md:py-12">
+      <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col min-h-0">
         {/* Header */}
         <div className="card mb-6 relative overflow-hidden">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
@@ -799,7 +799,7 @@ export default function TVPage() {
         </div>
 
         {/* 3-pillar layout: Players | Track | Leaderboard */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1 min-h-0">
           {/* Players (left) */}
           <div className="card xl:col-span-2 h-full">
             <div className="mb-4">

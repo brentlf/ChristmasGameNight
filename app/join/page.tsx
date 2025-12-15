@@ -93,7 +93,7 @@ export default function JoinPage() {
 
   if (room && room.pinEnabled && !pinOk) {
     return (
-      <main className="min-h-screen px-4 py-10 md:py-16">
+      <main className="min-h-dvh px-4 py-10 md:py-16">
         <div className="mx-auto max-w-lg">
           <div className="card relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-red/15 blur-3xl" />
@@ -139,7 +139,7 @@ export default function JoinPage() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-10 md:py-16">
+    <main className="min-h-dvh px-4 py-10 md:py-16">
       <div className="mx-auto max-w-lg">
         <div className="mb-8 text-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md">
