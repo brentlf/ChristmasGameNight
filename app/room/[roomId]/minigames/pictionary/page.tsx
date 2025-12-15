@@ -18,6 +18,7 @@ import {
 import { getPictionaryItemById } from '@/lib/miniGameContent';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { MiniGameAdvanceGate } from '../_components/MiniGameAdvanceGate';
 
 export default function PictionaryPage() {
   const params = useParams();
@@ -112,6 +113,8 @@ export default function PictionaryPage() {
             <Link href={`/room/${roomId}/play`} className="btn-primary text-center inline-block">
               {t('common.back', lang)}
             </Link>
+
+            <MiniGameAdvanceGate roomId={roomId} room={room} players={players} lang={lang} currentGame="pictionary" />
           </div>
         </div>
       </main>

@@ -80,88 +80,97 @@ export async function ensureStageInitialized(params: {
   const stage = getStageByIndex(trackId, stageIndex);
   if (!stage) return;
 
+  // Valid-id sets to repair older/stale stored ids (prevents "❓" / missing options in stage 2).
+  const emojiIdSet = new Set(emojiClues.map((c) => c.id));
+  const triviaIdSet = new Set(getTriviaPool('en').map((q) => q.id));
+  const codePuzzleIdSet = new Set(codePuzzles.map((p) => p.id));
+  const photoPromptIdSet = new Set(photoPrompts.map((p) => p.id));
+  const riddleGateIdSet = new Set(riddleGatePool.map((r) => r.id));
+  const finalRiddleIdSet = new Set(finalRiddlePool.map((r) => r.id));
+
+  const allValidIds = (ids: any, valid: Set<string>) =>
+    Array.isArray(ids) && ids.length > 0 && ids.every((x) => typeof x === 'string' && valid.has(x));
+
   const playerRef = doc(db, 'rooms', roomId, 'players', uid);
-  const roomRef = doc(db, 'rooms', roomId);
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(playerRef);
     if (!snap.exists()) return;
     const p = snap.data() as Player;
     const stageState = (p.stageState ?? {}) as Record<string, any>;
-    if (stageState[stage.id]?.startedAt) return;
+    const existing = (stageState[stage.id] ?? {}) as any;
 
-    // Get room to check/initialize stage questions
-    const roomSnap = await tx.get(roomRef);
-    if (!roomSnap.exists()) return;
-    const room = roomSnap.data() as Room;
-    
-    // Initialize stage questions in room if not already set (ensures all players get same questions)
-    const raceStageQuestions = room.raceStageQuestions ?? {};
-    const stageKey = stage.id;
-    let stageQuestions = raceStageQuestions[stageKey];
-    
-    if (!stageQuestions) {
-      // Generate questions deterministically based on roomId and stageIndex
-      const seed = generateSeed(roomId, stageIndex);
-      stageQuestions = {};
-      
-      if (stage.type === 'riddle_gate') {
-        stageQuestions.riddleId = pickRandomIdsSeeded(riddleGatePool, 1, seed)[0];
-      }
-      if (stage.type === 'emoji_guess') {
-        stageQuestions.clueIds = pickRandomIdsSeeded(emojiClues, 5, seed);
-      }
-      if (stage.type === 'trivia_solo') {
-        stageQuestions.questionIds = pickRandomIdsSeeded(getTriviaPool('en'), 5, seed);
-      }
-      if (stage.type === 'code_lock') {
-        stageQuestions.puzzleId = pickRandomIdsSeeded(codePuzzles, 1, seed)[0];
-      }
-      if (stage.type === 'photo_scavenger') {
-        stageQuestions.promptId = pickRandomIdsSeeded(photoPrompts, 1, seed)[0];
-      }
-      if (stage.type === 'final_riddle') {
-        stageQuestions.riddleId = pickRandomIdsSeeded(finalRiddlePool, 1, seed)[0];
-      }
-      
-      // Store in room document
-      tx.update(roomRef, {
-        raceStageQuestions: { ...raceStageQuestions, [stageKey]: stageQuestions },
-      } as any);
-    }
+    // Determine whether the player stage state is "complete enough" to render.
+    // This doubles as a repair mechanism for older rooms where raceStageQuestions existed
+    // but some stage-specific fields were missing (e.g., emoji clueIds).
+    const hasRequiredPlayerFields = (() => {
+      if (!existing?.startedAt) return false;
+      if (stage.type === 'riddle_gate') return typeof existing.riddleId === 'string' && riddleGateIdSet.has(existing.riddleId);
+      if (stage.type === 'final_riddle') return typeof existing.riddleId === 'string' && finalRiddleIdSet.has(existing.riddleId);
+      if (stage.type === 'emoji_guess') return allValidIds(existing.clueIds, emojiIdSet);
+      if (stage.type === 'trivia_solo') return allValidIds(existing.questionIds, triviaIdSet);
+      if (stage.type === 'code_lock') return typeof existing.puzzleId === 'string' && codePuzzleIdSet.has(existing.puzzleId);
+      if (stage.type === 'photo_scavenger') return typeof existing.promptId === 'string' && photoPromptIdSet.has(existing.promptId);
+      return true;
+    })();
+
+    // IMPORTANT: Do NOT write stage questions to the room doc.
+    // Firestore rules only allow the controller to update the room doc, so writing here would
+    // break stage initialization for regular players (leading to "❓" and no options).
+    // Instead, generate deterministically from (roomId, stageIndex) so every player sees the same content.
+    const seed = generateSeed(roomId, stageIndex);
+    const stageQuestions: any = {};
+    if (stage.type === 'riddle_gate') stageQuestions.riddleId = pickRandomIdsSeeded(riddleGatePool, 1, seed)[0];
+    if (stage.type === 'emoji_guess') stageQuestions.clueIds = pickRandomIdsSeeded(emojiClues, 5, seed);
+    if (stage.type === 'trivia_solo') stageQuestions.questionIds = pickRandomIdsSeeded(getTriviaPool('en'), 5, seed);
+    if (stage.type === 'code_lock') stageQuestions.puzzleId = pickRandomIdsSeeded(codePuzzles, 1, seed)[0];
+    if (stage.type === 'photo_scavenger') stageQuestions.promptId = pickRandomIdsSeeded(photoPrompts, 1, seed)[0];
+    if (stage.type === 'final_riddle') stageQuestions.riddleId = pickRandomIdsSeeded(finalRiddlePool, 1, seed)[0];
+
+    // If the player already has a complete stage state, no further work is needed.
+    if (hasRequiredPlayerFields) return;
 
     // Use the room's stored questions for this player
     const now = Date.now();
-    const base: any = { startedAt: now, attempts: 0 };
+    const base: any = {
+      // Keep an existing startedAt if it exists, otherwise start now
+      startedAt: existing.startedAt ?? now,
+      // Preserve attempts if they exist
+      attempts: existing.attempts ?? 0,
+    };
 
     if (stage.type === 'riddle_gate') {
-      base.riddleId = stageQuestions.riddleId;
+      const rid = existing.riddleId;
+      base.riddleId = (typeof rid === 'string' && riddleGateIdSet.has(rid)) ? rid : (stageQuestions as any).riddleId;
     }
     if (stage.type === 'emoji_guess') {
-      base.clueIds = stageQuestions.clueIds;
-      base.correctCount = 0;
-      base.answered = {};
-      base.lockoutUntil = 0;
+      base.clueIds = allValidIds(existing.clueIds, emojiIdSet) ? existing.clueIds : (stageQuestions as any).clueIds;
+      base.correctCount = existing.correctCount ?? 0;
+      base.answered = existing.answered ?? {};
+      base.lockoutUntil = existing.lockoutUntil ?? 0;
     }
     if (stage.type === 'trivia_solo') {
-      base.questionIds = stageQuestions.questionIds;
-      base.current = 0;
-      base.correctCount = 0;
-      base.answers = {};
-      base.questionStartedAt = now;
+      base.questionIds = allValidIds(existing.questionIds, triviaIdSet) ? existing.questionIds : (stageQuestions as any).questionIds;
+      base.current = existing.current ?? 0;
+      base.correctCount = existing.correctCount ?? 0;
+      base.answers = existing.answers ?? {};
+      base.questionStartedAt = existing.questionStartedAt ?? now;
     }
     if (stage.type === 'code_lock') {
-      base.puzzleId = stageQuestions.puzzleId;
-      base.lockoutUntil = 0;
+      const pid = existing.puzzleId;
+      base.puzzleId = (typeof pid === 'string' && codePuzzleIdSet.has(pid)) ? pid : (stageQuestions as any).puzzleId;
+      base.lockoutUntil = existing.lockoutUntil ?? 0;
     }
     if (stage.type === 'photo_scavenger') {
-      base.promptId = stageQuestions.promptId;
-      base.photoUrl = null;
-      base.photoUploaded = false;
-      base.done = false;
+      const pr = existing.promptId;
+      base.promptId = (typeof pr === 'string' && photoPromptIdSet.has(pr)) ? pr : (stageQuestions as any).promptId;
+      base.photoUrl = existing.photoUrl ?? null;
+      base.photoUploaded = existing.photoUploaded ?? false;
+      base.done = existing.done ?? false;
     }
     if (stage.type === 'final_riddle') {
-      base.riddleId = stageQuestions.riddleId;
+      const rid = existing.riddleId;
+      base.riddleId = (typeof rid === 'string' && finalRiddleIdSet.has(rid)) ? rid : (stageQuestions as any).riddleId;
     }
 
     tx.update(playerRef, {

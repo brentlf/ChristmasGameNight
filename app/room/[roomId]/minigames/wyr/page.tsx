@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useRoom } from '@/lib/hooks/useRoom';
 import { usePlayer } from '@/lib/hooks/usePlayer';
+import { usePlayers } from '@/lib/hooks/usePlayers';
 import { getLanguage, t } from '@/lib/i18n';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -11,12 +12,14 @@ import { submitWYRChoice } from '@/lib/miniGameEngine';
 import { getWYRItemById } from '@/lib/miniGameContent';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { MiniGameAdvanceGate } from '../_components/MiniGameAdvanceGate';
 
 export default function WYRPage() {
   const params = useParams();
   const router = useRouter();
   const roomId = params.roomId as string;
   const { room } = useRoom(roomId);
+  const { players } = usePlayers(roomId);
   const [playerUid, setPlayerUid] = useState<string | null>(null);
   const { player } = usePlayer(roomId, playerUid);
   const lang = getLanguage();
@@ -70,6 +73,8 @@ export default function WYRPage() {
                 📺 {t('race.tv', lang) || 'View TV'}
               </Link>
             </div>
+
+            <MiniGameAdvanceGate roomId={roomId} room={room} players={players} lang={lang} currentGame="wyr" />
           </div>
         </div>
       </main>
