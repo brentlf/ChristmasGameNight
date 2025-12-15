@@ -939,7 +939,7 @@ function PictionaryTVRound(props: {
             <span className="text-white/90 font-bold">{drawer ? drawer.name : '—'}</span>
           </div>
           <div className="text-xs text-white/50">
-            {lang === 'cs' ? 'Tipy se zobrazí na 2s a zmizí.' : 'Guesses appear for 2s then fade.'}
+            {lang === 'cs' ? 'Tipy se zobrazí na 5s a zmizí.' : 'Guesses appear for 5s then fade.'}
           </div>
         </div>
       </div>
@@ -950,7 +950,7 @@ function PictionaryTVRound(props: {
           <div className="absolute left-4 bottom-4 right-4 space-y-2 pointer-events-none">
             {visibleGuesses.map((g) => {
               const ageMs = Math.max(0, now - g.createdAt);
-              const opacity = ageMs >= 2000 ? 0 : Math.max(0, 1 - ageMs / 2000);
+              const opacity = ageMs >= 5000 ? 0 : Math.max(0, 1 - ageMs / 5000);
               return (
                 <div
                   key={g.id}

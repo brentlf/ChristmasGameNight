@@ -70,10 +70,22 @@ export async function startMiniGameSession(params: {
   const activePlayerUids = (readyUids.length ? readyUids : allPlayerUids).slice(0, 64);
 
   const poolIds = getIdPoolForGame(gameId);
-  if (poolIds.length < questionCount) {
+  // Pictionary rounds should scale with player count so everyone gets a fair turn:
+  // - <3 players: each draws 3x
+  // - 4-6 players: each draws 2x
+  // - >6 players: each draws 1x
+  // (3 players falls into the 4-6 bucket => 2x)
+  const effectiveQuestionCount = (() => {
+    if (gameId !== 'pictionary') return questionCount;
+    const n = activePlayerUids.length;
+    const drawsPerPlayer = n < 3 ? 3 : n <= 6 ? 2 : 1;
+    return Math.max(1, n * drawsPerPlayer);
+  })();
+
+  if (poolIds.length < effectiveQuestionCount) {
     throw new Error(`Not enough content for ${gameId} (${poolIds.length} available)`);
   }
-  const selectedIds = selectRandomItems(poolIds, questionCount);
+  const selectedIds = selectRandomItems(poolIds, effectiveQuestionCount);
 
   const sessionDocRef = await addDoc(collection(db, 'rooms', roomId, 'sessions'), {
     createdAt: Date.now(),

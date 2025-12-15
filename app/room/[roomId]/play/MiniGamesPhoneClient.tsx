@@ -18,6 +18,7 @@ import { generateSeed, shuffleSeeded } from '@/lib/utils/seededRandom';
 import { useAudio } from '@/lib/contexts/AudioContext';
 import { getPictionaryItemById } from '@/lib/miniGameContent';
 import { submitPictionaryGuess, writePictionaryLive, type PictionarySegment } from '@/lib/sessions/pictionaryClient';
+import { usePictionaryLive } from '@/lib/hooks/usePictionaryLive';
 
 function answeredProgress(answered: number, total: number) {
   return `${Math.min(answered, total)}/${Math.max(total, 0)}`;
@@ -157,6 +158,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
           roomId={roomId}
           sessionId={sessionId}
           roundIndex={questionIndex!}
+          totalRounds={selectedIds.length}
           endsAt={currentSession.questionEndsAt}
           startedAt={currentSession.questionStartedAt}
           promptText={(prompt?.prompt?.[lang] ?? '').toString()}
@@ -166,6 +168,8 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
           roomId={roomId}
           sessionId={sessionId}
           roundIndex={questionIndex!}
+          promptId={selectedIds?.[questionIndex!] ?? null}
+          totalRounds={selectedIds.length}
           endsAt={currentSession.questionEndsAt}
           startedAt={currentSession.questionStartedAt}
           player={player}
@@ -373,11 +377,12 @@ function PictionaryDrawerPhone(props: {
   roomId: string;
   sessionId: string;
   roundIndex: number;
+  totalRounds: number;
   promptText: string;
   startedAt?: number | null;
   endsAt?: number | null;
 }) {
-  const { roomId, sessionId, roundIndex, promptText, startedAt, endsAt } = props;
+  const { roomId, sessionId, roundIndex, totalRounds, promptText, startedAt, endsAt } = props;
   const { playSound } = useAudio();
   const lang = getLanguage();
 
@@ -494,7 +499,7 @@ function PictionaryDrawerPhone(props: {
             <div>
               <h1 className="text-xl font-bold">🎨 {lang === 'cs' ? 'Kreslíš!' : 'You’re drawing!'}</h1>
               <p className="text-sm text-white/70">
-                {lang === 'cs' ? 'Kolo' : 'Round'} {roundIndex + 1}/10
+                {lang === 'cs' ? 'Kolo' : 'Round'} {roundIndex + 1}/{Math.max(1, totalRounds)}
               </p>
             </div>
             <TimerRing endsAt={endsAt} startedAt={startedAt} size={46} />
@@ -534,17 +539,23 @@ function PictionaryGuesserPhone(props: {
   roomId: string;
   sessionId: string;
   roundIndex: number;
+  promptId: string | null;
+  totalRounds: number;
   startedAt?: number | null;
   endsAt?: number | null;
   player: Player;
   drawerLabel: string;
 }) {
-  const { roomId, sessionId, roundIndex, startedAt, endsAt, player, drawerLabel } = props;
+  const { roomId, sessionId, roundIndex, promptId, totalRounds, startedAt, endsAt, player, drawerLabel } = props;
   const lang = getLanguage();
   const { playSound } = useAudio();
   const [guess, setGuess] = useState('');
   const [lastSentAt, setLastSentAt] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [sentGuesses, setSentGuesses] = useState<Array<{ id: string; text: string; at: number }>>([]);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const { live } = usePictionaryLive(roomId, sessionId);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const canSend = Date.now() - lastSentAt >= 2000;
 
@@ -556,14 +567,79 @@ function PictionaryGuesserPhone(props: {
     try {
       setLastSentAt(Date.now());
       playSound('click', 0.1);
+
+      // Validate correctness server-side so the phone UI can show Correct/Incorrect without exposing the prompt.
+      let correct: boolean | null = null;
+      if (promptId) {
+        const checkRes = await fetch('/api/pictionary-check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ promptId, guess: g }),
+        });
+        if (checkRes.ok) {
+          const data = (await checkRes.json()) as { correct?: boolean };
+          correct = Boolean(data?.correct);
+        }
+      }
+
       await submitPictionaryGuess({ roomId, sessionId, uid: player.uid, name: player.name, round: roundIndex, guess: g });
+      setSentGuesses((prev) => {
+        const next = [{ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, text: g, at: Date.now() }, ...prev];
+        return next.slice(0, 8);
+      });
+      if (correct === true) setFeedback(lang === 'cs' ? 'Správně! ✅' : 'Correct! ✅');
+      else if (correct === false) setFeedback(lang === 'cs' ? 'Špatně ❌' : 'Incorrect ❌');
+      else setFeedback(lang === 'cs' ? 'Odesláno ✅' : 'Sent ✅');
       setGuess('');
     } catch (e: any) {
+      setFeedback(lang === 'cs' ? 'Nepodařilo se odeslat' : 'Failed to send');
       toast.error(e?.message || t('common.error', lang));
     } finally {
       setBusy(false);
     }
   };
+
+  useEffect(() => {
+    if (!feedback) return;
+    const id = setTimeout(() => setFeedback(null), 1800);
+    return () => clearTimeout(id);
+  }, [feedback]);
+
+  // Render the TV drawing on the guessers' phones (same live stream as TV).
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Clear
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    if (!live) return;
+    if (Number(live.round ?? -1) !== Number(roundIndex ?? -1)) return;
+
+    const events = Array.isArray((live as any).events) ? ((live as any).events as any[]) : [];
+    for (const seg of events) {
+      const x0 = Number(seg.x0 ?? 0) * rect.width;
+      const y0 = Number(seg.y0 ?? 0) * rect.height;
+      const x1 = Number(seg.x1 ?? 0) * rect.width;
+      const y1 = Number(seg.y1 ?? 0) * rect.height;
+      ctx.strokeStyle = String(seg.c ?? '#ffffff');
+      ctx.lineWidth = Math.max(1, Number(seg.w ?? 3));
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+    }
+  }, [live?.seq, live?.events, live?.round, roundIndex]);
 
   return (
     <main className="min-h-dvh px-4 py-6 md:py-10">
@@ -573,10 +649,10 @@ function PictionaryGuesserPhone(props: {
             <div>
               <h1 className="text-xl font-bold">{lang === 'cs' ? 'Hádej!' : 'Guess!'}</h1>
               <p className="text-sm text-white/70">
-                {lang === 'cs' ? 'Kolo' : 'Round'} {roundIndex + 1}/10 • {drawerLabel}
+                {lang === 'cs' ? 'Kolo' : 'Round'} {roundIndex + 1}/{Math.max(1, totalRounds)} • {drawerLabel}
               </p>
               <p className="text-xs text-white/50 mt-1">
-                {lang === 'cs' ? 'Tipuj z TV. Můžeš posílat více tipů.' : 'Guess from the TV. You can send multiple guesses.'}
+                {lang === 'cs' ? 'Sleduj kresbu zde a posílej tipy.' : 'Watch the drawing here and send guesses.'}
               </p>
             </div>
             <TimerRing endsAt={endsAt} startedAt={startedAt} size={46} />
@@ -584,6 +660,20 @@ function PictionaryGuesserPhone(props: {
         </div>
 
         <div className="card">
+          <div className="rounded-2xl border border-white/10 bg-black/30 overflow-hidden">
+            <canvas ref={canvasRef} className="w-full h-[42vh] max-h-[420px] bg-white/5" />
+          </div>
+          <p className="text-xs text-white/50 mt-3 text-center">
+            {lang === 'cs' ? 'Kresba je živě z telefonu kreslíře.' : 'Drawing is live from the drawer’s phone.'}
+          </p>
+        </div>
+
+        <div className="card">
+          {feedback && (
+            <div className="mb-3 text-center text-sm font-semibold text-white/80">
+              {feedback}
+            </div>
+          )}
           <input
             className="input-field"
             value={guess}
@@ -601,6 +691,30 @@ function PictionaryGuesserPhone(props: {
           <p className="text-xs text-white/50 mt-3 text-center">
             {lang === 'cs' ? 'Limit: 1 tip / 2 sekundy.' : 'Rate limit: 1 guess / 2 seconds.'}
           </p>
+
+          {sentGuesses.length > 0 && (
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <div className="text-xs font-semibold text-white/60 mb-2">
+                {lang === 'cs' ? 'Tvoje poslední tipy' : 'Your recent guesses'}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {sentGuesses.map((g) => (
+                  <span
+                    key={g.id}
+                    className="max-w-full rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80 truncate"
+                    title={g.text}
+                  >
+                    {g.text}
+                  </span>
+                ))}
+              </div>
+              <div className="text-[11px] text-white/45 mt-2">
+                {lang === 'cs'
+                  ? 'Když někdo uhádne správně, kolo se brzy odhalí na TV.'
+                  : 'When someone guesses correctly, the round will reveal on the TV shortly.'}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </main>

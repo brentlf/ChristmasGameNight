@@ -26,6 +26,7 @@ export default function TraditionsPage() {
   const [spinning, setSpinning] = useState(false);
   const [selectedTradition, setSelectedTradition] = useState<TraditionItem | null>(null);
   const [pendingSelection, setPendingSelection] = useState<TraditionItem | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
   // Freeze the wheel segments for a spin so they don't change after we mark a tradition as used.
   const [wheelTraditions, setWheelTraditions] = useState<TraditionItem[]>(traditionsChristmasPool);
   const [freezeWheel, setFreezeWheel] = useState(false);
@@ -179,8 +180,43 @@ export default function TraditionsPage() {
     }
   };
 
+  const handleAISpin = async () => {
+    if (spinning || aiBusy) return;
+    setAiBusy(true);
+    try {
+      const res = await fetch('/api/ai-tradition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to generate tradition' }));
+        throw new Error(err?.error || 'Failed to generate tradition');
+      }
+
+      const ai = (await res.json()) as { id: string; en: string; cs: string };
+      const aiTradition: TraditionItem = {
+        id: String(ai.id),
+        en: String(ai.en),
+        cs: String(ai.cs),
+      };
+
+      // For this spin, add the AI option as an extra slice and force the wheel to land on it.
+      const snapshot = [...availableTraditions, aiTradition];
+      setWheelTraditions(snapshot);
+      setFreezeWheel(true);
+      setPendingSelection(aiTradition);
+      setSelectedTradition(null);
+      setSpinning(true);
+    } catch (e: any) {
+      toast.error(e?.message || (lang === 'cs' ? 'AI se nepovedlo.' : 'AI failed.'));
+      setFreezeWheel(false);
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
   const handleSpinComplete = async (actualSelectedTradition: TraditionItem) => {
-    if (!actualSelectedTradition || availableTraditions.length === 0) {
+    if (!actualSelectedTradition) {
       setSpinning(false);
       return;
     }
@@ -189,6 +225,16 @@ export default function TraditionsPage() {
     const selected = actualSelectedTradition;
     setSelectedTradition(selected);
     setPendingSelection(null);
+
+    const isAiTradition = !traditionsChristmasPool.some((t) => t.id === selected.id);
+    if (isAiTradition) {
+      // Don't persist AI picks into the used list / synced wheel, since they are intentionally outside the pool.
+      setFreezeWheel(false);
+      setWheelTraditions(availableTraditions);
+      setSpinning(false);
+      toast.success(lang === 'en' ? `AI picked: ${selected.en}` : `AI vybralo: ${selected.cs}`);
+      return;
+    }
 
     if (DEBUG) {
       console.log('[TraditionsPage] spin complete callback', {
@@ -398,20 +444,31 @@ export default function TraditionsPage() {
 
             {/* Spin button */}
             <div className="text-center mb-6">
-              <button
-                onClick={handleSpin}
-                disabled={spinning || availableTraditions.length === 0}
-                className="btn-primary text-2xl px-8 py-4 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-transform"
-              >
-                {spinning ? (
-                  <span className="flex items-center gap-2">
-                    <span className="animate-spin">🎡</span>
-                    {t('traditions.spinning', lang)}
-                  </span>
-                ) : (
-                  `🎡 ${t('traditions.spin', lang)}`
-                )}
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                <button
+                  onClick={handleSpin}
+                  disabled={spinning || availableTraditions.length === 0}
+                  className="btn-primary text-2xl px-8 py-4 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-transform"
+                >
+                  {spinning ? (
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin">🎡</span>
+                      {t('traditions.spinning', lang)}
+                    </span>
+                  ) : (
+                    `🎡 ${t('traditions.spin', lang)}`
+                  )}
+                </button>
+
+                <button
+                  onClick={handleAISpin}
+                  disabled={spinning || aiBusy}
+                  className="btn-secondary text-lg px-6 py-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={lang === 'cs' ? 'AI vymyslí novou tradici mimo seznam 20' : 'AI generates a new tradition outside the 20-list'}
+                >
+                  {aiBusy ? (lang === 'cs' ? '✨ AI…' : '✨ AI…') : lang === 'cs' ? '✨ AI překvapení' : '✨ AI Surprise'}
+                </button>
+              </div>
             </div>
 
             {/* Share link for synced mode */}
