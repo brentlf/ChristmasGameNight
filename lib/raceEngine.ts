@@ -408,8 +408,11 @@ export async function submitCodeLock(params: {
     }
 
     const puzzle = codePuzzles.find((c) => c.id === st.puzzleId) ?? codePuzzles[0];
-    const normalized = code.trim();
-    const correct = normalized === puzzle.code;
+    // Normalize the input: trim, remove all non-digits, pad to 4 digits with leading zeros if needed
+    const normalizedInput = code.trim().replace(/\D/g, '').padStart(4, '0').slice(0, 4);
+    // Normalize the puzzle code to ensure consistent comparison
+    const normalizedPuzzleCode = String(puzzle.code).trim().replace(/\D/g, '').padStart(4, '0').slice(0, 4);
+    const correct = normalizedInput === normalizedPuzzleCode;
 
     if (!correct) {
       const nextLockout = now + (stage.content.lockoutMs ?? 10_000);

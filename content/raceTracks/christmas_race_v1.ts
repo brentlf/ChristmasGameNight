@@ -37,6 +37,8 @@ export const riddleGatePool: Riddle[] = [
     },
     answers: { en: ['piano', 'a piano', 'keyboard'], cs: ['piano', 'klavír', 'klávesnice'] },
     hint: { en: 'It makes music.', cs: 'Dělá hudbu.' },
+    additionalClue: { en: 'You press these keys with your fingers to create melodies.', cs: 'Tyto klávesy mačkáš prsty, abys vytvořil melodie.' },
+    secondHint: { en: 'It has black and white keys arranged in a pattern.', cs: 'Má černé a bílé klávesy uspořádané v určitém vzoru.' },
   },
   {
     id: 'rg_5',
@@ -67,6 +69,8 @@ export const finalRiddlePool: Riddle[] = [
     },
     answers: { en: ['snowman'], cs: ['sněhulák'] },
     hint: { en: 'Frosty says hi.', cs: 'Frosty zdraví.' },
+    additionalClue: { en: 'I am made of three large balls stacked on top of each other.', cs: 'Jsem vyrobený ze tří velkých koulí naskládaných na sebe.' },
+    secondHint: { en: 'Children build me in the winter using snow, and I often have stick arms.', cs: 'Děti mě staví v zimě ze sněhu a často mám ruce z klacků.' },
   },
   {
     id: 'fr_2',
@@ -85,6 +89,8 @@ export const finalRiddlePool: Riddle[] = [
     },
     answers: { en: ['stocking', 'christmas stocking'], cs: ['punčocha', 'vánoční punčocha'] },
     hint: { en: 'By the fireplace.', cs: 'U krbu.' },
+    additionalClue: { en: 'Santa fills me with small gifts and treats on Christmas Eve.', cs: 'Santa mě na Štědrý večer naplní malými dárky a sladkostmi.' },
+    secondHint: { en: 'I am traditionally red and white, and children hang me up before going to bed on Christmas Eve.', cs: 'Jsem tradičně červená a bílá a děti mě věší před spaním na Štědrý večer.' },
   },
   {
     id: 'fr_4',

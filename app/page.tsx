@@ -6,8 +6,10 @@ import Link from 'next/link';
 
 export default function Home() {
   const [language, setLanguageState] = useState<Language>('en');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const stored = getLanguage();
     setLanguageState(stored);
   }, []);
@@ -22,7 +24,7 @@ export default function Home() {
       <div className="mx-auto max-w-4xl w-full">
         {/* Header with animation */}
         <div className="mb-12 text-center animate-slide-up">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-4 py-2 text-sm text-white/80 backdrop-blur-md animate-float">
+          <div className="inline-flex items-center gap-2 rounded-full bg-wood-dark/40 border border-wood-light/30 px-4 py-2 text-sm text-white/90 backdrop-blur-md animate-float shadow-lg" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 193, 7, 0.15)' }}>
             <span className="text-base animate-pulse-slow">🎄</span>
             <span>Christmas</span>
             </div>
@@ -30,8 +32,8 @@ export default function Home() {
 
         {/* Main title */}
         <div className="text-center mb-12 animate-slide-up-delayed">
-          <h1 className="game-show-title mb-4 text-5xl md:text-7xl">{t('landing.title', language)}</h1>
-          <p className="text-xl md:text-2xl text-white/80">{t('landing.subtitle', language)}</p>
+          <h1 className="game-show-title mb-4 text-5xl md:text-7xl">{mounted ? t('landing.title', language) : 'Christmas Game Night'}</h1>
+          <p className="text-xl md:text-2xl text-white/80">{mounted ? t('landing.subtitle', language) : 'Family Game Show'}</p>
         </div>
 
         {/* Square tiles grid */}
@@ -39,88 +41,119 @@ export default function Home() {
           {/* Christmas Game Night Tile */}
           <Link 
             href="/game-night" 
-            className="group relative aspect-square rounded-3xl overflow-hidden bg-gradient-to-br from-christmas-gold/20 via-christmas-bronze/15 to-christmas-red/10 backdrop-blur-xl border-2 border-white/20 hover:border-christmas-gold/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-christmas-gold/30 animate-scale-in"
+            className="group relative aspect-square rounded-2xl overflow-hidden bg-wood-dark/40 backdrop-blur-xl border border-wood-light/30 hover:border-fire-gold/60 transition-all duration-500 hover:scale-105 animate-scale-in"
+            style={{ 
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 140, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+            }}
           >
-            {/* Animated background gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-christmas-gold/30 via-transparent to-christmas-bronze/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            {/* Warm firelight glow on hover */}
+            <div className="absolute inset-0 bg-gradient-to-br from-fire-orange/20 via-fire-gold/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             
-            {/* Floating orbs */}
-            <div className="absolute top-4 right-4 w-24 h-24 rounded-full bg-christmas-gold/20 blur-2xl animate-float" />
-            <div className="absolute bottom-4 left-4 w-32 h-32 rounded-full bg-christmas-bronze/15 blur-2xl animate-float-delayed" />
+            {/* Floating warm glows */}
+            <div className="absolute top-4 right-4 w-24 h-24 rounded-full bg-fire-gold/25 blur-2xl animate-candle-flicker" />
+            <div className="absolute bottom-4 left-4 w-32 h-32 rounded-full bg-fire-orange/20 blur-2xl animate-candle-flicker-delayed" />
             
             {/* Content */}
             <div className="relative h-full flex flex-col items-center justify-center p-8 text-center z-10">
-              <div className="text-6xl md:text-7xl mb-4 transform group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">
+              <div className="text-6xl md:text-7xl mb-4 transform group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500 filter drop-shadow-[0_0_15px_rgba(255,193,7,0.5)]">
                 🎮
               </div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white group-hover:text-christmas-gold transition-colors duration-300">
+              <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white group-hover:text-fire-gold transition-colors duration-300 drop-shadow-lg">
                 Christmas Game Night
               </h2>
-              <p className="text-white/70 text-sm md:text-base group-hover:text-white/90 transition-colors duration-300">
+              <p className="text-white/75 text-sm md:text-base group-hover:text-white/95 transition-colors duration-300">
                 Amazing Race & Trivia
               </p>
               
-              {/* Shimmer effect on hover */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+              {/* Warm shimmer effect on hover */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-fire-gold/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
             </div>
           </Link>
 
           {/* Christmas Traditions Tile */}
           <Link 
             href="/traditions" 
-            className="group relative aspect-square rounded-3xl overflow-hidden bg-gradient-to-br from-christmas-green/20 via-christmas-red/15 to-christmas-gold/10 backdrop-blur-xl border-2 border-white/20 hover:border-christmas-green/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-christmas-green/30 animate-scale-in"
-            style={{ animationDelay: '0.15s', animationFillMode: 'both' }}
+            className="group relative aspect-square rounded-2xl overflow-hidden bg-wood-dark/40 backdrop-blur-xl border border-wood-light/30 hover:border-fire-gold/60 transition-all duration-500 hover:scale-105 animate-scale-in"
+            style={{ 
+              animationDelay: '0.15s', 
+              animationFillMode: 'both',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(34, 197, 94, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+            }}
           >
-            {/* Animated background gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-christmas-green/30 via-transparent to-christmas-red/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            {/* Warm festive glow on hover - with green accents for Christmas tree feel */}
+            <div className="absolute inset-0 bg-gradient-to-br from-christmas-green/25 via-fire-gold/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             
-            {/* Floating orbs */}
-            <div className="absolute top-4 left-4 w-28 h-28 rounded-full bg-christmas-green/20 blur-2xl animate-float-delayed" />
-            <div className="absolute bottom-4 right-4 w-24 h-24 rounded-full bg-christmas-red/15 blur-2xl animate-float" />
+            {/* Floating warm glows */}
+            <div className="absolute top-4 left-4 w-28 h-28 rounded-full bg-christmas-green/25 blur-2xl animate-candle-flicker-delayed" />
+            <div className="absolute bottom-4 right-4 w-24 h-24 rounded-full bg-fire-gold/20 blur-2xl animate-candle-flicker" />
             
             {/* Content */}
             <div className="relative h-full flex flex-col items-center justify-center p-8 text-center z-10">
-              <div className="text-6xl md:text-7xl mb-4 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500">
+              <div className="text-6xl md:text-7xl mb-4 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500 filter drop-shadow-[0_0_15px_rgba(22,163,74,0.5)]">
                 🎡
               </div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white group-hover:text-christmas-green transition-colors duration-300">
+              <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white group-hover:text-fire-gold transition-colors duration-300 drop-shadow-lg">
                 Christmas Traditions
               </h2>
-              <p className="text-white/70 text-sm md:text-base group-hover:text-white/90 transition-colors duration-300">
+              <p className="text-white/75 text-sm md:text-base group-hover:text-white/95 transition-colors duration-300">
                 Explore & Learn
               </p>
               
-              {/* Shimmer effect on hover */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+              {/* Warm shimmer effect on hover */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-fire-gold/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
             </div>
           </Link>
         </div>
 
         {/* Language selection buttons */}
         <div className="max-w-md mx-auto animate-slide-up-delayed">
-          <p className="text-xs mb-3 text-white/60 text-center">{t('landing.selectLanguage', language)}</p>
+          <p className="text-xs mb-3 text-white/70 text-center">{mounted ? t('landing.selectLanguage', language) : 'Select Language'}</p>
           <div className="flex gap-3 justify-center">
             <button 
               onClick={() => handleLanguageSelect('en')} 
-              className="group relative px-6 py-2 rounded-full overflow-hidden bg-white/10 backdrop-blur-md border border-white/20 hover:border-christmas-gold/60 transition-all duration-300 hover:scale-105 hover:bg-white/15"
+              className={`group relative px-6 py-2 rounded-full overflow-hidden backdrop-blur-md border transition-all duration-300 hover:scale-105 ${
+                language === 'en' 
+                  ? 'bg-fire-gold/30 border-fire-gold/60' 
+                  : 'bg-wood-dark/40 border-wood-light/30 hover:border-fire-gold/60 hover:bg-wood-dark/50'
+              }`}
+              style={{ boxShadow: language === 'en' 
+                ? '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 193, 7, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)' 
+                : '0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)' 
+              }}
             >
-              <span className="relative text-sm font-semibold text-white group-hover:text-christmas-gold transition-colors duration-300">
+              <span className={`relative text-sm font-semibold transition-colors duration-300 ${
+                language === 'en' ? 'text-fire-gold' : 'text-white group-hover:text-fire-gold'
+              }`}>
                 English
               </span>
-              <div className="absolute inset-0 bg-gradient-to-br from-christmas-gold/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </button>
+              <div className={`absolute inset-0 bg-gradient-to-br from-fire-gold/25 to-transparent transition-opacity duration-300 ${
+                language === 'en' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              }`} />
+            </button>
             <button 
               onClick={() => handleLanguageSelect('cs')} 
-              className="group relative px-6 py-2 rounded-full overflow-hidden bg-white/10 backdrop-blur-md border border-white/20 hover:border-christmas-gold/60 transition-all duration-300 hover:scale-105 hover:bg-white/15"
+              className={`group relative px-6 py-2 rounded-full overflow-hidden backdrop-blur-md border transition-all duration-300 hover:scale-105 ${
+                language === 'cs' 
+                  ? 'bg-fire-gold/30 border-fire-gold/60' 
+                  : 'bg-wood-dark/40 border-wood-light/30 hover:border-fire-gold/60 hover:bg-wood-dark/50'
+              }`}
+              style={{ boxShadow: language === 'cs' 
+                ? '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 193, 7, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)' 
+                : '0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)' 
+              }}
             >
-              <span className="relative text-sm font-semibold text-white group-hover:text-christmas-gold transition-colors duration-300">
+              <span className={`relative text-sm font-semibold transition-colors duration-300 ${
+                language === 'cs' ? 'text-fire-gold' : 'text-white group-hover:text-fire-gold'
+              }`}>
                 Čeština
               </span>
-              <div className="absolute inset-0 bg-gradient-to-br from-christmas-gold/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </button>
-            </div>
+              <div className={`absolute inset-0 bg-gradient-to-br from-fire-gold/25 to-transparent transition-opacity duration-300 ${
+                language === 'cs' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              }`} />
+            </button>
           </div>
         </div>
+      </div>
       </main>
     );
   }

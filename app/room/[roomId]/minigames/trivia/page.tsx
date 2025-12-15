@@ -40,8 +40,17 @@ export default function TriviaPage() {
 
   const selectedIds = room.miniGames?.trivia?.selectedIds ?? [];
   const progress = player.miniGameProgress?.trivia;
-  const currentIndex = progress?.answers.length ?? 0;
+  
   const isCompleted = progress?.completedAt !== undefined;
+  
+  // Find the first unanswered question (answer is -1, null, or undefined)
+  let currentIndex = 0;
+  if (!isCompleted && progress?.answers && progress.answers.length > 0) {
+    const firstUnanswered = progress.answers.findIndex((a, idx) => 
+      idx < selectedIds.length && (a === undefined || a === null || a === -1)
+    );
+    currentIndex = firstUnanswered >= 0 ? firstUnanswered : Math.min(progress.answers.length, selectedIds.length);
+  }
 
   if (isCompleted) {
     return (
@@ -135,15 +144,8 @@ function TriviaQuestion({
       } else {
         toast.error(t('trivia.incorrect', lang));
       }
-      // Auto-advance after a brief delay
-      setTimeout(() => {
-        if (questionIndex + 1 >= totalQuestions) {
-          router.refresh();
-        } else {
-          setSelected(null);
-          router.refresh();
-        }
-      }, 1000);
+      // Reset selection - the component will automatically update via Firestore listener
+      setSelected(null);
     } catch (error: any) {
       toast.error(error.message || t('common.error', lang));
     } finally {

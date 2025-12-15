@@ -221,30 +221,134 @@ export default function TVPage() {
           </div>
 
           {/* Leaderboard */}
-          <div className="card">
-            <h2 className="text-3xl font-bold mb-4">{t('common.leaderboard', lang)}</h2>
-            <div className="space-y-3">
-              {sortedPlayers.slice(0, 10).map((player: any, index: number) => (
-                <div key={player.uid} className="flex items-center gap-4 p-3 bg-white/10 rounded-lg">
-                  <div className={`text-3xl font-bold ${
-                    index === 0 ? 'text-christmas-gold' :
-                    index === 1 ? 'text-gray-300' :
-                    index === 2 ? 'text-christmas-bronze' : 'text-white/50'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <span className="text-2xl">{player.avatar}</span>
-                  <div className="flex-1">
-                    <p className="font-semibold">{player.name}</p>
-                    {room.roomMode === 'amazing_race' && totalStages > 0 && (
-                      <p className="text-xs text-white/60">
-                        {t('race.stage', lang)} {Math.min((player.stageIndex ?? 0) + 1, totalStages)}/{totalStages}
-                      </p>
+          <div className="card relative overflow-hidden">
+            <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-christmas-gold/10 blur-2xl" />
+            <div className="absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-christmas-green/10 blur-2xl" />
+            
+            <div className="relative">
+              <h2 className="text-3xl font-bold mb-6 text-center">{t('common.leaderboard', lang)}</h2>
+              
+              {/* Top 3 Podium */}
+              {sortedPlayers.length > 0 && (
+                <div className="mb-6">
+                  <div className="flex justify-center items-end gap-3 mb-4">
+                    {/* 2nd Place */}
+                    {sortedPlayers[1] && (
+                      <div className="flex flex-col items-center group">
+                        <div className="text-4xl mb-2 transform group-hover:scale-110 transition-transform">{sortedPlayers[1].avatar}</div>
+                        <div className="bg-white/20 w-20 h-20 rounded-t-xl border-2 border-white/30 flex items-center justify-center shadow-lg">
+                          <span className="text-2xl font-bold">2</span>
+                        </div>
+                        <p className="text-sm font-bold mt-2 text-center max-w-[80px] truncate">{sortedPlayers[1].name}</p>
+                        <p className="text-lg font-black text-gray-300 mt-1">{sortedPlayers[1].score ?? 0}</p>
+                        {room.roomMode === 'amazing_race' && totalStages > 0 && (
+                          <p className="text-xs text-white/60 mt-1">
+                            {t('race.stage', lang)} {Math.min((sortedPlayers[1].stageIndex ?? 0) + 1, totalStages)}/{totalStages}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* 1st Place - Taller */}
+                    {sortedPlayers[0] && (
+                      <div className="flex flex-col items-center group">
+                        <div className="text-5xl mb-2 transform group-hover:scale-110 transition-transform animate-pulse-slow">🏆</div>
+                        <div className="text-5xl mb-2 transform group-hover:scale-110 transition-transform">{sortedPlayers[0].avatar}</div>
+                        <div className="bg-christmas-gold/90 w-24 h-28 rounded-t-xl border-2 border-christmas-gold shadow-2xl flex items-center justify-center relative overflow-hidden">
+                          <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent" />
+                          <span className="text-3xl font-bold relative z-10">1</span>
+                        </div>
+                        <p className="text-base font-bold mt-2 text-center max-w-[100px] truncate">{sortedPlayers[0].name}</p>
+                        <p className="text-xl font-black text-christmas-gold mt-1">{sortedPlayers[0].score ?? 0}</p>
+                        {room.roomMode === 'amazing_race' && totalStages > 0 && (
+                          <p className="text-xs text-white/60 mt-1">
+                            {t('race.stage', lang)} {Math.min((sortedPlayers[0].stageIndex ?? 0) + 1, totalStages)}/{totalStages}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* 3rd Place */}
+                    {sortedPlayers[2] && (
+                      <div className="flex flex-col items-center group">
+                        <div className="text-4xl mb-2 transform group-hover:scale-110 transition-transform">{sortedPlayers[2].avatar}</div>
+                        <div className="bg-christmas-bronze/80 w-20 h-16 rounded-t-xl border-2 border-christmas-bronze/50 flex items-center justify-center shadow-lg">
+                          <span className="text-2xl font-bold">3</span>
+                        </div>
+                        <p className="text-sm font-bold mt-2 text-center max-w-[80px] truncate">{sortedPlayers[2].name}</p>
+                        <p className="text-lg font-black text-christmas-bronze mt-1">{sortedPlayers[2].score ?? 0}</p>
+                        {room.roomMode === 'amazing_race' && totalStages > 0 && (
+                          <p className="text-xs text-white/60 mt-1">
+                            {t('race.stage', lang)} {Math.min((sortedPlayers[2].stageIndex ?? 0) + 1, totalStages)}/{totalStages}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
-                  <p className="text-xl font-bold">{player.score}</p>
                 </div>
-              ))}
+              )}
+
+              {/* Rest of Leaderboard with Visual Bars */}
+              {sortedPlayers.length > 3 && (
+                <div className="space-y-2 mt-6 pt-6 border-t border-white/10">
+                  {sortedPlayers.slice(3, 10).map((player: any, index: number) => {
+                    const rank = index + 4;
+                    const maxScore = sortedPlayers[0]?.score ?? 1;
+                    const scorePercent = maxScore > 0 ? Math.max(5, (player.score ?? 0) / maxScore * 100) : 0;
+                    
+                    return (
+                      <div 
+                        key={player.uid} 
+                        className="group relative flex items-center gap-3 p-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 hover:border-white/20 transition-all"
+                      >
+                        {/* Rank Badge */}
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                          <span className="text-lg font-bold text-white/70">{rank}</span>
+                        </div>
+                        
+                        {/* Avatar */}
+                        <div className="flex-shrink-0 text-3xl transform group-hover:scale-110 transition-transform">
+                          {player.avatar}
+                        </div>
+                        
+                        {/* Name and Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate">{player.name}</p>
+                          {room.roomMode === 'amazing_race' && totalStages > 0 && (
+                            <p className="text-xs text-white/60">
+                              {t('race.stage', lang)} {Math.min((player.stageIndex ?? 0) + 1, totalStages)}/{totalStages}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {/* Visual Score Bar */}
+                        <div className="flex-1 max-w-[120px] hidden sm:block">
+                          <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-gradient-to-r from-christmas-gold/60 to-christmas-gold rounded-full transition-all duration-500 relative overflow-hidden"
+                              style={{ width: `${scorePercent}%` }}
+                            >
+                              <div 
+                                className="absolute inset-0"
+                                style={{
+                                  background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%)',
+                                  backgroundSize: '200% 100%',
+                                  animation: 'shimmer 2s linear infinite'
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Score */}
+                        <div className="flex-shrink-0 text-right">
+                          <p className="text-lg font-black text-christmas-gold">{player.score ?? 0}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 

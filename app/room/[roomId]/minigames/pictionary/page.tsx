@@ -40,8 +40,17 @@ export default function PictionaryPage() {
 
   const selectedIds = room.miniGames?.pictionary?.selectedIds ?? [];
   const progress = player.miniGameProgress?.pictionary;
-  const currentIndex = progress?.drawings.length ?? 0;
+  
   const isCompleted = progress?.completedAt !== undefined;
+  
+  // Find the first unanswered question (drawing is null, undefined, or missing promptId)
+  let currentIndex = 0;
+  if (!isCompleted && progress?.drawings && progress.drawings.length > 0) {
+    const firstUnanswered = progress.drawings.findIndex((d, idx) => 
+      idx < selectedIds.length && (!d || !d.promptId)
+    );
+    currentIndex = firstUnanswered >= 0 ? firstUnanswered : Math.min(progress.drawings.length, selectedIds.length);
+  }
 
   if (isCompleted) {
     return (
@@ -265,14 +274,8 @@ function PictionaryDrawing({
         dataUrl,
       });
       toast.success(t('common.submit', lang) || 'Drawing submitted!');
-      setTimeout(() => {
-        if (questionIndex + 1 >= totalQuestions) {
-          router.refresh();
-        } else {
-          clearCanvas();
-          router.refresh();
-        }
-      }, 500);
+      // Clear canvas - the component will automatically update via Firestore listener
+      clearCanvas();
     } catch (error: any) {
       console.error('Error submitting pictionary drawing:', error);
       toast.error(error.message || t('common.error', lang) || 'Failed to submit drawing');

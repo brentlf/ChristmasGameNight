@@ -139,23 +139,22 @@ export async function submitTriviaAnswer(params: {
   }
   const isCompleted = newAnswers.length === 10 && newAnswers.every((a) => a !== undefined && a !== -1 && a !== null);
   
+  const triviaUpdate: any = {
+    answers: newAnswers,
+    score: newScore,
+  };
+  if (isCompleted) {
+    triviaUpdate.completedAt = Date.now();
+  }
+  
+  const updatedProgress = {
+    ...(player.miniGameProgress || {}),
+    trivia: triviaUpdate,
+  };
+  
   await updateDoc(playerRef, {
-    miniGameProgress: {
-      ...player.miniGameProgress,
-      trivia: {
-        answers: newAnswers,
-        score: newScore,
-        completedAt: isCompleted ? Date.now() : undefined,
-      },
-    },
-    totalMiniGameScore: calculateTotalMiniGameScore({
-      ...player.miniGameProgress,
-      trivia: {
-        answers: newAnswers,
-        score: newScore,
-        completedAt: isCompleted ? Date.now() : undefined,
-      },
-    }),
+    miniGameProgress: updatedProgress,
+    totalMiniGameScore: calculateTotalMiniGameScore(updatedProgress),
   });
   
   return { correct, score: newScore };
@@ -215,23 +214,22 @@ export async function submitEmojiAnswer(params: {
   
   const isCompleted = newAnswers.length === 10 && newAnswers.every((a) => a && a.trim() !== '');
   
+  const emojiUpdate: any = {
+    answers: newAnswers,
+    score: newScore,
+  };
+  if (isCompleted) {
+    emojiUpdate.completedAt = Date.now();
+  }
+  
+  const updatedProgress = {
+    ...(player.miniGameProgress || {}),
+    emoji: emojiUpdate,
+  };
+  
   await updateDoc(playerRef, {
-    miniGameProgress: {
-      ...player.miniGameProgress,
-      emoji: {
-        answers: newAnswers,
-        score: newScore,
-        completedAt: isCompleted ? Date.now() : undefined,
-      },
-    },
-    totalMiniGameScore: calculateTotalMiniGameScore({
-      ...player.miniGameProgress,
-      emoji: {
-        answers: newAnswers,
-        score: newScore,
-        completedAt: isCompleted ? Date.now() : undefined,
-      },
-    }),
+    miniGameProgress: updatedProgress,
+    totalMiniGameScore: calculateTotalMiniGameScore(updatedProgress),
   });
   
   return { correct, score: newScore };
@@ -259,23 +257,22 @@ export async function submitWYRChoice(params: {
   
   const isCompleted = newChoices.length === 10 && newChoices.every((c) => c === 'A' || c === 'B');
   
+  const wyrUpdate: any = {
+    choices: newChoices,
+    score: newScore,
+  };
+  if (isCompleted) {
+    wyrUpdate.completedAt = Date.now();
+  }
+  
+  const updatedProgress = {
+    ...(player.miniGameProgress || {}),
+    wyr: wyrUpdate,
+  };
+  
   await updateDoc(playerRef, {
-    miniGameProgress: {
-      ...player.miniGameProgress,
-      wyr: {
-        choices: newChoices,
-        score: newScore,
-        completedAt: isCompleted ? Date.now() : undefined,
-      },
-    },
-    totalMiniGameScore: calculateTotalMiniGameScore({
-      ...player.miniGameProgress,
-      wyr: {
-        choices: newChoices,
-        score: newScore,
-        completedAt: isCompleted ? Date.now() : undefined,
-      },
-    }),
+    miniGameProgress: updatedProgress,
+    totalMiniGameScore: calculateTotalMiniGameScore(updatedProgress),
   });
   
   return { score: newScore };
@@ -318,23 +315,22 @@ export async function submitPictionaryDrawing(params: {
   // Check completion based on actual number of prompts, not hardcoded 10
   const isCompleted = newDrawings.length === selectedIds.length && newDrawings.every((d) => d && d.promptId);
   
+  const pictionaryUpdate: any = {
+    drawings: newDrawings,
+    score: newScore,
+  };
+  if (isCompleted) {
+    pictionaryUpdate.completedAt = Date.now();
+  }
+  
+  const updatedProgress = {
+    ...(player.miniGameProgress || {}),
+    pictionary: pictionaryUpdate,
+  };
+  
   await updateDoc(playerRef, {
-    miniGameProgress: {
-      ...player.miniGameProgress,
-      pictionary: {
-        drawings: newDrawings,
-        score: newScore,
-        completedAt: isCompleted ? Date.now() : undefined,
-      },
-    },
-    totalMiniGameScore: calculateTotalMiniGameScore({
-      ...player.miniGameProgress,
-      pictionary: {
-        drawings: newDrawings,
-        score: newScore,
-        completedAt: isCompleted ? Date.now() : undefined,
-      },
-    }),
+    miniGameProgress: updatedProgress,
+    totalMiniGameScore: calculateTotalMiniGameScore(updatedProgress),
   });
   
   return { score: newScore };

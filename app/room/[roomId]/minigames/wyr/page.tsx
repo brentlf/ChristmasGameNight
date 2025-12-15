@@ -40,8 +40,17 @@ export default function WYRPage() {
 
   const selectedIds = room.miniGames?.wyr?.selectedIds ?? [];
   const progress = player.miniGameProgress?.wyr;
-  const currentIndex = progress?.choices.length ?? 0;
+  
   const isCompleted = progress?.completedAt !== undefined;
+  
+  // Find the first unanswered question (choice is not 'A' or 'B')
+  let currentIndex = 0;
+  if (!isCompleted && progress?.choices && progress.choices.length > 0) {
+    const firstUnanswered = progress.choices.findIndex((c, idx) => 
+      idx < selectedIds.length && (c !== 'A' && c !== 'B')
+    );
+    currentIndex = firstUnanswered >= 0 ? firstUnanswered : Math.min(progress.choices.length, selectedIds.length);
+  }
 
   if (isCompleted) {
     return (
@@ -130,14 +139,8 @@ function WYRQuestion({
         choice: selected,
       });
       toast.success(t('common.submit', lang));
-      setTimeout(() => {
-        if (questionIndex + 1 >= totalQuestions) {
-          router.refresh();
-        } else {
-          setSelected(null);
-          router.refresh();
-        }
-      }, 500);
+      // Reset selection - the component will automatically update via Firestore listener
+      setSelected(null);
     } catch (error: any) {
       toast.error(error.message || t('common.error', lang));
     } finally {

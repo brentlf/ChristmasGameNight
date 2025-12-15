@@ -392,7 +392,11 @@ function StageBody(props: {
   const [selected, setSelected] = useState<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
 
-  const lockoutUntil = state.lockoutUntil ?? 0;
+  // Ensure state and stage exist to prevent errors
+  const safeState = state ?? {};
+  const safeStage = stage ?? { type: '', id: '', content: {} };
+
+  const lockoutUntil = safeState.lockoutUntil ?? 0;
   const locked = lockoutUntil && now < lockoutUntil;
   const lockoutSeconds = locked ? Math.ceil((lockoutUntil - now) / 1000) : 0;
 
@@ -400,18 +404,45 @@ function StageBody(props: {
     setText('');
     setSelected(null);
     setShowHint(false);
-  }, [stage.id]);
+  }, [safeStage.id]);
+
+  // Handle trivia_solo auto-submit timeout (must be at top level for hooks rules)
+  const isTriviaSolo = safeStage.type === 'trivia_solo';
+  const questionIds: string[] = isTriviaSolo ? (safeState.questionIds ?? []) : [];
+  const current = isTriviaSolo ? Number(safeState.current ?? 0) : 0;
+  const questionId = isTriviaSolo ? questionIds[current] : undefined;
+  const secondsPerQuestion = isTriviaSolo ? Number(safeStage.content?.secondsPerQuestion ?? 20) : 0;
+  const startedAt = isTriviaSolo ? Number(safeState.questionStartedAt ?? safeState.startedAt ?? now) : 0;
+  const elapsedS = isTriviaSolo ? Math.floor((now - startedAt) / 1000) : 0;
+  const remaining = isTriviaSolo ? Math.max(0, secondsPerQuestion - elapsedS) : 0;
+
+  useEffect(() => {
+    if (!isTriviaSolo || !questionId) return;
+    if (remaining !== 0) return;
+    // Timeout auto-submit
+    if (busy) return;
+    setBusy(true);
+    submitTriviaAnswer({ roomId, uid: uid!, trackId, stageIndex, questionId, choiceIndex: null, lang })
+      .catch(() => {})
+      .finally(() => setBusy(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remaining, questionId, isTriviaSolo]);
 
   if (!uid) {
     return <p className="text-white/70">{t('common.loading', lang)}</p>;
   }
 
-  if (stage.type === 'riddle_gate' || stage.type === 'final_riddle') {
+  if (safeStage.type === 'riddle_gate' || safeStage.type === 'final_riddle') {
     const riddle =
-      stage.type === 'riddle_gate'
-        ? getRiddleGateRiddleById(state.riddleId ?? '')
-        : getFinalRiddleById(state.riddleId ?? '');
+      safeStage.type === 'riddle_gate'
+        ? getRiddleGateRiddleById(safeState.riddleId ?? '')
+        : getFinalRiddleById(safeState.riddleId ?? '');
     const hint = riddle?.hint?.[lang];
+    const additionalClue = riddle?.additionalClue?.[lang];
+    const secondHint = riddle?.secondHint?.[lang];
+    const attempts = Number(state.attempts ?? 0);
+    const showAdditionalClue = attempts >= 3 && additionalClue;
+    const showSecondHint = attempts >= 6 && secondHint;
 
     return (
       <div className="space-y-4">
@@ -456,15 +487,33 @@ function StageBody(props: {
         )}
 
         {hint && showHint && <div className="text-white/80 text-sm">{hint}</div>}
+
+        {showAdditionalClue && (
+          <div className="rounded-2xl border border-christmas-gold/30 bg-christmas-gold/10 p-4">
+            <p className="text-xs text-christmas-gold/80 uppercase tracking-widest mb-1">
+              {t('race.additionalClue', lang) || 'Additional Clue'}
+            </p>
+            <div className="text-white/90 text-sm">{additionalClue}</div>
+          </div>
+        )}
+
+        {showSecondHint && (
+          <div className="rounded-2xl border border-christmas-gold/40 bg-christmas-gold/15 p-4">
+            <p className="text-xs text-christmas-gold/90 uppercase tracking-widest mb-1">
+              {t('race.secondHint', lang) || 'Extra Hint'}
+            </p>
+            <div className="text-white/90 text-sm">{secondHint}</div>
+          </div>
+        )}
       </div>
     );
   }
 
-  if (stage.type === 'emoji_guess') {
-    const clueIds: string[] = state.clueIds ?? [];
-    const answered: Record<string, any> = state.answered ?? {};
-    const correctCount = Number(state.correctCount ?? 0);
-    const needCorrect = Number(stage.content.needCorrect ?? 3);
+  if (safeStage.type === 'emoji_guess') {
+    const clueIds: string[] = safeState.clueIds ?? [];
+    const answered: Record<string, any> = safeState.answered ?? {};
+    const correctCount = Number(safeState.correctCount ?? 0);
+    const needCorrect = Number(safeStage.content?.needCorrect ?? 3);
 
     const nextClueId = clueIds.find((id) => !answered[id]) ?? clueIds[0];
     const clue = getEmojiClueById(nextClueId ?? '');
@@ -516,27 +565,8 @@ function StageBody(props: {
     );
   }
 
-  if (stage.type === 'trivia_solo') {
-    const questionIds: string[] = state.questionIds ?? [];
-    const current = Number(state.current ?? 0);
-    const questionId = questionIds[current];
+  if (safeStage.type === 'trivia_solo') {
     const q = questionId ? getTriviaQuestionById(lang, questionId) : undefined;
-    const secondsPerQuestion = Number(stage.content.secondsPerQuestion ?? 20);
-    const startedAt = Number(state.questionStartedAt ?? state.startedAt ?? now);
-    const elapsedS = Math.floor((now - startedAt) / 1000);
-    const remaining = Math.max(0, secondsPerQuestion - elapsedS);
-
-    useEffect(() => {
-      if (!questionId) return;
-      if (remaining !== 0) return;
-      // Timeout auto-submit
-      if (busy) return;
-      setBusy(true);
-      submitTriviaAnswer({ roomId, uid, trackId, stageIndex, questionId, choiceIndex: null, lang })
-        .catch(() => {})
-        .finally(() => setBusy(false));
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [remaining, questionId]);
 
     if (!q) {
       return <p className="text-white/70">{t('common.loading', lang)}</p>;
@@ -593,8 +623,8 @@ function StageBody(props: {
     );
   }
 
-  if (stage.type === 'code_lock') {
-    const puzzle = getCodePuzzleById(state.puzzleId ?? '');
+  if (safeStage.type === 'code_lock') {
+    const puzzle = getCodePuzzleById(safeState.puzzleId ?? '');
     const hint = puzzle?.hint?.[lang];
     return (
       <div className="space-y-4">
@@ -646,8 +676,8 @@ function StageBody(props: {
     );
   }
 
-  if (stage.type === 'photo_scavenger') {
-    const prompt = getPhotoPromptById(state.promptId ?? '');
+  if (safeStage.type === 'photo_scavenger') {
+    const prompt = getPhotoPromptById(safeState.promptId ?? '');
     return (
       <div className="space-y-4">
         <p className="text-xl font-semibold">{prompt?.prompt?.[lang] ?? t('common.loading', lang)}</p>

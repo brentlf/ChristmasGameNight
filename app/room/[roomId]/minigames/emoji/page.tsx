@@ -40,8 +40,17 @@ export default function EmojiPage() {
 
   const selectedIds = room.miniGames?.emoji?.selectedIds ?? [];
   const progress = player.miniGameProgress?.emoji;
-  const currentIndex = progress?.answers.length ?? 0;
+  
   const isCompleted = progress?.completedAt !== undefined;
+  
+  // Find the first unanswered question (empty string, null, or undefined)
+  let currentIndex = 0;
+  if (!isCompleted && progress?.answers && progress.answers.length > 0) {
+    const firstUnanswered = progress.answers.findIndex((a, idx) => 
+      idx < selectedIds.length && (!a || a.trim() === '')
+    );
+    currentIndex = firstUnanswered >= 0 ? firstUnanswered : Math.min(progress.answers.length, selectedIds.length);
+  }
 
   if (isCompleted) {
     return (
@@ -138,14 +147,8 @@ function EmojiQuestion({
       } else {
         toast.error(t('emoji.incorrect', lang));
       }
-      setTimeout(() => {
-        if (questionIndex + 1 >= totalQuestions) {
-          router.refresh();
-        } else {
-          setSelected(null);
-          router.refresh();
-        }
-      }, 1000);
+      // Reset selection - the component will automatically update via Firestore listener
+      setSelected(null);
     } catch (error: any) {
       toast.error(error.message || t('common.error', lang));
     } finally {

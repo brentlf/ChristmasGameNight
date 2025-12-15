@@ -113,6 +113,8 @@ export interface Riddle {
     cs: string[];
   };
   hint?: { en: string; cs: string };
+  additionalClue?: { en: string; cs: string }; // Shown after 3 failed attempts
+  secondHint?: { en: string; cs: string }; // Shown after 6 failed attempts
 }
 
 export interface PhotoPrompt {
