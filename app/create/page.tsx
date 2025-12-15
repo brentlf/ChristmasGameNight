@@ -37,7 +37,8 @@ function CreatePageInner() {
   const [eventsEnabled, setEventsEnabled] = useState(true);
   const [overallScoringEnabled, setOverallScoringEnabled] = useState(true);
   const [overallScoringMode, setOverallScoringMode] = useState<'placements' | 'sumMiniGameScores' | 'hybrid'>('hybrid');
-  const [miniGamesEnabled, setMiniGamesEnabled] = useState<MiniGameType[]>([]);
+  // Host Session rooms allow starting any game from the TV hub, so we don't ask for per-room game selection.
+  const allMiniGames: MiniGameType[] = ['trivia', 'emoji', 'wyr', 'pictionary'];
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -62,11 +63,6 @@ function CreatePageInner() {
       return;
     }
 
-    if (roomMode === 'mini_games' && miniGamesEnabled.length === 0) {
-      toast.error('Please select at least one mini game');
-      return;
-    }
-
     playSound('click');
     setLoading(true);
     try {
@@ -80,7 +76,7 @@ function CreatePageInner() {
         eventsEnabled,
         overallScoringEnabled,
         overallScoringMode,
-        miniGamesEnabled: roomMode === 'mini_games' ? miniGamesEnabled : undefined,
+        miniGamesEnabled: roomMode === 'mini_games' ? allMiniGames : undefined,
       });
       
       playSound('success');
@@ -92,20 +88,12 @@ function CreatePageInner() {
     }
   };
 
-  const toggleMiniGame = (gameType: MiniGameType) => {
-    setMiniGamesEnabled(prev =>
-      prev.includes(gameType)
-        ? prev.filter(g => g !== gameType)
-        : [...prev, gameType]
-    );
-  };
-
   const getModeDisplayName = (mode: RoomMode): string => {
     switch (mode) {
       case 'amazing_race':
         return 'Amazing Race (Festive Dash)';
       case 'mini_games':
-        return 'Mini Games';
+        return 'Host Session';
       case 'leaderboard':
         return 'Leaderboard';
       default:
@@ -118,7 +106,7 @@ function CreatePageInner() {
       case 'amazing_race':
         return 'Amazing Race';
       case 'mini_games':
-        return 'Mini Games';
+        return 'Game Night';
       case 'leaderboard':
         return 'Leaderboard';
       default:
@@ -220,38 +208,17 @@ function CreatePageInner() {
             </div>
 
             {roomMode === 'mini_games' && (
-              <div>
-                <label className="block text-lg font-semibold mb-3">
-                  Select Mini Games
-                </label>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
-                  {([
-                    { type: 'trivia' as MiniGameType, name: '⚡ Trivia Blitz', desc: 'Quick-fire trivia questions' },
-                    { type: 'emoji' as MiniGameType, name: '🎬 Emoji Movies/Songs', desc: 'Guess the movie or song from emojis' },
-                    { type: 'wyr' as MiniGameType, name: '🤔 Would You Rather', desc: 'Make choices and see what others picked' },
-                    { type: 'pictionary' as MiniGameType, name: '🎨 Pictionary', desc: 'Draw and guess prompts' },
-                  ]).map((game) => (
-                    <label
-                      key={game.type}
-                      className="flex items-start gap-3 cursor-pointer p-3 rounded-xl hover:bg-white/5 transition"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={miniGamesEnabled.includes(game.type)}
-                        onChange={() => toggleMiniGame(game.type)}
-                        className="w-5 h-5 mt-0.5"
-                      />
-                      <div>
-                        <div className="font-semibold text-white/90">{game.name}</div>
-                        <div className="text-xs text-white/60">{game.desc}</div>
-                      </div>
-                    </label>
-                  ))}
-                  {miniGamesEnabled.length === 0 && (
-                    <p className="text-xs text-white/60 italic">
-                      Select at least one mini game to enable
-                    </p>
-                  )}
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-sm font-semibold text-white/85 mb-2">What you’re creating</p>
+                <p className="text-sm text-white/70">
+                  A single room where the TV host can start any mini-game or Amazing Race as separate sessions.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  <span className="px-2 py-1 rounded bg-white/10 border border-white/10">⚡ Trivia</span>
+                  <span className="px-2 py-1 rounded bg-white/10 border border-white/10">🎬 Emoji</span>
+                  <span className="px-2 py-1 rounded bg-white/10 border border-white/10">🎄 WYR</span>
+                  <span className="px-2 py-1 rounded bg-white/10 border border-white/10">🎨 Pictionary</span>
+                  <span className="px-2 py-1 rounded bg-white/10 border border-white/10">🏁 Amazing Race</span>
                 </div>
               </div>
             )}

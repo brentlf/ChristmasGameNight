@@ -1,6 +1,37 @@
-export type RoomStatus = 'lobby' | 'running' | 'finished';
+// Room-level lifecycle. Historically this app used: lobby -> running -> finished.
+// We extend it to support TV-led session flows without breaking old rooms.
+export type RoomStatus =
+  | 'lobby'
+  | 'running'
+  | 'finished'
+  | 'between_sessions'
+  | 'session_intro'
+  | 'session_in_game'
+  | 'session_reveal'
+  | 'session_results';
 export type RoomMode = 'amazing_race' | 'mini_games' | 'leaderboard';
 export type MiniGameType = 'trivia' | 'emoji' | 'wyr' | 'pictionary';
+
+export type SessionStatus = 'lobby' | 'intro' | 'in_game' | 'reveal' | 'between' | 'finished';
+export type SessionGameId = MiniGameType | 'race';
+
+export interface RoomCurrentSession {
+  sessionId: string;
+  status: SessionStatus;
+  gameId?: SessionGameId;
+  questionIndex?: number;
+  // Stored as ms since epoch (consistent with rest of this codebase).
+  questionStartedAt?: number;
+  questionEndsAt?: number;
+  // Active players snapshot for this session. Can be expanded during the session if late-joiners answer.
+  activePlayerUids?: string[];
+  // Convenience cache for UI; TV/controller may populate but clients can also derive from answers.
+  answeredUids?: string[];
+  // Game-specific reveal payload (shape depends on gameId)
+  revealData?: Record<string, any> | null;
+  // Pictionary-specific
+  drawerUid?: string | null;
+}
 
 export interface Room {
   id: string;
@@ -18,6 +49,10 @@ export interface Room {
   controllerUid: string;
   status: RoomStatus;
   roomMode: RoomMode; // The mode this room is configured for
+  // Optional redirect to a new room (room rollover without rescanning).
+  redirectRoomId?: string;
+  // TV-led synchronous mini-game session (one room -> many sessions).
+  currentSession?: RoomCurrentSession;
   raceTrackId: 'christmas_race_v1'; // Only used when roomMode is 'amazing_race'
   raceStartedAt?: number; // ms since epoch
   // Enabled mini games (only used when roomMode is 'mini_games')
@@ -86,6 +121,8 @@ export interface Player {
   stageState: Record<string, any>;
   finishedAt?: number; // ms since epoch
   lastActiveAt?: number; // ms since epoch
+  // Mini-games lobby readiness (used to determine active players at session start).
+  ready?: boolean;
   photoUploaded?: boolean; // convenience flag for TV (stage 5 bonus)
   // Amazing Race (spec-compliant naming)
   raceStageIndex?: number; // Alias for stageIndex

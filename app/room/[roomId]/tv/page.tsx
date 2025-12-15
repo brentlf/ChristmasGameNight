@@ -6,7 +6,8 @@ import { usePlayers } from '@/lib/hooks/usePlayers';
 import { getLanguage, t } from '@/lib/i18n';
 import { QRCodeSVG } from 'qrcode.react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { getRaceTrack } from '@/lib/raceEngine';
@@ -19,6 +20,8 @@ import type { Player, Room } from '@/types';
 import toast from 'react-hot-toast';
 import MiniGamesTVHub from './_components/MiniGamesTVHub';
 import { useSessionScores } from '@/lib/hooks/useSessionScores';
+import { useAudio } from '@/lib/contexts/AudioContext';
+import RaceTrackTV from './_components/RaceTrackTV';
 
 function isLocalhost(hostname: string) {
   // 0.0.0.0 is a bind-all address (valid for the server) but not a routable client hostname.
@@ -40,6 +43,41 @@ function ExpandableQRCode({ value, smallSize = 160 }: { value: string; smallSize
 
   if (!value) return null;
 
+  const modal =
+    open && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-6"
+            onClick={() => setOpen(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Expanded QR code"
+          >
+            <div
+              className="relative w-full max-w-2xl rounded-3xl border border-white/15 bg-black/60 backdrop-blur-md p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div className="min-w-0">
+                  <p className="text-sm text-white/70">Scan to join</p>
+                  <p className="text-xs text-white/50 mt-1">Tip: press ESC to minimize</p>
+                </div>
+                <button type="button" className="btn-secondary" onClick={() => setOpen(false)}>
+                  Minimise
+                </button>
+              </div>
+
+              <div className="mx-auto w-fit rounded-2xl bg-white p-4">
+                <QRCodeSVG value={value} size={420} />
+              </div>
+
+              <p className="mt-4 text-xs text-white/50 break-all text-center">{value}</p>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
     <>
       <button
@@ -52,36 +90,7 @@ function ExpandableQRCode({ value, smallSize = 160 }: { value: string; smallSize
         <QRCodeSVG value={value} size={smallSize} />
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
-          onClick={() => setOpen(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Expanded QR code"
-        >
-          <div
-            className="relative w-full max-w-2xl rounded-3xl border border-white/15 bg-black/60 backdrop-blur-md p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div className="min-w-0">
-                <p className="text-sm text-white/70">Scan to join</p>
-                <p className="text-xs text-white/50 mt-1">Tip: press ESC to minimize</p>
-              </div>
-              <button type="button" className="btn-secondary" onClick={() => setOpen(false)}>
-                Minimise
-              </button>
-            </div>
-
-            <div className="mx-auto w-fit rounded-2xl bg-white p-4">
-              <QRCodeSVG value={value} size={420} />
-            </div>
-
-            <p className="mt-4 text-xs text-white/50 break-all text-center">{value}</p>
-          </div>
-        </div>
-      )}
+      {modal}
     </>
   );
 }
@@ -233,6 +242,9 @@ export default function TVPage() {
   const [viewerUid, setViewerUid] = useState<string | null>(null);
   const { events } = useEvents(roomId, 15);
   const [pictionaryBusy, setPictionaryBusy] = useState(false);
+  const { playSound } = useAudio();
+  const lastStageByUid = useRef<Map<string, number>>(new Map());
+  const stageSoundPrimed = useRef(false);
 
   useEffect(() => {
     if (auth?.currentUser?.uid) {
@@ -280,6 +292,36 @@ export default function TVPage() {
     };
   }, [room?.code]);
 
+  // Amazing Race: play sleighbells whenever any player advances a stage (TV feedback).
+  useEffect(() => {
+    if (!room) return;
+    if (room.roomMode !== 'amazing_race') return;
+    if (!players || players.length === 0) return;
+
+    // Prime on first load to avoid a bell spam on initial snapshot.
+    if (!stageSoundPrimed.current) {
+      const m = new Map<string, number>();
+      for (const p of players as any[]) {
+        m.set(String(p.uid), Number((p as any).stageIndex ?? 0));
+      }
+      lastStageByUid.current = m;
+      stageSoundPrimed.current = true;
+      return;
+    }
+
+    let anyAdvanced = false;
+    const m = new Map(lastStageByUid.current);
+    for (const p of players as any[]) {
+      const uid = String(p.uid);
+      const next = Number((p as any).stageIndex ?? 0);
+      const prev = Number(m.get(uid) ?? next);
+      if (next > prev) anyAdvanced = true;
+      m.set(uid, next);
+    }
+    lastStageByUid.current = m;
+    if (anyAdvanced) playSound('sleighbells', 0.22);
+  }, [playSound, players, room]);
+
   if (roomLoading || playersLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -315,22 +357,18 @@ export default function TVPage() {
   const completedCount = players.filter((p: any) => (p.stageIndex ?? 0) >= totalStages).length;
   const leadStage = players.length ? Math.max(...players.map((p: any) => p.stageIndex ?? 0)) : 0;
 
-  // New TV-led synchronous mini-games hub.
-  if (room.roomMode === 'mini_games') {
-    const sessionScoreMap = new Map(sessionScores.map((s: any) => [s.uid, Number(s.score ?? 0)]));
-    const sidebarLeaders = [...players]
-      .map((p: any) => {
-        const sessionScore = sessionScoreMap.get(p.uid) ?? 0;
-        const fallbackScore = Number(p.totalMiniGameScore ?? p.score ?? 0);
-        const displayScore =
-          room.currentSession && room.currentSession.sessionId && room.currentSession.gameId ? sessionScore : fallbackScore;
-        return { ...p, sessionScore, displayScore };
-      })
-      .sort((a: any, b: any) => (b.displayScore ?? 0) - (a.displayScore ?? 0));
+  // Unified lobby: regardless of current roomMode, the TV lobby should show QR + game selection tiles.
+  // This is what the "Back to lobby" button expects (instead of staying on the race screen).
+  if (room.status === 'lobby') {
+    const lobbyLeaders = [...players].sort((a: any, b: any) => {
+      const aScore = Number(a.totalMiniGameScore ?? a.score ?? 0);
+      const bScore = Number(b.totalMiniGameScore ?? b.score ?? 0);
+      return bScore - aScore;
+    });
 
     return (
-      <main className="min-h-screen px-4 py-10 md:py-12">
-        <div className="max-w-7xl mx-auto">
+      <main className="min-h-screen flex flex-col px-4 py-10 md:py-12">
+        <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
           {/* Header */}
           <div className="card mb-6 relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
@@ -363,7 +401,7 @@ export default function TVPage() {
                 </div>
               </div>
 
-              <div className="text-center shrink-0">
+              <div className="shrink-0">
                 <div className="inline-flex items-center justify-center rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
                   <ExpandableQRCode value={joinUrl} smallSize={160} />
                 </div>
@@ -372,15 +410,198 @@ export default function TVPage() {
             </div>
           </div>
 
-          {/* 3-pillar layout: Players | Game Stage | Leaderboard */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          {/* 3-pillar layout: Players | Lobby/Game Select | Leaderboard */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1 min-h-0">
             {/* Players (left) */}
-            <div className="card xl:col-span-3">
-              <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="card xl:col-span-2 h-full">
+              <div className="mb-4">
                 <h2 className="text-2xl font-bold">
                   {t('tv.players', lang)} ({players.length}/{room.maxPlayers})
                 </h2>
-                <span className="text-xs text-white/60">{lang === 'cs' ? 'Ready = aktivní' : 'Ready = active'}</span>
+                <div className="text-xs text-white/60 whitespace-normal break-words max-w-full">
+                  {lang === 'cs' ? 'Připoj se mobilem a pak host spustí hru.' : 'Join on your phone, then the host starts the game.'}
+                </div>
+              </div>
+              <div className="space-y-3">
+                {sortedPlayers.map((p: any) => (
+                  <div key={p.uid} className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-lg font-bold">
+                          <span className="mr-2 text-xl">{p.avatar}</span>
+                          {p.name}
+                        </p>
+                        <p className="text-xs text-white/60 mt-1">
+                          {p.ready ? '✅ Ready' : '⏳ Not ready'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-base font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {sortedPlayers.length === 0 && (
+                  <p className="text-sm text-white/60">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Lobby / Game Select (middle) */}
+            <div className="xl:col-span-8 h-full flex flex-col min-h-0">
+              <MiniGamesTVHub roomId={roomId} room={room} players={players} lang={lang} isController={isController} />
+            </div>
+
+            {/* Leaderboard (right) */}
+            <div className="card xl:col-span-2 h-full">
+              <div className="mb-4">
+                <h2 className="text-2xl font-bold">{t('common.leaderboard', lang)}</h2>
+                <div className="text-xs text-white/60 whitespace-normal break-words max-w-full">
+                  {lang === 'cs' ? 'Celkem' : 'Overall'}
+                </div>
+              </div>
+
+              {lobbyLeaders.length === 0 ? (
+                <p className="text-sm text-white/60">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
+              ) : (
+                <div className="space-y-2">
+                  {lobbyLeaders.slice(0, 10).map((p: any, idx: number) => (
+                    <div
+                      key={p.uid}
+                      className={`rounded-2xl border p-3 flex items-center justify-between gap-3 ${
+                        idx === 0 ? 'border-christmas-gold/40 bg-christmas-gold/10' : 'border-white/10 bg-white/5'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-bold">
+                          <span className="mr-2">{idx === 0 ? '🏆' : `#${idx + 1}`}</span>
+                          <span className="mr-2">{p.avatar}</span>
+                          {p.name}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // New TV-led synchronous mini-games hub.
+  if (room.roomMode === 'mini_games') {
+    const sessionScoreMap = new Map(sessionScores.map((s: any) => [s.uid, Number(s.score ?? 0)]));
+    const sidebarLeaders = [...players]
+      .map((p: any) => {
+        const sessionScore = sessionScoreMap.get(p.uid) ?? 0;
+        const fallbackScore = Number(p.totalMiniGameScore ?? p.score ?? 0);
+        const displayScore =
+          room.currentSession && room.currentSession.sessionId && room.currentSession.gameId ? sessionScore : fallbackScore;
+        return { ...p, sessionScore, displayScore };
+      })
+      .sort((a: any, b: any) => (b.displayScore ?? 0) - (a.displayScore ?? 0));
+
+    const hasActiveSession = Boolean(room.currentSession?.sessionId);
+
+    const backToLobby = async () => {
+      if (!isController) return;
+      if (!hasActiveSession) return;
+      const ok = window.confirm(lang === 'cs' ? 'Ukončit hru a vrátit se do lobby?' : 'End the game and return to the lobby?');
+      if (!ok) return;
+      try {
+        await updateDoc(doc(db, 'rooms', roomId), { status: 'lobby', currentSession: null } as any);
+      } catch (e: any) {
+        console.error('Failed to return to lobby', e);
+        toast.error(e?.message || 'Failed to return to lobby');
+      }
+    };
+
+    return (
+      <main className="min-h-screen flex flex-col px-4 py-10 md:py-12">
+        <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
+          {/* Header */}
+          <div className="card mb-6 relative overflow-hidden">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
+            <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
+
+            <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md mb-4">
+                  <span>📺</span>
+                  <span>TV Hub</span>
+                  <span className="text-white/40">•</span>
+                  <span className="text-white/70">Scan to join</span>
+                </div>
+
+                <h1 className="game-show-title text-5xl mb-3">{room.name}</h1>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 backdrop-blur-md">
+                    <span className="text-white/70">Room Code</span>
+                    <span className="font-black tracking-widest text-xl">{room.code}</span>
+                  </div>
+                  {isController && (
+                    <span className="inline-flex items-center gap-2 rounded-full bg-christmas-gold/25 border border-christmas-gold/40 px-4 py-2 backdrop-blur-md text-sm">
+                      <span className="font-semibold">HOST</span>
+                      <span className="text-white/70">controls enabled</span>
+                    </span>
+                  )}
+                  <span className="text-white/60">
+                    {players.length}/{room.maxPlayers} {t('tv.players', lang)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="shrink-0">
+                <div className="flex items-center justify-end gap-3">
+                  {isController && hasActiveSession && (
+                    <button type="button" className="btn-secondary" onClick={backToLobby}>
+                      {lang === 'cs' ? 'Zpět do lobby' : 'Back to lobby'}
+                    </button>
+                  )}
+                  {hasActiveSession ? (
+                    <div className="max-w-[320px] rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
+                      <div className="text-sm font-semibold text-white/90">
+                        {lang === 'cs' ? 'Hra právě běží' : 'Game in progress'}
+                      </div>
+                      <div className="text-xs text-white/70 mt-1 whitespace-normal break-words">
+                        {lang === 'cs'
+                          ? 'Chceš přidat hráče? Vrať se do lobby.'
+                          : 'Want to add more players? Go back to the lobby.'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center justify-center rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
+                      <ExpandableQRCode value={joinUrl} smallSize={160} />
+                    </div>
+                  )}
+                </div>
+                <p className="text-sm mt-3 text-white/70">
+                  {hasActiveSession
+                    ? lang === 'cs'
+                      ? 'Pro přidání hráčů se vrať do lobby.'
+                      : 'To add players, return to the lobby.'
+                    : t('tv.scanToJoin', lang)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 3-pillar layout: Players | Game Stage | Leaderboard */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1 min-h-0">
+            {/* Players (left) */}
+            <div className="card xl:col-span-2 h-full">
+              <div className="mb-4">
+                <h2 className="text-2xl font-bold">
+                  {t('tv.players', lang)} ({players.length}/{room.maxPlayers})
+                </h2>
+                <div className="text-xs text-white/60 whitespace-normal break-words max-w-full">
+                  {lang === 'cs' ? 'Ready = aktivní' : 'Ready = active'}
+                </div>
               </div>
               <div className="space-y-3">
                 {sortedPlayers.map((p: any) => (
@@ -406,15 +627,15 @@ export default function TVPage() {
             </div>
 
             {/* Game Stage (middle) */}
-            <div className="xl:col-span-6 space-y-6">
+            <div className="xl:col-span-8 h-full flex flex-col min-h-0">
               <MiniGamesTVHub roomId={roomId} room={room} players={players} lang={lang} isController={isController} />
             </div>
 
             {/* Leaderboard (right) */}
-            <div className="card xl:col-span-3">
-              <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="card xl:col-span-2 h-full">
+              <div className="mb-4">
                 <h2 className="text-2xl font-bold">{t('common.leaderboard', lang)}</h2>
-                <span className="text-xs text-white/60">
+                <div className="text-xs text-white/60 whitespace-normal break-words max-w-full">
                   {room.currentSession?.sessionId && room.currentSession?.gameId
                     ? lang === 'cs'
                       ? 'Tato hra'
@@ -422,7 +643,7 @@ export default function TVPage() {
                     : lang === 'cs'
                     ? 'Celkem'
                     : 'Overall'}
-                </span>
+                </div>
               </div>
 
               {sidebarLeaders.length === 0 ? (
@@ -500,7 +721,9 @@ export default function TVPage() {
                 <span>📺</span>
                 <span>TV View</span>
                 <span className="text-white/40">•</span>
-                <span className="text-white/70">Scan to join</span>
+                <span className="text-white/70">
+                  {room.status === 'lobby' ? 'Scan to join' : lang === 'cs' ? 'Hra běží' : 'Game in progress'}
+                </span>
               </div>
 
               <h1 className="game-show-title text-5xl mb-3">{room.name}</h1>
@@ -521,58 +744,102 @@ export default function TVPage() {
               </div>
             </div>
 
-            <div className="text-center shrink-0">
-              <div className="inline-flex items-center justify-center rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
-                <ExpandableQRCode value={joinUrl} smallSize={160} />
+            <div className="shrink-0">
+              <div className="flex items-center justify-end gap-3">
+                {isController && room.status !== 'lobby' && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={async () => {
+                      const ok = window.confirm(
+                        lang === 'cs'
+                          ? 'Vrátit se do lobby, aby se mohli přidat další hráči?'
+                          : 'Return to the lobby so more players can join?'
+                      );
+                      if (!ok) return;
+                      try {
+                        await updateDoc(doc(db, 'rooms', roomId), { status: 'lobby' } as any);
+                      } catch (e: any) {
+                        console.error('Failed to return to lobby', e);
+                        toast.error(e?.message || 'Failed to return to lobby');
+                      }
+                    }}
+                  >
+                    {lang === 'cs' ? 'Zpět do lobby' : 'Back to lobby'}
+                  </button>
+                )}
+
+                {room.status === 'lobby' ? (
+                  <div className="inline-flex items-center justify-center rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
+                    <ExpandableQRCode value={joinUrl} smallSize={160} />
+                  </div>
+                ) : (
+                  <div className="max-w-[320px] rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
+                    <div className="text-sm font-semibold text-white/90">
+                      {lang === 'cs' ? 'Hra právě běží' : 'Game in progress'}
+                    </div>
+                    <div className="text-xs text-white/70 mt-1 whitespace-normal break-words">
+                      {lang === 'cs'
+                        ? 'Chceš přidat hráče? Vrať se do lobby.'
+                        : 'Want to add more players? Go back to the lobby.'}
+                    </div>
+                  </div>
+                )}
               </div>
-              <p className="text-sm mt-3 text-white/70">{t('tv.scanToJoin', lang)}</p>
+
+              <p className="text-sm mt-3 text-white/70">
+                {room.status === 'lobby'
+                  ? t('tv.scanToJoin', lang)
+                  : lang === 'cs'
+                  ? 'Pro přidání hráčů se vrať do lobby.'
+                  : 'To add players, return to the lobby.'}
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Players tiles */}
-          <div className="card">
-            <h2 className="text-3xl font-bold mb-4">{t('tv.players', lang)} ({players.length}/{room.maxPlayers})</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* 3-pillar layout: Players | Track | Leaderboard */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          {/* Players (left) */}
+          <div className="card xl:col-span-2 h-full">
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold">
+                {t('tv.players', lang)} ({players.length}/{room.maxPlayers})
+              </h2>
+              {track && totalStages > 0 && (
+                <div className="text-xs text-white/60 whitespace-normal break-words max-w-full">
+                  {completedCount}/{players.length} {t('tv.finished', lang)} • {t('tv.lead', lang)} {Math.min(leadStage + 1, totalStages)}/{totalStages}
+                </div>
+              )}
+            </div>
+            <div className="space-y-3">
               {sortedPlayers.map((p: any) => {
-                const idx = p.stageIndex ?? 0;
-                const finished = room.roomMode === 'amazing_race' ? idx >= totalStages : false;
+                const idx = Number(p.stageIndex ?? 0);
+                const finished = totalStages > 0 ? idx >= totalStages : false;
+                const currentStage = track?.stages[Math.min(idx, Math.max(0, totalStages - 1))];
                 const pct = totalStages > 0 ? Math.min(100, Math.round((Math.min(idx, totalStages) / totalStages) * 100)) : 0;
-                const currentStage = track?.stages[Math.min(idx, totalStages - 1)];
                 return (
-                  <div key={p.uid} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div key={p.uid} className="rounded-2xl border border-white/10 bg-white/5 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-xl font-bold">
-                          <span className="mr-2 text-2xl">{p.avatar}</span>
+                        <p className="truncate text-lg font-bold">
+                          <span className="mr-2 text-xl">{p.avatar}</span>
                           {p.name}
                         </p>
-                    {room.roomMode === 'amazing_race' && (
-                      <p className="text-sm text-white/70">
-                        {finished
-                          ? t('tv.finished', lang)
-                          : `${t('race.stage', lang)} ${idx + 1}/${totalStages} • ${currentStage?.title?.[lang] ?? ''}`}
-                      </p>
-                    )}
-                    {room.roomMode === 'mini_games' && p.miniGameProgress && room.miniGamesEnabled && (
-                      <div className="mt-2 flex gap-1 text-xs">
-                        {room.miniGamesEnabled.includes('trivia') && p.miniGameProgress.trivia?.completedAt && <span className="px-2 py-1 bg-christmas-gold/25 rounded">⚡</span>}
-                        {room.miniGamesEnabled.includes('emoji') && p.miniGameProgress.emoji?.completedAt && <span className="px-2 py-1 bg-christmas-gold/25 rounded">🎬</span>}
-                        {room.miniGamesEnabled.includes('wyr') && p.miniGameProgress.wyr?.completedAt && <span className="px-2 py-1 bg-christmas-gold/25 rounded">🎄</span>}
-                        {room.miniGamesEnabled.includes('pictionary') && p.miniGameProgress.pictionary?.completedAt && <span className="px-2 py-1 bg-christmas-gold/25 rounded">🎨</span>}
-                      </div>
-                    )}
+                        <p className="text-xs text-white/60 mt-1">
+                          {finished
+                            ? `🏁 ${t('tv.finished', lang)}`
+                            : `${t('race.stage', lang)} ${idx + 1}/${totalStages}${currentStage ? ` • ${currentStage.title?.[lang] ?? ''}` : ''}`}
+                        </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-black text-christmas-gold">{p.score ?? 0}</p>
+                        <p className="text-base font-black text-christmas-gold">{p.score ?? 0}</p>
                         {p.photoUploaded && <p className="text-xs text-white/70">📸</p>}
                       </div>
                     </div>
-
-                    {room.roomMode === 'amazing_race' && totalStages > 0 && (
-                      <div className="mt-3 h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-2 bg-christmas-gold" style={{ width: `${pct}%` }} />
+                    {totalStages > 0 && (
+                      <div className="mt-2 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-christmas-gold" style={{ width: `${pct}%` }} />
                       </div>
                     )}
                   </div>
@@ -581,229 +848,88 @@ export default function TVPage() {
             </div>
           </div>
 
-          {/* Leaderboard */}
-          <div className="card relative overflow-hidden">
-            <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-christmas-gold/10 blur-2xl" />
-            <div className="absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-christmas-green/10 blur-2xl" />
-            
-            <div className="relative">
-              <h2 className="text-3xl font-bold mb-6 text-center">{t('common.leaderboard', lang)}</h2>
-              
-              {/* Top 3 Podium */}
-              {sortedPlayers.length > 0 && (
-                <div className="mb-6">
-                  <div className="flex justify-center items-end gap-3 mb-4">
-                    {/* 2nd Place */}
-                    {sortedPlayers[1] && (
-                      <div className="flex flex-col items-center group">
-                        <div className="text-4xl mb-2 transform group-hover:scale-110 transition-transform">{sortedPlayers[1].avatar}</div>
-                        <div className="bg-white/20 w-20 h-20 rounded-t-xl border-2 border-white/30 flex items-center justify-center shadow-lg">
-                          <span className="text-2xl font-bold">2</span>
-                        </div>
-                        <p className="text-sm font-bold mt-2 text-center max-w-[80px] truncate">{sortedPlayers[1].name}</p>
-                        <p className="text-lg font-black text-gray-300 mt-1">{sortedPlayers[1].score ?? 0}</p>
-                        {room.roomMode === 'amazing_race' && totalStages > 0 && (
-                          <p className="text-xs text-white/60 mt-1">
-                            {t('race.stage', lang)} {Math.min((sortedPlayers[1].stageIndex ?? 0) + 1, totalStages)}/{totalStages}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    
-                    {/* 1st Place - Taller */}
-                    {sortedPlayers[0] && (
-                      <div className="flex flex-col items-center group">
-                        <div className="text-5xl mb-2 transform group-hover:scale-110 transition-transform animate-pulse-slow">🏆</div>
-                        <div className="text-5xl mb-2 transform group-hover:scale-110 transition-transform">{sortedPlayers[0].avatar}</div>
-                        <div className="bg-christmas-gold/90 w-24 h-28 rounded-t-xl border-2 border-christmas-gold shadow-2xl flex items-center justify-center relative overflow-hidden">
-                          <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent" />
-                          <span className="text-3xl font-bold relative z-10">1</span>
-                        </div>
-                        <p className="text-base font-bold mt-2 text-center max-w-[100px] truncate">{sortedPlayers[0].name}</p>
-                        <p className="text-xl font-black text-christmas-gold mt-1">{sortedPlayers[0].score ?? 0}</p>
-                        {room.roomMode === 'amazing_race' && totalStages > 0 && (
-                          <p className="text-xs text-white/60 mt-1">
-                            {t('race.stage', lang)} {Math.min((sortedPlayers[0].stageIndex ?? 0) + 1, totalStages)}/{totalStages}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    
-                    {/* 3rd Place */}
-                    {sortedPlayers[2] && (
-                      <div className="flex flex-col items-center group">
-                        <div className="text-4xl mb-2 transform group-hover:scale-110 transition-transform">{sortedPlayers[2].avatar}</div>
-                        <div className="bg-christmas-bronze/80 w-20 h-16 rounded-t-xl border-2 border-christmas-bronze/50 flex items-center justify-center shadow-lg">
-                          <span className="text-2xl font-bold">3</span>
-                        </div>
-                        <p className="text-sm font-bold mt-2 text-center max-w-[80px] truncate">{sortedPlayers[2].name}</p>
-                        <p className="text-lg font-black text-christmas-bronze mt-1">{sortedPlayers[2].score ?? 0}</p>
-                        {room.roomMode === 'amazing_race' && totalStages > 0 && (
-                          <p className="text-xs text-white/60 mt-1">
-                            {t('race.stage', lang)} {Math.min((sortedPlayers[2].stageIndex ?? 0) + 1, totalStages)}/{totalStages}
-                          </p>
-                        )}
-                      </div>
+          {/* Track (middle) */}
+          <div className="xl:col-span-8 h-full flex flex-col min-h-0">
+            {track ? (
+              <RaceTrackTV track={track as any} players={players} lang={lang} />
+            ) : (
+              <div className="card flex-1 flex items-center justify-center">
+                <div className="text-white/70">{lang === 'cs' ? 'Chybí trať.' : 'Missing race track.'}</div>
+              </div>
+            )}
+
+            {/* Controls + event feed under the track */}
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="card">
+                <h3 className="text-2xl font-bold mb-3">{t('tv.raceStatus', lang)}</h3>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-lg">
+                      {t('tv.status', lang)}: <span className="font-bold">{room.status}</span>
+                    </p>
+                    {track && totalStages > 0 && (
+                      <p className="text-sm text-white/70 mt-1">
+                        {t('tv.progressSummary', lang)}: {completedCount}/{players.length} • {t('tv.lead', lang)} {Math.min(leadStage + 1, totalStages)}/{totalStages}
+                      </p>
                     )}
                   </div>
-                </div>
-              )}
 
-              {/* Rest of Leaderboard with Visual Bars */}
-              {sortedPlayers.length > 3 && (
-                <div className="space-y-2 mt-6 pt-6 border-t border-white/10">
-                  {sortedPlayers.slice(3, 10).map((player: any, index: number) => {
-                    const rank = index + 4;
-                    const maxScore = sortedPlayers[0]?.score ?? 1;
-                    const scorePercent = maxScore > 0 ? Math.max(5, (player.score ?? 0) / maxScore * 100) : 0;
-                    
-                    return (
-                      <div 
-                        key={player.uid} 
-                        className="group relative flex items-center gap-3 p-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 hover:border-white/20 transition-all"
-                      >
-                        {/* Rank Badge */}
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-                          <span className="text-lg font-bold text-white/70">{rank}</span>
-                        </div>
-                        
-                        {/* Avatar */}
-                        <div className="flex-shrink-0 text-3xl transform group-hover:scale-110 transition-transform">
-                          {player.avatar}
-                        </div>
-                        
-                        {/* Name and Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold truncate">{player.name}</p>
-                          {room.roomMode === 'amazing_race' && totalStages > 0 && (
-                            <p className="text-xs text-white/60">
-                              {t('race.stage', lang)} {Math.min((player.stageIndex ?? 0) + 1, totalStages)}/{totalStages}
-                            </p>
-                          )}
-                        </div>
-                        
-                        {/* Visual Score Bar */}
-                        <div className="flex-1 max-w-[120px] hidden sm:block">
-                          <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-gradient-to-r from-christmas-gold/60 to-christmas-gold rounded-full transition-all duration-500 relative overflow-hidden"
-                              style={{ width: `${scorePercent}%` }}
+                  {isController && (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-sm font-semibold mb-3">{t('controller.title', lang)}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {room.status === 'lobby' && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await updateRoom({
+                                  status: 'running',
+                                  ...(room.roomMode === 'amazing_race' && { raceStartedAt: Date.now() }),
+                                });
+                              } catch (e: any) {
+                                console.error('Failed to start:', e);
+                                toast.error(e?.message || 'Failed to start');
+                              }
+                            }}
+                            className="btn-primary"
+                            disabled={pictionaryBusy}
+                          >
+                            {t('controller.startRace', lang)}
+                          </button>
+                        )}
+
+                        {room.status === 'running' && (
+                          <>
+                            <button
+                              onClick={async () => {
+                                await updateRoom({ status: 'finished' });
+                              }}
+                              className="btn-secondary"
                             >
-                              <div 
-                                className="absolute inset-0"
-                                style={{
-                                  background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%)',
-                                  backgroundSize: '200% 100%',
-                                  animation: 'shimmer 2s linear infinite'
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* Score */}
-                        <div className="flex-shrink-0 text-right">
-                          <p className="text-lg font-black text-christmas-gold">{player.score ?? 0}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+                              {t('controller.endRace', lang)}
+                            </button>
+                            <button onClick={resetRoom} className="btn-secondary">
+                              {t('controller.resetRoom', lang)}
+                            </button>
+                          </>
+                        )}
 
-          {/* Race Status */}
-          <div className="card">
-            <h2 className="text-3xl font-bold mb-4">
-              {room.roomMode === 'amazing_race' ? t('tv.raceStatus', lang) : 'Room Status'}
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <p className="text-lg mb-2">
-                  {t('tv.status', lang)}: <span className="font-bold">{room.status}</span>
-                </p>
-                {room.roomMode === 'amazing_race' && totalStages > 0 && (
-                  <p className="text-white/70">
-                    {t('tv.progressSummary', lang)}: {completedCount}/{players.length} • {t('tv.lead', lang)}{' '}
-                    {Math.min(leadStage + 1, totalStages)}/{totalStages}
-                  </p>
-                )}
+                        {room.status === 'finished' && (
+                          <Link href={`/room/${roomId}/results`} className="btn-primary">
+                            Results
+                          </Link>
+                        )}
+                      </div>
+                      <p className="mt-2 text-xs text-white/60">
+                        Host controls only show on the TV that created the room (same browser session).
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {isController && (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-sm font-semibold mb-3">{t('controller.title', lang)}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {room.status === 'lobby' && (
-                      <button
-                        onClick={async () => {
-                          // One-click start:
-                          // - Amazing Race: set status running (+ raceStartedAt)
-                          // - Mini Games: set status running, and if Pictionary is enabled, also init+start it
-                          try {
-                            await updateRoom({
-                              status: 'running',
-                              ...(room.roomMode === 'amazing_race' && { raceStartedAt: Date.now() }),
-                            });
-
-                            if (
-                              room.roomMode === 'mini_games' &&
-                              room.miniGamesEnabled?.includes('pictionary')
-                            ) {
-                              if (players.length < 2) {
-                                toast.error('Need at least 2 players to start Pictionary');
-                                return;
-                              }
-                              setPictionaryBusy(true);
-                              await initializePictionaryGame(roomId);
-                              await startPictionaryRound(roomId);
-                              toast.success('Pictionary started!');
-                            }
-                          } catch (e: any) {
-                            console.error('Failed to start:', e);
-                            toast.error(e?.message || 'Failed to start');
-                          } finally {
-                            setPictionaryBusy(false);
-                          }
-                        }}
-                        className="btn-primary"
-                        disabled={pictionaryBusy}
-                      >
-                        {room.roomMode === 'amazing_race' ? t('controller.startRace', lang) : 'Start Games'}
-                      </button>
-                    )}
-
-                    {room.status === 'running' && (
-                      <>
-                        <button
-                          onClick={async () => {
-                            await updateRoom({ status: 'finished' });
-                          }}
-                          className="btn-secondary"
-                        >
-                          {t('controller.endRace', lang)}
-                        </button>
-                        <button onClick={resetRoom} className="btn-secondary">
-                          {t('controller.resetRoom', lang)}
-                        </button>
-                      </>
-                    )}
-
-                    {room.status === 'finished' && (
-                      <Link href={`/room/${roomId}/results`} className="btn-primary">
-                        Results
-                      </Link>
-                    )}
-                  </div>
-                  <p className="mt-2 text-xs text-white/60">
-                    Host controls only show on the TV that created the room (same browser session).
-                  </p>
-                </div>
-              )}
-
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-semibold mb-3">{t('tv.eventFeed', lang)}</p>
+              <div className="card">
+                <h3 className="text-2xl font-bold mb-3">{t('tv.eventFeed', lang)}</h3>
                 <div className="space-y-2 max-h-64 overflow-auto pr-1">
                   {events.length === 0 && <p className="text-sm text-white/60">{t('tv.noEvents', lang)}</p>}
                   {events.map((e: any) => (
@@ -817,38 +943,73 @@ export default function TVPage() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Race Map - Only show for Amazing Race */}
-        {room.roomMode === 'amazing_race' && track && (
-          <div className="card mt-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <h2 className="text-3xl font-bold">{t('tv.raceMap', lang)}</h2>
-              <p className="text-sm text-white/70">
-                {t('tv.track', lang)}: {track.title[lang]}
-              </p>
-            </div>
+          {/* Leaderboard (right) */}
+          <div className="card xl:col-span-2 h-full relative overflow-hidden">
+            <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-christmas-gold/10 blur-2xl" />
+            <div className="absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-christmas-green/10 blur-2xl" />
+            <div className="relative">
+              <h2 className="text-2xl font-bold mb-4">{t('common.leaderboard', lang)}</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {track.stages.map((s, idx) => {
-                const countAtOrBeyond = players.filter((p: any) => (p.stageIndex ?? 0) > idx).length;
-                return (
-                  <div key={s.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-bold">
-                        {t('race.stage', lang)} {idx + 1}: {s.title[lang]}
-                      </p>
-                      <p className="text-sm text-white/70">
-                        {countAtOrBeyond}/{players.length}
-                      </p>
-                    </div>
-                    <p className="mt-1 text-sm text-white/70">{s.description[lang]}</p>
+              {/* Top 3 */}
+              {sortedPlayers.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex justify-center items-end gap-2">
+                    {sortedPlayers[1] && (
+                      <div className="flex flex-col items-center">
+                        <div className="text-3xl">{sortedPlayers[1].avatar}</div>
+                        <div className="text-xs text-white/70 mt-1">#2</div>
+                        <div className="text-sm font-black text-white/90">{sortedPlayers[1].score ?? 0}</div>
+                      </div>
+                    )}
+                    {sortedPlayers[0] && (
+                      <div className="flex flex-col items-center">
+                        <div className="text-4xl">🏆</div>
+                        <div className="text-3xl -mt-1">{sortedPlayers[0].avatar}</div>
+                        <div className="text-xs text-white/70 mt-1">#1</div>
+                        <div className="text-base font-black text-christmas-gold">{sortedPlayers[0].score ?? 0}</div>
+                      </div>
+                    )}
+                    {sortedPlayers[2] && (
+                      <div className="flex flex-col items-center">
+                        <div className="text-3xl">{sortedPlayers[2].avatar}</div>
+                        <div className="text-xs text-white/70 mt-1">#3</div>
+                        <div className="text-sm font-black text-white/90">{sortedPlayers[2].score ?? 0}</div>
+                      </div>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {sortedPlayers.slice(0, 10).map((p: any, idx: number) => (
+                  <div
+                    key={p.uid}
+                    className={`rounded-2xl border p-3 flex items-center justify-between gap-3 ${
+                      idx === 0 ? 'border-christmas-gold/40 bg-christmas-gold/10' : 'border-white/10 bg-white/5'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-bold">
+                        <span className="mr-2">{idx === 0 ? '🏆' : `#${idx + 1}`}</span>
+                        <span className="mr-2">{p.avatar}</span>
+                        {p.name}
+                      </p>
+                      {track && totalStages > 0 && (
+                        <p className="text-xs text-white/60">
+                          {t('race.stage', lang)} {Math.min((p.stageIndex ?? 0) + 1, totalStages)}/{totalStages}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-black text-christmas-gold">{p.score ?? 0}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Mini-games mode has its own dedicated TV hub and returns early above. */}
       </div>

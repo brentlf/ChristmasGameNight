@@ -33,20 +33,33 @@ export default function AudioControls() {
     setBackgroundMusicEnabled,
     backgroundMusicVolume,
     setBackgroundMusicVolume,
+    soundEffectsEnabled,
+    setSoundEffectsEnabled,
+    soundEffectsVolume,
+    setSoundEffectsVolume,
     playSound,
   } = useAudio()
 
   const [open, setOpen] = useState(false)
 
-  // Persist only music settings (so it feels "always on").
+  // Persist audio settings so it feels consistent across the night.
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('cgn_audio_music')
+      const raw = localStorage.getItem('cgn_audio_settings')
       if (!raw) return
-      const parsed = JSON.parse(raw) as { enabled?: boolean; volume?: number }
-      if (typeof parsed.enabled === 'boolean') setBackgroundMusicEnabled(parsed.enabled)
-      if (typeof parsed.volume === 'number' && Number.isFinite(parsed.volume)) {
-        setBackgroundMusicVolume(Math.min(1, Math.max(0, parsed.volume)))
+      const parsed = JSON.parse(raw) as {
+        musicEnabled?: boolean
+        musicVolume?: number
+        sfxEnabled?: boolean
+        sfxVolume?: number
+      }
+      if (typeof parsed.musicEnabled === 'boolean') setBackgroundMusicEnabled(parsed.musicEnabled)
+      if (typeof parsed.musicVolume === 'number' && Number.isFinite(parsed.musicVolume)) {
+        setBackgroundMusicVolume(Math.min(1, Math.max(0, parsed.musicVolume)))
+      }
+      if (typeof parsed.sfxEnabled === 'boolean') setSoundEffectsEnabled(parsed.sfxEnabled)
+      if (typeof parsed.sfxVolume === 'number' && Number.isFinite(parsed.sfxVolume)) {
+        setSoundEffectsVolume(Math.min(1, Math.max(0, parsed.sfxVolume)))
       }
     } catch {
       // ignore
@@ -56,13 +69,22 @@ export default function AudioControls() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('cgn_audio_music', JSON.stringify({ enabled: backgroundMusicEnabled, volume: backgroundMusicVolume }))
+      localStorage.setItem(
+        'cgn_audio_settings',
+        JSON.stringify({
+          musicEnabled: backgroundMusicEnabled,
+          musicVolume: backgroundMusicVolume,
+          sfxEnabled: soundEffectsEnabled,
+          sfxVolume: soundEffectsVolume,
+        }),
+      )
     } catch {
       // ignore
     }
-  }, [backgroundMusicEnabled, backgroundMusicVolume])
+  }, [backgroundMusicEnabled, backgroundMusicVolume, soundEffectsEnabled, soundEffectsVolume])
 
   const volumePct = useMemo(() => Math.round(backgroundMusicVolume * 100), [backgroundMusicVolume])
+  const sfxPct = useMemo(() => Math.round(soundEffectsVolume * 100), [soundEffectsVolume])
 
   return (
     <div className="fixed right-4 top-4 z-50">
@@ -112,6 +134,54 @@ export default function AudioControls() {
               }}
               className="w-full"
             />
+
+            <div className="my-4 h-px bg-white/10" />
+
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-sm font-bold text-white">Effects</p>
+              <button
+                type="button"
+                onClick={() => {
+                  playSound('click')
+                  setSoundEffectsEnabled(!soundEffectsEnabled)
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition ${
+                  soundEffectsEnabled ? 'bg-christmas-gold/25 border border-christmas-gold/40 text-white' : 'bg-white/10 text-white/80 hover:bg-white/15'
+                }`}
+              >
+                {soundEffectsEnabled ? 'On' : 'Off'}
+              </button>
+            </div>
+
+            <label className="block text-xs text-white/70 mb-2">Volume: {sfxPct}%</label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={sfxPct}
+              onChange={(e) => {
+                const v = Number(e.target.value) / 100
+                setSoundEffectsEnabled(v > 0)
+                setSoundEffectsVolume(v)
+              }}
+              className="w-full"
+            />
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  playSound('click')
+                  setBackgroundMusicEnabled(false)
+                  setBackgroundMusicVolume(0)
+                  setSoundEffectsEnabled(false)
+                  setSoundEffectsVolume(0)
+                }}
+                className="btn-secondary w-full text-xs"
+              >
+                Mute all
+              </button>
+            </div>
 
             <p className="text-[11px] text-white/50 mt-3">
               Note: browsers require a tap/click before audio can start.

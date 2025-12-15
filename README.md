@@ -60,6 +60,13 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 OPENAI_API_KEY=sk-your_openai_key_here
 ```
 
+### Optional: AI Intro Videos (Mini‑Games)
+
+The mini‑games UI supports optional per‑game intro videos at `public/intro/{gameId}.mp4`.
+
+- Generate them with: `npm run generate:intros`
+- Details: see `AI_INTRO_VIDEOS.md`
+
 ### 4. Firebase Security Rules
 
 **Firestore Rules:**

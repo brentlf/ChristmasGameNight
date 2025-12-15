@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { MiniGameType, Player, Room } from '@/types';
 import { useSessionSelected } from '@/lib/hooks/useSessionSelected';
 import { useSessionAnswers } from '@/lib/hooks/useSessionAnswers';
@@ -30,6 +31,17 @@ function gameLabel(gameId: MiniGameType) {
   if (gameId === 'wyr') return '🎄 Would You Rather';
   if (gameId === 'pictionary') return '🎨 Pictionary';
   return gameId;
+}
+
+function presenceStatus(players: Player[], now: number, thresholdMs: number) {
+  const present: Player[] = [];
+  const missing: Player[] = [];
+  for (const p of players) {
+    const last = Number((p as any)?.lastActiveAt ?? 0);
+    if (last > 0 && now - last <= thresholdMs) present.push(p);
+    else missing.push(p);
+  }
+  return { present, missing };
 }
 
 function GameTile(props: {
@@ -100,13 +112,13 @@ function GameTile(props: {
         <div className={`text-6xl mb-4 transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500 ${iconGlow}`}>
           {icon}
         </div>
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="space-y-1">
           <h3 className="text-2xl font-black text-white group-hover:text-fire-gold transition-colors duration-300">
             {title}
           </h3>
-          <span className="text-xs font-semibold text-white/70">{subtitle}</span>
+          <div className="text-xs font-semibold text-white/70 whitespace-normal break-words pr-1">{subtitle}</div>
         </div>
-        <p className="text-sm text-white/75 mt-2 group-hover:text-white/95 transition-colors duration-300">
+        <p className="text-sm text-white/75 mt-3 group-hover:text-white/95 transition-colors duration-300 whitespace-normal break-words">
           {description}
         </p>
       </div>
@@ -143,6 +155,11 @@ export default function MiniGamesTVHub(props: {
   const [busy, setBusy] = useState(false);
   const lastRevealKey = useRef<string>('');
   const lastAutoAdvanceKey = useRef<string>('');
+  const [confirmStart, setConfirmStart] = useState<null | { kind: 'game'; gameId: MiniGameType } | { kind: 'race' }>(
+    null
+  );
+
+  // Note: "Back to lobby" control is rendered in the TV header (left of QR code).
 
   // Anti-stall: if someone is idle/disconnected too long, drop them from active list so the game doesn't hang.
   useEffect(() => {
@@ -292,6 +309,125 @@ export default function MiniGamesTVHub(props: {
       currentSession: null,
     } as any);
   };
+
+  const requestStartGame = (g: MiniGameType) => {
+    if (!isController || busy) return;
+    setConfirmStart({ kind: 'game', gameId: g });
+  };
+
+  const requestStartRace = () => {
+    if (!isController || busy) return;
+    setConfirmStart({ kind: 'race' });
+  };
+
+  const confirmModal =
+    confirmStart && typeof document !== 'undefined'
+      ? (() => {
+          const now = Date.now();
+          const thresholdMs = 90_000; // "present" = active in last 90s
+          const { present, missing } = presenceStatus(players, now, thresholdMs);
+
+          const title =
+            confirmStart.kind === 'race'
+              ? lang === 'cs'
+                ? 'Spustit Amazing Race?'
+                : 'Start Amazing Race?'
+              : lang === 'cs'
+              ? `Spustit ${gameLabel(confirmStart.gameId)}?`
+              : `Start ${gameLabel(confirmStart.gameId)}?`;
+
+          const subtitle =
+            missing.length === 0
+              ? lang === 'cs'
+                ? 'Všichni hráči vypadají aktivní.'
+                : 'All players look active.'
+              : lang === 'cs'
+              ? `Chybí ${missing.length}/${players.length} hráčů (neaktivní posledních ${Math.round(thresholdMs / 1000)}s).`
+              : `${missing.length}/${players.length} players may be away (inactive for ${Math.round(thresholdMs / 1000)}s).`;
+
+          const proceed = async () => {
+            if (busy) return;
+            const action = confirmStart;
+            setConfirmStart(null);
+            if (!action) return;
+            if (action.kind === 'race') await startRace();
+            else await startGame(action.gameId);
+          };
+
+          return createPortal(
+            <div
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-6"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Confirm start"
+              onClick={() => setConfirmStart(null)}
+            >
+              <div
+                className="w-full max-w-2xl rounded-3xl border border-white/15 bg-black/70 backdrop-blur-md p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h3 className="text-2xl font-black">{title}</h3>
+                    <p className="text-sm text-white/70 mt-1">{subtitle}</p>
+                  </div>
+                  <button type="button" className="btn-secondary" onClick={() => setConfirmStart(null)}>
+                    {lang === 'cs' ? 'Zrušit' : 'Cancel'}
+                  </button>
+                </div>
+
+                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="text-xs font-black text-white/60 mb-2">
+                      {lang === 'cs' ? 'Přítomní' : 'Present'} ({present.length}/{players.length})
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {present.length === 0 ? (
+                        <span className="text-sm text-white/60">—</span>
+                      ) : (
+                        present.map((p) => (
+                          <span key={p.uid} className="text-sm rounded-full bg-white/10 border border-white/15 px-3 py-1">
+                            <span className="mr-2">{p.avatar}</span>
+                            {p.name}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="text-xs font-black text-white/60 mb-2">
+                      {lang === 'cs' ? 'Chybí / neaktivní' : 'Missing / inactive'} ({missing.length}/{players.length})
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {missing.length === 0 ? (
+                        <span className="text-sm text-white/60">—</span>
+                      ) : (
+                        missing.map((p) => (
+                          <span key={p.uid} className="text-sm rounded-full bg-white/10 border border-white/15 px-3 py-1">
+                            <span className="mr-2">{p.avatar}</span>
+                            {p.name}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex items-center justify-end gap-2">
+                  <button type="button" className="btn-secondary" onClick={() => setConfirmStart(null)}>
+                    {lang === 'cs' ? 'Ještě počkat' : 'Wait'}
+                  </button>
+                  <button type="button" className="btn-primary" onClick={proceed}>
+                    {lang === 'cs' ? 'Spustit' : 'Start'}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          );
+        })()
+      : null;
 
   const renderQuestion = () => {
     if (gameId === 'pictionary') {
@@ -445,7 +581,7 @@ export default function MiniGamesTVHub(props: {
     if (!currentSession || !sessionId || !gameId || sessionStatus === 'between' || room.status === 'between_sessions') {
       // Host Session: always allow starting any mini-game from the TV hub.
       return (
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 relative overflow-hidden">
+        <div className="flex-1 min-h-0 rounded-3xl border border-white/10 bg-white/5 p-6 relative overflow-hidden flex flex-col">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/10 blur-3xl" />
           <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/10 blur-3xl" />
 
@@ -489,7 +625,7 @@ export default function MiniGamesTVHub(props: {
               icon="🏁"
               accent="red"
               disabled={!isController || busy}
-              onClick={startRace}
+              onClick={requestStartRace}
             />
             <GameTile
               title="Trivia Blitz"
@@ -498,7 +634,7 @@ export default function MiniGamesTVHub(props: {
               icon="⚡"
               accent="gold"
               disabled={!isController || busy}
-              onClick={() => startGame('trivia')}
+              onClick={() => requestStartGame('trivia')}
             />
             <GameTile
               title={lang === 'cs' ? 'Emoji hádanka' : 'Emoji Guess'}
@@ -507,7 +643,7 @@ export default function MiniGamesTVHub(props: {
               icon="🎬"
               accent="blue"
               disabled={!isController || busy}
-              onClick={() => startGame('emoji')}
+              onClick={() => requestStartGame('emoji')}
             />
             <GameTile
               title={lang === 'cs' ? 'Co radši?' : 'Would You Rather'}
@@ -516,7 +652,7 @@ export default function MiniGamesTVHub(props: {
               icon="🎄"
               accent="green"
               disabled={!isController || busy}
-              onClick={() => startGame('wyr')}
+              onClick={() => requestStartGame('wyr')}
             />
             <GameTile
               title="Pictionary"
@@ -525,7 +661,7 @@ export default function MiniGamesTVHub(props: {
               icon="🎨"
               accent="gold"
               disabled={!isController || busy}
-              onClick={() => startGame('pictionary')}
+              onClick={() => requestStartGame('pictionary')}
             />
           </div>
 
@@ -558,7 +694,7 @@ export default function MiniGamesTVHub(props: {
 
     if (sessionStatus === 'in_game') {
       return (
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8">
+        <div className="flex-1 min-h-0 rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8 flex flex-col">
           <div className="flex items-center justify-between gap-4 mb-5">
             <div className="min-w-0">
               <div className="text-sm text-white/70">{gameLabel(gameId)}</div>
@@ -578,38 +714,40 @@ export default function MiniGamesTVHub(props: {
             <div className="flex items-center gap-3">
               <TimerRing endsAt={currentSession.questionEndsAt} startedAt={currentSession.questionStartedAt} size={52} />
               {isController && (
-                <button
-                  type="button"
-                  className="btn-secondary text-sm"
-                  disabled={busy}
-                  onClick={() => {
-                    if (!sessionId || questionIndex === null) return;
-                    if (gameId === 'pictionary') {
-                      controllerPictionaryReveal({
-                        roomId,
-                        sessionId,
-                        roundIndex: questionIndex,
-                        drawerUid: currentSession?.drawerUid ?? null,
-                        timedOut: true,
-                      }).catch(() => {});
-                    } else {
-                      controllerRevealAndScore({ roomId, sessionId, gameId, questionIndex }).catch(() => {});
-                    }
-                  }}
-                >
-                  {lang === 'cs' ? 'Vynutit konec' : 'Force end'}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="btn-secondary text-sm"
+                    disabled={busy}
+                    onClick={() => {
+                      if (!sessionId || questionIndex === null) return;
+                      if (gameId === 'pictionary') {
+                        controllerPictionaryReveal({
+                          roomId,
+                          sessionId,
+                          roundIndex: questionIndex,
+                          drawerUid: currentSession?.drawerUid ?? null,
+                          timedOut: true,
+                        }).catch(() => {});
+                      } else {
+                        controllerRevealAndScore({ roomId, sessionId, gameId, questionIndex }).catch(() => {});
+                      }
+                    }}
+                  >
+                    {lang === 'cs' ? 'Vynutit konec' : 'Force end'}
+                  </button>
+                </>
               )}
             </div>
           </div>
-          {renderQuestion()}
+          <div className="flex-1 min-h-0">{renderQuestion()}</div>
         </div>
       );
     }
 
     if (sessionStatus === 'reveal') {
       return (
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-8 md:p-10">
+        <div className="flex-1 min-h-0 rounded-3xl border border-white/10 bg-white/5 p-8 md:p-10 flex flex-col justify-center">
           {renderReveal()}
         </div>
       );
@@ -622,7 +760,7 @@ export default function MiniGamesTVHub(props: {
         .sort((a, b) => b.sessionScore - a.sessionScore);
 
       return (
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8">
+        <div className="flex-1 min-h-0 rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8 flex flex-col">
           <div className="flex items-center justify-between gap-4 mb-4">
             <div>
               <div className="text-sm text-white/70">{gameLabel(gameId)}</div>
@@ -633,15 +771,15 @@ export default function MiniGamesTVHub(props: {
                 type="button"
                 className="btn-secondary"
                 onClick={() => {
-                  updateDoc(doc(db, 'rooms', roomId), { currentSession: null } as any).catch(() => {});
+                  updateDoc(doc(db, 'rooms', roomId), { status: 'lobby', currentSession: null } as any).catch(() => {});
                 }}
               >
-                {lang === 'cs' ? 'Zpět na výběr hry' : 'Back to game select'}
+                {lang === 'cs' ? 'Zpět do lobby' : 'Back to lobby'}
               </button>
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1 min-h-0 overflow-auto pr-1">
             {ranked.slice(0, 8).map((p, idx) => (
               <div key={p.uid} className="rounded-2xl border border-white/10 bg-black/20 p-4 flex items-center justify-between">
                 <div className="min-w-0">
@@ -663,8 +801,9 @@ export default function MiniGamesTVHub(props: {
   };
 
   return (
-    <div className="space-y-6">
-      {view()}
+    <div className="h-full flex flex-col">
+      <div className="flex-1 min-h-0 flex flex-col">{view()}</div>
+      {confirmModal}
     </div>
   );
 }

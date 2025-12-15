@@ -10,6 +10,13 @@ service cloud.firestore {
         return isAuthed() && resource.data.controllerUid == request.auth.uid;
       }
 
+      // IMPORTANT: inside nested matches (sessions/*), `resource` refers to the nested doc,
+      // not the room doc. Use this helper to check controller against the room.
+      function isRoomController() {
+        return isAuthed()
+          && get(/databases/$(database)/documents/rooms/$(roomId)).data.controllerUid == request.auth.uid;
+      }
+
       // For family use we allow authenticated reads so join-by-code works.
       allow read: if isAuthed();
 
@@ -27,12 +34,6 @@ service cloud.firestore {
           resource.data.status == 'lobby'
           && request.resource.data.status == 'running'
           && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'raceStartedAt'])
-        )
-        // Allow any authed player to participate in Pictionary, since
-        // drawing sync + guesses are stored on the room doc.
-        // This is intentionally narrow: ONLY pictionaryGameState may change.
-        || (
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['pictionaryGameState'])
         )
       );
 
@@ -63,6 +64,54 @@ service cloud.firestore {
         allow read: if isAuthed();
         allow create: if isAuthed();
         allow update, delete: if isController();
+      }
+
+      // Mini-game sessions (one room -> many sessions)
+      match /sessions/{sessionId} {
+        allow read: if isAuthed();
+        allow create, update, delete: if isRoomController();
+
+        // Selected deck for this session (single doc: selected/selected)
+        match /selected/{docId} {
+          allow read: if isAuthed();
+          allow create, update, delete: if isRoomController();
+        }
+
+        // Per-player answer doc (doc id = uid)
+        match /answers/{uid} {
+          allow read: if isAuthed();
+          allow create, update: if isAuthed() && (
+            request.auth.uid == uid
+            || isRoomController()
+          );
+          allow delete: if isRoomController();
+        }
+
+        // Per-session scores (controller-owned)
+        match /scores/{uid} {
+          allow read: if isAuthed();
+          allow create, update, delete: if isRoomController();
+        }
+
+        // Pictionary session realtime docs + subcollections
+        match /pictionary/{docId} {
+          allow read: if isAuthed();
+          // Allow any authed user to write the live drawing doc (drawer phone),
+          // but keep it narrow to expected keys.
+          allow create: if isAuthed() && docId == 'live'
+            && request.resource.data.keys().hasOnly(['round', 'seq', 'events', 'checkpoint', 'updatedAt']);
+          allow update: if isAuthed() && docId == 'live'
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(['round', 'seq', 'events', 'checkpoint', 'updatedAt']);
+          allow delete: if isRoomController();
+
+          // Pictionary guesses live under the fixed `live` doc:
+          // rooms/{roomId}/sessions/{sessionId}/pictionary/live/guesses/{guessId}
+          match /guesses/{guessId} {
+            allow read: if isAuthed();
+            allow create: if isAuthed() && docId == 'live';
+            allow update, delete: if isRoomController();
+          }
+        }
       }
     }
   }

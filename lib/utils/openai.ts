@@ -42,3 +42,5 @@ export async function validatePhotoWithAI(
 
   return await response.json();
 }
+
+

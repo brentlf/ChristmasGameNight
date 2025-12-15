@@ -102,28 +102,16 @@ export default function GameNightPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <button
-                onClick={() => handleModeSelect('amazing_race')}
-                className="card text-center p-6 hover:bg-white/10 transition cursor-pointer border-2 border-transparent hover:border-christmas-gold/40"
-              >
-                <div className="text-5xl mb-3">🎄</div>
-                <h2 className="text-xl font-bold mb-2">Amazing Race</h2>
-                <p className="text-sm text-white/70 mb-3">Festive Dash</p>
-                <p className="text-xs text-white/60">
-                  Race through holiday riddles, clues, and challenges independently
-                </p>
-              </button>
-
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <button
                 onClick={() => handleModeSelect('mini_games')}
                 className="card text-center p-6 hover:bg-white/10 transition cursor-pointer border-2 border-transparent hover:border-christmas-gold/40"
               >
-                <div className="text-5xl mb-3">🎮</div>
-                <h2 className="text-xl font-bold mb-2">Mini Games</h2>
-                <p className="text-sm text-white/70 mb-3">Quick & Fun</p>
+                <div className="text-5xl mb-3">📺</div>
+                <h2 className="text-xl font-bold mb-2">Host Session</h2>
+                <p className="text-sm text-white/70 mb-3">One room • many games</p>
                 <p className="text-xs text-white/60">
-                  Trivia, Emoji Guess, Would You Rather, and more
+                  Start any mini-game or Amazing Race from the TV hub. Phones auto-follow.
                 </p>
               </button>
 

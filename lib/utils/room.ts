@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, setDoc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import type { Player, Room, RoomMode, MiniGameType } from '@/types';
@@ -58,6 +58,10 @@ export async function createRoom(data: {
 
   const pinHash = data.pinEnabled && data.pin ? await sha256Hex(data.pin) : undefined;
 
+  const defaultMiniGames: MiniGameType[] = ['trivia', 'emoji', 'wyr', 'pictionary'];
+  const effectiveMiniGamesEnabled =
+    data.roomMode === 'mini_games' ? (data.miniGamesEnabled && data.miniGamesEnabled.length > 0 ? data.miniGamesEnabled : defaultMiniGames) : undefined;
+
   const roomData: Omit<Room, 'id'> = {
     code,
     name: data.name,
@@ -69,7 +73,7 @@ export async function createRoom(data: {
     status: 'lobby',
     roomMode: data.roomMode,
     raceTrackId: 'christmas_race_v1', // Only used for amazing_race mode
-    ...(data.roomMode === 'mini_games' && data.miniGamesEnabled ? { miniGamesEnabled: data.miniGamesEnabled } : {}),
+    ...(data.roomMode === 'mini_games' && effectiveMiniGamesEnabled ? { miniGamesEnabled: effectiveMiniGamesEnabled } : {}),
     settings: {
       difficulty: data.settings?.difficulty ?? 'easy',
       allowSkips: data.settings?.allowSkips ?? false,
@@ -83,9 +87,9 @@ export async function createRoom(data: {
   const roomId = docRef.id;
   
   // Initialize mini game sets only if mini_games mode and games are enabled
-  if (data.roomMode === 'mini_games' && data.miniGamesEnabled && data.miniGamesEnabled.length > 0) {
+  if (data.roomMode === 'mini_games' && effectiveMiniGamesEnabled && effectiveMiniGamesEnabled.length > 0) {
     try {
-      await initializeMiniGameSets(roomId, data.miniGamesEnabled);
+      await initializeMiniGameSets(roomId, effectiveMiniGamesEnabled);
     } catch (error) {
       console.error('Failed to initialize mini game sets:', error);
       // Continue anyway - mini games can be initialized later
@@ -136,6 +140,7 @@ export async function joinRoom(roomId: string, playerName: string, avatar: strin
     stageIndex: 0,
     stageState: {},
     lastActiveAt: Date.now(),
+    ready: false,
     photoUploaded: false,
   };
 
@@ -188,6 +193,86 @@ export async function validateRoomPin(roomId: string, pin: string): Promise<bool
   if (!room.pinEnabled) return true;
   const hash = await sha256Hex(pin);
   return Boolean(room.pinHash && room.pinHash === hash);
+}
+
+export async function rolloverRoomWithSamePlayers(oldRoomId: string): Promise<string> {
+  const user = await ensureAuthed();
+  const oldRoomRef = doc(db, 'rooms', oldRoomId);
+  const oldSnap = await getDoc(oldRoomRef);
+  if (!oldSnap.exists()) throw new Error('Room not found');
+  const oldRoom = { id: oldSnap.id, ...(oldSnap.data() as any) } as Room;
+
+  if (oldRoom.controllerUid !== user.uid) {
+    throw new Error('Only the host can start a new night');
+  }
+
+  // Create a new room doc with a new join code, but copy settings/pinHash.
+  let code = generateRoomCode();
+  let codeExists = true;
+  while (codeExists) {
+    const roomsRef = collection(db, 'rooms');
+    const q = query(roomsRef, where('code', '==', code));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+      codeExists = false;
+    } else {
+      code = generateRoomCode();
+    }
+  }
+
+  const newRoomRef = await addDoc(collection(db, 'rooms'), {
+    code,
+    name: oldRoom.name,
+    pinEnabled: oldRoom.pinEnabled,
+    ...(oldRoom.pinHash ? { pinHash: oldRoom.pinHash } : {}),
+    maxPlayers: oldRoom.maxPlayers,
+    createdAt: Date.now(),
+    controllerUid: oldRoom.controllerUid,
+    status: 'lobby',
+    roomMode: oldRoom.roomMode,
+    raceTrackId: oldRoom.raceTrackId ?? 'christmas_race_v1',
+    miniGamesEnabled: oldRoom.miniGamesEnabled ?? undefined,
+    settings: oldRoom.settings ?? { difficulty: 'easy', allowSkips: false },
+    eventsEnabled: oldRoom.eventsEnabled ?? true,
+    overallScoringEnabled: oldRoom.overallScoringEnabled ?? false,
+    overallScoringMode: oldRoom.overallScoringMode ?? 'hybrid',
+  } as any);
+
+  const newRoomId = newRoomRef.id;
+
+  // Copy players to new room (same uid/name/avatar), reset state.
+  const playersSnap = await getDocs(collection(db, 'rooms', oldRoomId, 'players'));
+  const batch = writeBatch(db);
+  playersSnap.docs.forEach((p) => {
+    const data = p.data() as any;
+    batch.set(doc(db, 'rooms', newRoomId, 'players', p.id), {
+      name: data.name,
+      avatar: data.avatar,
+      score: 0,
+      joinedAt: Date.now(),
+      stageIndex: 0,
+      stageState: {},
+      finishedAt: null,
+      lastActiveAt: Date.now(),
+      ready: false,
+      photoUploaded: false,
+    } as any);
+  });
+  await batch.commit();
+
+  // Initialize mini game sets in the new room if needed.
+  if (oldRoom.roomMode === 'mini_games' && oldRoom.miniGamesEnabled && oldRoom.miniGamesEnabled.length > 0) {
+    try {
+      await initializeMiniGameSets(newRoomId, oldRoom.miniGamesEnabled);
+    } catch {
+      // ignore
+    }
+  }
+
+  // Mark old room with redirect so clients can auto-hop.
+  await updateDoc(oldRoomRef, { redirectRoomId: newRoomId } as any);
+
+  return newRoomId;
 }
 
 // User profile functions to track previous names

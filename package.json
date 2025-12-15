@@ -6,7 +6,8 @@
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate:intros": "node scripts/generate-intros.mjs"
   },
   "dependencies": {
     "firebase": "^10.14.1",

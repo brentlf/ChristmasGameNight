@@ -5,6 +5,7 @@ import TopLeftNav from './components/TopLeftNav'
 import ChristmasBackdrop from './components/ChristmasBackdrop'
 import AudioControls from './components/AudioControls'
 import { AudioProvider } from '@/lib/contexts/AudioContext'
+import AudioPolicyClient from './components/AudioPolicyClient'
 
 export const metadata: Metadata = {
   title: 'Christmas Game Night',
@@ -23,6 +24,7 @@ export default function RootLayout({
         <AudioProvider>
           <ChristmasBackdrop />
           <TopLeftNav />
+          <AudioPolicyClient />
           <AudioControls />
           <div className="relative min-h-screen">
             {children}

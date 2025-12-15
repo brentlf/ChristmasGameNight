@@ -6,6 +6,13 @@ import { useEffect, useState } from 'react'
 import { getLanguage, setLanguage, type Language } from '@/lib/i18n'
 import { useAudio } from '@/lib/contexts/AudioContext'
 
+const STORAGE_KEY_ACTIVE_ROOM_ID = 'cgn_active_room_id'
+
+function getRoomIdFromPathname(pathname: string): string | null {
+  const m = pathname.match(/^\/room\/([^/]+)(?:\/|$)/)
+  return m?.[1] ?? null
+}
+
 function IconArrowLeft(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
@@ -41,25 +48,83 @@ function IconHome(props: React.SVGProps<SVGSVGElement>) {
   )
 }
 
+function IconDoorReturn(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 17l-5-5 5-5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5 12h9"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 export default function TopLeftNav() {
   const router = useRouter()
   const pathname = usePathname()
   const [lang, setLang] = useState<Language>('en')
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(null)
   const { playSound } = useAudio()
 
   useEffect(() => {
     setLang(getLanguage())
   }, [])
 
+  useEffect(() => {
+    // Track "current active room" for quick navigation on mobile.
+    // Note: `localStorage` is not available during server rendering, even in client components.
+    if (typeof window === 'undefined') return
+
+    const roomIdInPath = getRoomIdFromPathname(pathname)
+    if (roomIdInPath) {
+      localStorage.setItem(STORAGE_KEY_ACTIVE_ROOM_ID, roomIdInPath)
+      setActiveRoomId(roomIdInPath)
+      return
+    }
+
+    setActiveRoomId(localStorage.getItem(STORAGE_KEY_ACTIVE_ROOM_ID))
+  }, [pathname])
+
   // Don't show on home route.
   const showHome = pathname !== '/'
   const showBack = pathname !== '/'
+  const showReturnToActiveRoom =
+    Boolean(activeRoomId) && !pathname.startsWith(`/room/${activeRoomId}`)
 
   if (!showBack && !showHome) return null
 
   return (
     <div className="fixed left-4 top-4 z-50">
       <div className="flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-lg px-2 py-2">
+        {showReturnToActiveRoom && activeRoomId && (
+          <Link
+            href={`/room/${activeRoomId}/play`}
+            onClick={() => playSound('click')}
+            className="inline-flex md:hidden items-center justify-center rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
+            aria-label="Return to active room"
+            title="Return to active room"
+          >
+            <IconDoorReturn className="h-5 w-5" />
+          </Link>
+        )}
+
         {showBack && (
           <button
             type="button"
