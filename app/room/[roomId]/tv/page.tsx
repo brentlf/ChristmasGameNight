@@ -14,7 +14,9 @@ import { useEvents } from '@/lib/hooks/useEvents';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { getWYRItemById } from '@/lib/miniGameContent';
+import { endPictionaryRound, initializePictionaryGame, startPictionaryRound } from '@/lib/miniGameEngine';
 import type { Player, Room } from '@/types';
+import toast from 'react-hot-toast';
 
 function isLocalhost(hostname: string) {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
@@ -165,6 +167,7 @@ export default function TVPage() {
   const [joinUrl, setJoinUrl] = useState('');
   const [viewerUid, setViewerUid] = useState<string | null>(null);
   const { events } = useEvents(roomId, 15);
+  const [pictionaryBusy, setPictionaryBusy] = useState(false);
 
   useEffect(() => {
     if (auth?.currentUser?.uid) {
@@ -515,12 +518,37 @@ export default function TVPage() {
                     {room.status === 'lobby' && (
                       <button
                         onClick={async () => {
-                          await updateRoom({
-                            status: 'running',
-                            ...(room.roomMode === 'amazing_race' && { raceStartedAt: Date.now() }),
-                          });
+                          // One-click start:
+                          // - Amazing Race: set status running (+ raceStartedAt)
+                          // - Mini Games: set status running, and if Pictionary is enabled, also init+start it
+                          try {
+                            await updateRoom({
+                              status: 'running',
+                              ...(room.roomMode === 'amazing_race' && { raceStartedAt: Date.now() }),
+                            });
+
+                            if (
+                              room.roomMode === 'mini_games' &&
+                              room.miniGamesEnabled?.includes('pictionary')
+                            ) {
+                              if (players.length < 2) {
+                                toast.error('Need at least 2 players to start Pictionary');
+                                return;
+                              }
+                              setPictionaryBusy(true);
+                              await initializePictionaryGame(roomId);
+                              await startPictionaryRound(roomId);
+                              toast.success('Pictionary started!');
+                            }
+                          } catch (e: any) {
+                            console.error('Failed to start:', e);
+                            toast.error(e?.message || 'Failed to start');
+                          } finally {
+                            setPictionaryBusy(false);
+                          }
                         }}
                         className="btn-primary"
+                        disabled={pictionaryBusy}
                       >
                         {room.roomMode === 'amazing_race' ? t('controller.startRace', lang) : 'Start Games'}
                       </button>
@@ -668,18 +696,149 @@ export default function TVPage() {
                     <p className="text-sm text-white/70">
                       {t('tv.completedBy', lang)}: {players.filter((p: any) => p.miniGameProgress?.pictionary?.completedAt).length}/{players.length}
                     </p>
+                    <p className="text-sm text-white/70">
+                      Game state:{' '}
+                      <span className="font-semibold text-white/90">
+                        {room.pictionaryGameState?.status ?? 'not initialized'}
+                      </span>
+                      {room.pictionaryGameState ? (
+                        <>
+                          {' '}
+                          • Round{' '}
+                          <span className="font-semibold text-white/90">{room.pictionaryGameState.currentRound}</span>/
+                          <span className="font-semibold text-white/90">{room.pictionaryGameState.totalRounds}</span>
+                        </>
+                      ) : null}
+                    </p>
+
+                    {isController && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {!room.pictionaryGameState ? (
+                          <button
+                            className="btn-primary"
+                            disabled={pictionaryBusy || players.length < 2}
+                            onClick={async () => {
+                              if (players.length < 2) {
+                                toast.error('Need at least 2 players');
+                                return;
+                              }
+                              setPictionaryBusy(true);
+                              try {
+                                await initializePictionaryGame(roomId);
+                                await startPictionaryRound(roomId);
+                                toast.success('Pictionary started!');
+                              } catch (e: any) {
+                                console.error('TV init/start pictionary failed:', e);
+                                toast.error(e?.message || 'Failed to start pictionary');
+                              } finally {
+                                setPictionaryBusy(false);
+                              }
+                            }}
+                            type="button"
+                          >
+                            {pictionaryBusy ? t('common.loading', lang) : 'Initialize & Start'}
+                          </button>
+                        ) : room.pictionaryGameState.status === 'waiting' && room.pictionaryGameState.currentRound === 0 ? (
+                          <button
+                            className="btn-primary"
+                            disabled={pictionaryBusy || players.length < 2}
+                            onClick={async () => {
+                              setPictionaryBusy(true);
+                              try {
+                                await startPictionaryRound(roomId);
+                                toast.success('Round started!');
+                              } catch (e: any) {
+                                console.error('TV start pictionary round failed:', e);
+                                toast.error(e?.message || 'Failed to start round');
+                              } finally {
+                                setPictionaryBusy(false);
+                              }
+                            }}
+                            type="button"
+                          >
+                            {pictionaryBusy ? t('common.loading', lang) : 'Start Game'}
+                          </button>
+                        ) : room.pictionaryGameState.status === 'round_end' ? (
+                          <button
+                            className="btn-primary"
+                            disabled={pictionaryBusy}
+                            onClick={async () => {
+                              setPictionaryBusy(true);
+                              try {
+                                await startPictionaryRound(roomId);
+                                toast.success('Next round started!');
+                              } catch (e: any) {
+                                console.error('TV next pictionary round failed:', e);
+                                toast.error(e?.message || 'Failed to start next round');
+                              } finally {
+                                setPictionaryBusy(false);
+                              }
+                            }}
+                            type="button"
+                          >
+                            {pictionaryBusy ? t('common.loading', lang) : 'Next Round'}
+                          </button>
+                        ) : room.pictionaryGameState.status === 'drawing' ? (
+                          <button
+                            className="btn-secondary"
+                            disabled={pictionaryBusy}
+                            onClick={async () => {
+                              setPictionaryBusy(true);
+                              try {
+                                await endPictionaryRound(roomId);
+                                toast.success('Round ended!');
+                              } catch (e: any) {
+                                console.error('TV end pictionary round failed:', e);
+                                toast.error(e?.message || 'Failed to end round');
+                              } finally {
+                                setPictionaryBusy(false);
+                              }
+                            }}
+                            type="button"
+                          >
+                            {pictionaryBusy ? t('common.loading', lang) : 'End Round'}
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
                     {(() => {
                       const completed = players.filter((p: any) => p.miniGameProgress?.pictionary?.completedAt);
                       if (completed.length === 0) {
                         return <p className="text-sm text-white/60">{t('tv.noCompletions', lang)}</p>;
                       }
-                      const topScorer = [...completed].sort((a: any, b: any) => (b.miniGameProgress?.pictionary?.score ?? 0) - (a.miniGameProgress?.pictionary?.score ?? 0))[0];
+                      const totalScores = room.pictionaryGameState?.totalScores ?? {};
+                      const topScorer = [...completed].sort((a: any, b: any) => (Number(totalScores[b.uid] ?? b.miniGameProgress?.pictionary?.score ?? 0)) - (Number(totalScores[a.uid] ?? a.miniGameProgress?.pictionary?.score ?? 0)))[0];
                       return (
                         <p className="text-sm text-white/80">
-                          {t('tv.topScorer', lang)}: <span className="font-bold">{topScorer.name}</span> ({topScorer.miniGameProgress?.pictionary?.score ?? 0})
+                          {t('tv.topScorer', lang)}: <span className="font-bold">{topScorer.name}</span> ({Number(totalScores[topScorer.uid] ?? topScorer.miniGameProgress?.pictionary?.score ?? 0)})
                         </p>
                       );
                     })()}
+
+                    {/* Live score table */}
+                    {room.pictionaryGameState?.totalScores && (
+                      <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                        <p className="text-xs font-semibold text-white/80 mb-2">Live scores</p>
+                        <div className="space-y-1">
+                          {[...players]
+                            .map((p: any) => ({
+                              ...p,
+                              liveScore: Number(room.pictionaryGameState?.totalScores?.[p.uid] ?? 0),
+                            }))
+                            .sort((a: any, b: any) => b.liveScore - a.liveScore)
+                            .slice(0, 8)
+                            .map((p: any) => (
+                              <div key={p.uid} className="flex items-center justify-between text-sm">
+                                <span className="truncate text-white/85">
+                                  <span className="mr-2">{p.avatar}</span>
+                                  {p.name}
+                                </span>
+                                <span className="font-bold text-christmas-gold">{p.liveScore}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

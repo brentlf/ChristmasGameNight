@@ -37,12 +37,16 @@ export interface Room {
     currentPromptId: string | null;
     roundStartTime: number | null; // ms since epoch
     timeLimit: number; // seconds
-    drawingData?: string; // base64 encoded canvas data for real-time sync
+    // Firestore does not allow `undefined` values in writes unless ignoreUndefinedProperties is enabled.
+    // We use null to represent "no drawing yet".
+    drawingData?: string | null; // base64 encoded canvas data for real-time sync
     guesses: Array<{ uid: string; guess: string; timestamp: number }>;
     correctGuessers: string[]; // UIDs who guessed correctly
     roundScores: Record<string, number>; // uid -> points for current round
-    totalRounds: number; // total rounds (3 per player)
+    totalScores?: Record<string, number>; // uid -> total points across whole game
+    totalRounds: number; // total rounds (2 per player)
     drawerOrder: string[]; // order of players who will draw
+    promptDeck?: string[]; // promptId per round (index = round-1)
   };
   settings: {
     difficulty: 'easy' | 'medium' | 'hard';

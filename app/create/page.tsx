@@ -7,6 +7,7 @@ import { createRoom } from '@/lib/utils/room';
 import toast from 'react-hot-toast';
 import type { RoomMode, MiniGameType } from '@/types';
 import Link from 'next/link';
+import { useAudio } from '@/lib/contexts/AudioContext';
 
 // This page depends on URL search params (`mode`), so it can't be statically prerendered.
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,7 @@ function CreatePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const lang = getLanguage();
+  const { playSound } = useAudio();
   const modeParam = searchParams.get('mode') as RoomMode | null;
   const [roomMode, setRoomMode] = useState<RoomMode>(modeParam || 'amazing_race');
   const [roomName, setRoomName] = useState('');
@@ -33,7 +35,7 @@ function CreatePageInner() {
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [allowSkips, setAllowSkips] = useState(false);
   const [eventsEnabled, setEventsEnabled] = useState(true);
-  const [overallScoringEnabled, setOverallScoringEnabled] = useState(false);
+  const [overallScoringEnabled, setOverallScoringEnabled] = useState(true);
   const [overallScoringMode, setOverallScoringMode] = useState<'placements' | 'sumMiniGameScores' | 'hybrid'>('hybrid');
   const [miniGamesEnabled, setMiniGamesEnabled] = useState<MiniGameType[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,6 +67,7 @@ function CreatePageInner() {
       return;
     }
 
+    playSound('click');
     setLoading(true);
     try {
       const roomId = await createRoom({
@@ -80,6 +83,7 @@ function CreatePageInner() {
         miniGamesEnabled: roomMode === 'mini_games' ? miniGamesEnabled : undefined,
       });
       
+      playSound('success');
       router.push(`/room/${roomId}/tv`);
     } catch (error: any) {
       toast.error(error.message || 'Failed to create room');

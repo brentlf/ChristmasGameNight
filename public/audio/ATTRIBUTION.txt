@@ -1,0 +1,35 @@
+Christmas Game Night – Audio Attribution
+
+This project bundles a mix of CC0 and royalty-free audio.
+
+1) Kenney "Interface Sounds" (CC0)
+- Files:
+  - bell.ogg
+  - cheer.ogg
+  - click.ogg
+  - ding.ogg
+  - jingle.ogg
+  - page-turn.ogg
+  - success.ogg
+  - whoosh.ogg
+- License text: LICENSE_KENNEY.txt
+- Source: https://opengameart.org/content/interface-sounds
+
+2) SoundBible (Attribution 3.0)
+- sleighbells.mp3
+  - Page: https://soundbible.com/1256-Sleigh-Bells-Ringing.html
+  - Direct: https://soundbible.com/mp3/Sleigh%20Bells%20Ringing-SoundBible.com-1890102065.mp3
+- hohoho.mp3
+  - Page: https://soundbible.com/1254-Ho-Ho-Ho-St-Nick.html
+  - Direct: https://soundbible.com/mp3/Ho%20Ho%20Ho%20St%20Nick-SoundBible.com-1954250969.mp3
+
+3) OpenGameArt (CC0)
+- wind.ogg
+  - Page: https://opengameart.org/content/wind-whoosh-loop
+  - Direct: https://opengameart.org/sites/default/files/wind%20woosh%20loop.ogg
+- snowstep.ogg (preview ogg from “4 dry snow steps” page)
+  - Page: https://opengameart.org/content/4-dry-snow-steps
+  - Direct: https://opengameart.org/sites/default/files/audio_preview/ssd.mp3.ogg
+- christmas-ambient.ogg (“Wintery loop” preview ogg)
+  - Page: https://opengameart.org/content/wintery-loop
+  - Direct: https://opengameart.org/sites/default/files/audio_preview/wintery%20loop.mp3.ogg

@@ -18,6 +18,7 @@ import { completePhotoScavenger } from '@/lib/raceEngine';
 import { validatePhotoWithAI } from '@/lib/utils/openai';
 import type { Player, Room, RaceStageDefinition, MiniGameType } from '@/types';
 import { MiniGameDashboard } from './MiniGameDashboard';
+import { useAudio } from '@/lib/contexts/AudioContext';
 
 const AVATARS = ['🎅', '🎄', '🎁', '❄️', '🦌', '⛄', '🎄', '🎁', '🎅', '❄️'];
 
@@ -30,6 +31,7 @@ export default function PlayPage() {
   const { players } = usePlayers(roomId);
   const { previousNames, loading: profileLoading } = useUserProfile();
   const lang = getLanguage();
+  const { playSound } = useAudio();
   
   const [name, setName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
@@ -56,10 +58,12 @@ export default function PlayPage() {
       return;
     }
 
+    playSound('click');
     setJoining(true);
     try {
       const uid = await joinRoom(roomId, name, selectedAvatar);
       setPlayerUid(uid);
+      playSound('success');
       toast.success(t('player.joined', lang));
     } catch (error: any) {
       toast.error(error.message || 'Failed to join room');
@@ -438,6 +442,7 @@ function StageBody(props: {
 }) {
   const { roomId, trackId, stageIndex, stage, state, lang, now } = props;
   const uid = auth?.currentUser?.uid;
+  const { playSound } = useAudio();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -512,11 +517,17 @@ function StageBody(props: {
           className="btn-primary w-full"
           disabled={busy || !text.trim()}
           onClick={async () => {
+            playSound('click');
             setBusy(true);
             try {
               const res = await submitRiddleAnswer({ roomId, uid, trackId, stageIndex, answer: text, lang });
-              if (res.correct) toast.success(t('race.correct', lang));
-              else toast.error(t('race.incorrect', lang));
+              if (res.correct) {
+                playSound('success');
+                toast.success(t('race.correct', lang));
+              } else {
+                playSound('ding', 0.15);
+                toast.error(t('race.incorrect', lang));
+              }
             } catch (e: any) {
               toast.error(e?.message || t('common.error', lang));
             } finally {
@@ -596,11 +607,17 @@ function StageBody(props: {
               className="w-full rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-4 text-left disabled:opacity-50"
               disabled={busy || locked}
               onClick={async () => {
+                playSound('click');
                 setBusy(true);
                 try {
                   const res = await submitEmojiAnswer({ roomId, uid, trackId, stageIndex, clueId: nextClueId, answerText: opt, lang });
-                  if (res.correct) toast.success(t('race.correct', lang));
-                  else toast.error(t('race.incorrect', lang));
+                  if (res.correct) {
+                    playSound('success');
+                    toast.success(t('race.correct', lang));
+                  } else {
+                    playSound('ding', 0.15);
+                    toast.error(t('race.incorrect', lang));
+                  }
                 } catch (e: any) {
                   toast.error(e?.message || t('common.error', lang));
                 } finally {
@@ -655,11 +672,18 @@ function StageBody(props: {
 
         <button
           className="btn-primary w-full"
-          disabled={busy || selected === null || remaining === 0}
+          disabled={busy || selected === null || remaining === 0 || !questionId}
           onClick={async () => {
+            if (!questionId) return;
+            playSound('click');
             setBusy(true);
             try {
               const res = await submitTriviaAnswer({ roomId, uid, trackId, stageIndex, questionId, choiceIndex: selected, lang });
+              if (res.correct) {
+                playSound('success');
+              } else {
+                playSound('ding', 0.15);
+              }
               toast.success(res.correct ? t('race.correct', lang) : t('race.incorrect', lang));
               setSelected(null);
             } catch (e: any) {
@@ -703,11 +727,17 @@ function StageBody(props: {
           className="btn-primary w-full"
           disabled={busy || locked || text.trim().length !== 4}
           onClick={async () => {
+            playSound('click');
             setBusy(true);
             try {
               const res = await submitCodeLock({ roomId, uid, trackId, stageIndex, code: text, lang });
-              if (res.correct) toast.success(t('race.correct', lang));
-              else toast.error(t('race.incorrect', lang));
+              if (res.correct) {
+                playSound('success');
+                toast.success(t('race.correct', lang));
+              } else {
+                playSound('ding', 0.15);
+                toast.error(t('race.incorrect', lang));
+              }
             } catch (e: any) {
               toast.error(e?.message || t('common.error', lang));
             } finally {

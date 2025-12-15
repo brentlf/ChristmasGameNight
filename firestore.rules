@@ -28,6 +28,12 @@ service cloud.firestore {
           && request.resource.data.status == 'running'
           && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'raceStartedAt'])
         )
+        // Allow any authed player to participate in Pictionary, since
+        // drawing sync + guesses are stored on the room doc.
+        // This is intentionally narrow: ONLY pictionaryGameState may change.
+        || (
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['pictionaryGameState'])
+        )
       );
 
       allow delete: if isController();

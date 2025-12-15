@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { getLanguage, setLanguage, type Language } from '@/lib/i18n'
+import { useAudio } from '@/lib/contexts/AudioContext'
 
 function IconArrowLeft(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -44,6 +45,7 @@ export default function TopLeftNav() {
   const router = useRouter()
   const pathname = usePathname()
   const [lang, setLang] = useState<Language>('en')
+  const { playSound } = useAudio()
 
   useEffect(() => {
     setLang(getLanguage())
@@ -62,6 +64,7 @@ export default function TopLeftNav() {
           <button
             type="button"
             onClick={() => {
+              playSound('click');
               // If there's browser history, go back; otherwise go home.
               if (typeof window !== 'undefined' && window.history.length > 1) {
                 router.back()
@@ -80,6 +83,7 @@ export default function TopLeftNav() {
         {showHome && (
           <Link
             href="/"
+            onClick={() => playSound('click')}
             className="hidden md:inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
             aria-label="Go home"
           >
@@ -95,6 +99,7 @@ export default function TopLeftNav() {
         <button
           type="button"
           onClick={() => {
+            playSound('click');
             setLanguage('en')
             setLang('en')
             if (typeof window !== 'undefined') window.location.reload()
@@ -109,6 +114,7 @@ export default function TopLeftNav() {
         <button
           type="button"
           onClick={() => {
+            playSound('click');
             setLanguage('cs')
             setLang('cs')
             if (typeof window !== 'undefined') window.location.reload()
@@ -125,6 +131,7 @@ export default function TopLeftNav() {
 
         <Link
           href="/traditions"
+          onClick={() => playSound('click')}
           className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
           aria-label="Tradition Wheel"
         >

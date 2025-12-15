@@ -3,6 +3,8 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import TopLeftNav from './components/TopLeftNav'
 import ChristmasBackdrop from './components/ChristmasBackdrop'
+import AudioControls from './components/AudioControls'
+import { AudioProvider } from '@/lib/contexts/AudioContext'
 
 export const metadata: Metadata = {
   title: 'Christmas Game Night',
@@ -18,12 +20,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen">
-        <ChristmasBackdrop />
-        <TopLeftNav />
-        <div className="relative min-h-screen">
-          {children}
-        </div>
-        <Toaster position="top-center" />
+        <AudioProvider>
+          <ChristmasBackdrop />
+          <TopLeftNav />
+          <AudioControls />
+          <div className="relative min-h-screen">
+            {children}
+          </div>
+          <Toaster position="top-center" />
+        </AudioProvider>
       </body>
     </html>
   )

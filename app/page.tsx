@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { getLanguage, setLanguage, t, type Language } from '@/lib/i18n';
 import Link from 'next/link';
+import { useAudio } from '@/lib/contexts/AudioContext';
 
 export default function Home() {
   const [language, setLanguageState] = useState<Language>('en');
   const [mounted, setMounted] = useState(false);
+  const { playSound } = useAudio();
 
   useEffect(() => {
     setMounted(true);
@@ -15,6 +17,7 @@ export default function Home() {
   }, []);
 
   const handleLanguageSelect = (lang: Language) => {
+    playSound('click');
     setLanguage(lang);
     setLanguageState(lang);
   };
@@ -40,7 +43,8 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 max-w-3xl mx-auto">
           {/* Christmas Game Night Tile */}
           <Link 
-            href="/game-night" 
+            href="/game-night"
+            onClick={() => playSound('whoosh', 0.3)}
             className="group relative aspect-square rounded-2xl overflow-hidden bg-wood-dark/40 backdrop-blur-xl border border-wood-light/30 hover:border-fire-gold/60 transition-all duration-500 hover:scale-105 animate-scale-in"
             style={{ 
               boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 140, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
@@ -72,7 +76,8 @@ export default function Home() {
 
           {/* Christmas Traditions Tile */}
           <Link 
-            href="/traditions" 
+            href="/traditions"
+            onClick={() => playSound('whoosh', 0.3)}
             className="group relative aspect-square rounded-2xl overflow-hidden bg-wood-dark/40 backdrop-blur-xl border border-wood-light/30 hover:border-fire-gold/60 transition-all duration-500 hover:scale-105 animate-scale-in"
             style={{ 
               animationDelay: '0.15s', 

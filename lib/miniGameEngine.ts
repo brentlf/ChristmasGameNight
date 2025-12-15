@@ -1,4 +1,4 @@
-import { doc, updateDoc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, collection, getDocs, runTransaction } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Room, Player, MiniGameType } from '@/types';
 import { triviaChristmasPool } from '@/content/trivia_christmas';
@@ -6,6 +6,112 @@ import { emojiMoviesChristmasPool } from '@/content/emoji_movies_christmas';
 import { wouldYouRatherChristmasPool } from '@/content/would_you_rather_christmas';
 import { pictionaryChristmasPool } from '@/content/pictionary_christmas';
 import { generateSeed, shuffleSeeded } from '@/lib/utils/seededRandom';
+
+function normalizeForGuessing(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip diacritics
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9\s]/g, ' ') // drop punctuation
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function canonicalizeChristmasSynonyms(input: string): string {
+  // Very small, intentionally-safe synonym map to make answers "close enough".
+  // This is not a full AI solution, but it catches common variants like:
+  // "Father Christmas" ~= "Santa", "St Nick" ~= "Santa", etc.
+  let s = input;
+
+  // English synonyms
+  s = s.replace(/\bfather christmas\b/g, 'santa');
+  s = s.replace(/\bsanta claus\b/g, 'santa');
+  s = s.replace(/\bst\.?\s*nick\b/g, 'santa');
+  s = s.replace(/\bsaint\s+nick\b/g, 'santa');
+  s = s.replace(/\bxmas\b/g, 'christmas');
+
+  // Czech-ish helpful mapping (kept minimal to avoid surprising matches)
+  // Ježíšek is often used as "Santa" equivalent in Czech families.
+  s = s.replace(/\bjez(is|isek|iseku|iskek)\b/g, 'santa'); // very rough after diacritic stripping
+
+  return s;
+}
+
+function tokenizeForGuessing(input: string): string[] {
+  const stop = new Set(['a', 'an', 'the', 'and', 'or', 'of', 'to', 'for', 'in', 'on', 'with']);
+  return input
+    .split(' ')
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((t) => {
+      // light plural normalization (trees -> tree)
+      if (t.length > 3 && t.endsWith('s')) return t.slice(0, -1);
+      return t;
+    })
+    .filter((t) => !stop.has(t));
+}
+
+function jaccardSimilarity(a: string[], b: string[]): number {
+  const A = new Set(a);
+  const B = new Set(b);
+  if (A.size === 0 && B.size === 0) return 1;
+  let intersection = 0;
+  for (const x of A) if (B.has(x)) intersection++;
+  const union = A.size + B.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+
+  const prev = new Array(b.length + 1);
+  const curr = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    const ca = a.charCodeAt(i - 1);
+    for (let j = 1; j <= b.length; j++) {
+      const cb = b.charCodeAt(j - 1);
+      const cost = ca === cb ? 0 : 1;
+      curr[j] = Math.min(
+        prev[j] + 1, // deletion
+        curr[j - 1] + 1, // insertion
+        prev[j - 1] + cost // substitution
+      );
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+  }
+
+  return prev[b.length];
+}
+
+function fuzzyMatchGuess(guessRaw: string, answerRaw: string): boolean {
+  const guess = canonicalizeChristmasSynonyms(normalizeForGuessing(guessRaw));
+  const answer = canonicalizeChristmasSynonyms(normalizeForGuessing(answerRaw));
+
+  if (!guess || !answer) return false;
+  if (guess === answer) return true;
+
+  // Substring match for multi-word answers (“gingerbread man” vs “gingerbread”)
+  if (guess.length >= 3 && (answer.includes(guess) || guess.includes(answer))) return true;
+
+  const gTokens = tokenizeForGuessing(guess);
+  const aTokens = tokenizeForGuessing(answer);
+  const tokenSim = jaccardSimilarity(gTokens, aTokens);
+  if (tokenSim >= 0.7) return true;
+
+  // Typo tolerance for shorter phrases
+  const maxLen = Math.max(guess.length, answer.length);
+  const dist = levenshteinDistance(guess, answer);
+  const ratio = maxLen === 0 ? 0 : 1 - dist / maxLen;
+  if (maxLen <= 25 && ratio >= 0.82) return true;
+
+  return false;
+}
 
 // Generate random selection of 10 items from a pool
 // Note: This is used during room initialization, so we can use Math.random() here
@@ -92,6 +198,21 @@ export async function initializePictionaryGame(roomId: string): Promise<void> {
   if (!roomSnap.exists()) throw new Error('Room not found');
   
   const room = roomSnap.data() as Room;
+  
+  // Ensure miniGames are initialized if pictionary is enabled
+  if (!room.miniGames?.pictionary?.selectedIds || room.miniGames.pictionary.selectedIds.length === 0) {
+    if (room.miniGamesEnabled?.includes('pictionary')) {
+      await initializeMiniGameSets(roomId, ['pictionary']);
+      // Refetch room after initialization
+      const updatedSnap = await getDoc(roomRef);
+      if (updatedSnap.exists()) {
+        Object.assign(room, updatedSnap.data());
+      }
+    } else {
+      throw new Error('Pictionary is not enabled for this room');
+    }
+  }
+  
   const playersRef = collection(db, 'rooms', roomId, 'players');
   const playersSnapshot = await getDocs(playersRef);
   
@@ -108,7 +229,22 @@ export async function initializePictionaryGame(roomId: string): Promise<void> {
   // This ensures the same order for all players
   const seed = generateSeed(roomId, 0);
   const drawerOrder = shuffleSeeded([...playerUids], seed);
-  const totalRounds = drawerOrder.length * 3; // 3 rounds per player
+  const totalRounds = drawerOrder.length * 2; // 2 rounds per player
+
+  // Build a deterministic prompt deck (one prompt per round).
+  // Prefer unique prompts across the whole game; if the pool is too small, repeat by reshuffling.
+  const selectedIds = room.miniGames?.pictionary?.selectedIds ?? [];
+  if (selectedIds.length === 0) throw new Error('No prompts available');
+  const promptDeck: string[] = [];
+  let deckSeedSalt = 1000;
+  while (promptDeck.length < totalRounds) {
+    const s = generateSeed(roomId, deckSeedSalt++);
+    const shuffled = shuffleSeeded([...selectedIds], s);
+    for (const id of shuffled) {
+      promptDeck.push(id);
+      if (promptDeck.length >= totalRounds) break;
+    }
+  }
   
   const gameState: Room['pictionaryGameState'] = {
     status: 'waiting',
@@ -117,12 +253,16 @@ export async function initializePictionaryGame(roomId: string): Promise<void> {
     currentPromptId: null,
     roundStartTime: null,
     timeLimit: 60, // 60 seconds per round
-    drawingData: undefined,
+    // Firestore does not allow `undefined` values unless ignoreUndefinedProperties is enabled.
+    // Use null to represent "no drawing yet".
+    drawingData: null,
     guesses: [],
     correctGuessers: [],
     roundScores: {},
+    totalScores: {},
     totalRounds,
     drawerOrder,
+    promptDeck,
   };
   
   await updateDoc(roomRef, { pictionaryGameState: gameState });
@@ -131,196 +271,196 @@ export async function initializePictionaryGame(roomId: string): Promise<void> {
 // Start a new round
 export async function startPictionaryRound(roomId: string): Promise<void> {
   const roomRef = doc(db, 'rooms', roomId);
-  const roomSnap = await getDoc(roomRef);
-  if (!roomSnap.exists()) throw new Error('Room not found');
-  
-  const room = roomSnap.data() as Room;
-  const gameState = room.pictionaryGameState;
-  
-  if (!gameState) throw new Error('Game not initialized');
-  
-  const nextRound = gameState.currentRound + 1;
-  if (nextRound > gameState.totalRounds) {
-    // Game completed
-    await updateDoc(roomRef, {
-      'pictionaryGameState.status': 'completed',
-    });
-    return;
-  }
-  
-  // Get drawer for this round
-  const drawerIndex = (nextRound - 1) % gameState.drawerOrder.length;
-  const drawerUid = gameState.drawerOrder[drawerIndex];
-  
-  // Get a deterministic prompt based on round number (ensures same prompt for all players viewing)
-  const selectedIds = room.miniGames?.pictionary?.selectedIds ?? [];
-  if (selectedIds.length === 0) throw new Error('No prompts available');
-  // Use round number as seed to ensure deterministic selection
-  const seed = generateSeed(roomId, nextRound);
-  const promptIndex = Math.floor((seed % 1000000) / (1000000 / selectedIds.length)) % selectedIds.length;
-  const randomPromptId = selectedIds[promptIndex];
-  
-  await updateDoc(roomRef, {
-    'pictionaryGameState.status': 'drawing',
-    'pictionaryGameState.currentRound': nextRound,
-    'pictionaryGameState.currentDrawerUid': drawerUid,
-    'pictionaryGameState.currentPromptId': randomPromptId,
-    'pictionaryGameState.roundStartTime': Date.now(),
-    'pictionaryGameState.drawingData': undefined,
-    'pictionaryGameState.guesses': [],
-    'pictionaryGameState.correctGuessers': [],
-    'pictionaryGameState.roundScores': {},
+  await runTransaction(db, async (tx) => {
+    const roomSnap = await tx.get(roomRef);
+    if (!roomSnap.exists()) throw new Error('Room not found');
+
+    const room = roomSnap.data() as Room;
+    const gameState = room.pictionaryGameState;
+    if (!gameState) throw new Error('Game not initialized');
+
+    // If a round is currently active, don't advance.
+    if (gameState.status === 'drawing') return;
+
+    const nextRound = gameState.currentRound + 1;
+    if (nextRound > gameState.totalRounds) {
+      const completedState: Room['pictionaryGameState'] = { ...gameState, status: 'completed' };
+      tx.update(roomRef, { pictionaryGameState: completedState });
+      return;
+    }
+
+    // Get drawer for this round
+    const drawerIndex = (nextRound - 1) % gameState.drawerOrder.length;
+    const drawerUid = gameState.drawerOrder[drawerIndex];
+
+    // Pick prompt for this round from the pre-generated deck.
+    // Fallback to deterministic selection if deck is missing (backward compat).
+    let promptId: string | undefined = gameState.promptDeck?.[nextRound - 1];
+    if (!promptId) {
+      const selectedIds = room.miniGames?.pictionary?.selectedIds ?? [];
+      if (selectedIds.length === 0) throw new Error('No prompts available');
+      const seed = generateSeed(roomId, nextRound);
+      const promptIndex = Math.floor((seed % 1000000) / (1000000 / selectedIds.length)) % selectedIds.length;
+      promptId = selectedIds[promptIndex];
+    }
+
+    const nextState: Room['pictionaryGameState'] = {
+      ...gameState,
+      status: 'drawing',
+      currentRound: nextRound,
+      currentDrawerUid: drawerUid,
+      currentPromptId: promptId,
+      roundStartTime: Date.now(),
+      timeLimit: 60,
+      drawingData: null,
+      guesses: [],
+      correctGuessers: [],
+      roundScores: {},
+    };
+
+    tx.update(roomRef, { pictionaryGameState: nextState });
   });
 }
 
 // Update drawing data (real-time sync)
 export async function updatePictionaryDrawing(roomId: string, drawingData: string): Promise<void> {
   const roomRef = doc(db, 'rooms', roomId);
-  await updateDoc(roomRef, {
-    'pictionaryGameState.drawingData': drawingData,
+  await runTransaction(db, async (tx) => {
+    const roomSnap = await tx.get(roomRef);
+    if (!roomSnap.exists()) throw new Error('Room not found');
+    const room = roomSnap.data() as Room;
+    const gameState = room.pictionaryGameState;
+    if (!gameState) throw new Error('Game not initialized');
+
+    // Only update the drawing payload; preserve everything else (guesses/scores).
+    const nextState: Room['pictionaryGameState'] = {
+      ...gameState,
+      drawingData,
+    };
+
+    tx.update(roomRef, { pictionaryGameState: nextState });
   });
 }
 
 // Submit a guess
 export async function submitPictionaryGuess(roomId: string, uid: string, guess: string): Promise<{ correct: boolean; drawerScored: boolean }> {
   const roomRef = doc(db, 'rooms', roomId);
-  const roomSnap = await getDoc(roomRef);
-  if (!roomSnap.exists()) throw new Error('Room not found');
-  
-  const room = roomSnap.data() as Room;
-  const gameState = room.pictionaryGameState;
-  
-  if (!gameState || gameState.status !== 'drawing') {
-    throw new Error('Game not in drawing state');
-  }
-  
-  if (gameState.currentDrawerUid === uid) {
-    throw new Error('Drawer cannot guess');
-  }
-  
-  if (!gameState.currentPromptId) {
-    throw new Error('No prompt available');
-  }
-  
-  // Get the prompt to check the answer
-  const prompt = pictionaryChristmasPool.find((p) => p.id === gameState.currentPromptId);
-  if (!prompt) throw new Error('Prompt not found');
-  
-  // Check if guess is correct (case-insensitive, flexible matching)
-  const normalizedGuess = guess.trim().toLowerCase();
-  const correctAnswers = [
-    prompt.prompt.en.toLowerCase(),
-    prompt.prompt.cs.toLowerCase(),
-  ];
-  
-  // Try exact match first, then partial match
-  let isCorrect = false;
-  for (const answer of correctAnswers) {
-    if (normalizedGuess === answer) {
-      isCorrect = true;
-      break;
-    }
-    // Check if guess is a significant part of the answer (at least 3 chars)
-    if (normalizedGuess.length >= 3 && (answer.includes(normalizedGuess) || normalizedGuess.includes(answer))) {
-      isCorrect = true;
-      break;
-    }
-  }
-  
-  // Add guess to list
-  const newGuesses = [...(gameState.guesses || []), {
-    uid,
-    guess: guess.trim(),
-    timestamp: Date.now(),
-  }];
-  
-  let newCorrectGuessers = [...(gameState.correctGuessers || [])];
+  let correct = false;
   let drawerScored = false;
-  
-  if (isCorrect && !newCorrectGuessers.includes(uid)) {
-    newCorrectGuessers.push(uid);
-    
-    // If this is the first correct guess, give drawer a point
-    if (gameState.currentDrawerUid && newCorrectGuessers.length === 1) {
-      drawerScored = true;
-      const drawerPlayerRef = doc(db, 'rooms', roomId, 'players', gameState.currentDrawerUid);
-      const drawerPlayerSnap = await getDoc(drawerPlayerRef);
-      if (drawerPlayerSnap.exists()) {
-        const drawerPlayer = drawerPlayerSnap.data() as Player;
-        const currentProgress = drawerPlayer.miniGameProgress?.pictionary ?? { score: 0 };
-        const newScore = (currentProgress.score || 0) + 1;
-        const newRoundsDrawn = (currentProgress.roundsDrawn || 0) + 1;
-        
-        const updatedProgress = {
-          ...(drawerPlayer.miniGameProgress || {}),
-          pictionary: {
-            ...currentProgress,
-            score: newScore,
-            roundsDrawn: newRoundsDrawn,
-          },
-        };
-        
-        await updateDoc(drawerPlayerRef, {
-          miniGameProgress: updatedProgress,
-          totalMiniGameScore: calculateTotalMiniGameScore(updatedProgress),
+
+  await runTransaction(db, async (tx) => {
+    const roomSnap = await tx.get(roomRef);
+    if (!roomSnap.exists()) throw new Error('Room not found');
+
+    const room = roomSnap.data() as Room;
+    const gameState = room.pictionaryGameState;
+    if (!gameState || gameState.status !== 'drawing') throw new Error('Game not in drawing state');
+
+    if (gameState.currentDrawerUid === uid) throw new Error('Drawer cannot guess');
+    if (!gameState.currentPromptId) throw new Error('No prompt available');
+
+    const prompt = pictionaryChristmasPool.find((p) => p.id === gameState.currentPromptId);
+    if (!prompt) throw new Error('Prompt not found');
+
+    correct = fuzzyMatchGuess(guess, prompt.prompt.en) || fuzzyMatchGuess(guess, prompt.prompt.cs);
+
+    const newGuesses = [
+      ...(gameState.guesses || []),
+      { uid, guess: guess.trim(), timestamp: Date.now() },
+    ];
+
+    const newCorrectGuessers = [...(gameState.correctGuessers || [])];
+    const nextRoundScores: Record<string, number> = { ...(gameState.roundScores || {}) };
+    const nextTotalScores: Record<string, number> = { ...(gameState.totalScores || {}) };
+
+    if (correct && !newCorrectGuessers.includes(uid)) {
+      newCorrectGuessers.push(uid);
+      nextRoundScores[uid] = (nextRoundScores[uid] || 0) + 1;
+      nextTotalScores[uid] = (nextTotalScores[uid] || 0) + 1;
+
+      if (gameState.currentDrawerUid && newCorrectGuessers.length === 1) {
+        drawerScored = true;
+        const drawerUid = gameState.currentDrawerUid;
+        nextRoundScores[drawerUid] = (nextRoundScores[drawerUid] || 0) + 1;
+        nextTotalScores[drawerUid] = (nextTotalScores[drawerUid] || 0) + 1;
+      }
+    }
+
+    const nextState: Room['pictionaryGameState'] = {
+      ...gameState,
+      guesses: newGuesses,
+      correctGuessers: newCorrectGuessers,
+      roundScores: nextRoundScores,
+      totalScores: nextTotalScores,
+    };
+
+    tx.update(roomRef, { pictionaryGameState: nextState });
+
+    // Update guesser's own player doc (allowed by rules) for stats.
+    if (correct) {
+      const guesserPlayerRef = doc(db, 'rooms', roomId, 'players', uid);
+      const guesserSnap = await tx.get(guesserPlayerRef);
+      if (guesserSnap.exists()) {
+        const guesserPlayer = guesserSnap.data() as Player;
+        tx.update(guesserPlayerRef, {
+          'miniGameProgress.pictionary.roundsGuessed': (guesserPlayer.miniGameProgress?.pictionary?.roundsGuessed ?? 0) + 1,
         });
       }
     }
-  }
-  
-  // Update guesser's progress
-  const guesserPlayerRef = doc(db, 'rooms', roomId, 'players', uid);
-  const guesserPlayerSnap = await getDoc(guesserPlayerRef);
-  if (guesserPlayerSnap.exists()) {
-    const guesserPlayer = guesserPlayerSnap.data() as Player;
-    if (isCorrect) {
-      await updateDoc(guesserPlayerRef, {
-        'miniGameProgress.pictionary.roundsGuessed': (guesserPlayer.miniGameProgress?.pictionary?.roundsGuessed ?? 0) + 1,
-      });
-    }
-  }
-  
-  await updateDoc(roomRef, {
-    'pictionaryGameState.guesses': newGuesses,
-    'pictionaryGameState.correctGuessers': newCorrectGuessers,
   });
-  
-  return { correct: isCorrect, drawerScored };
+
+  return { correct, drawerScored };
 }
 
 // End current round
 export async function endPictionaryRound(roomId: string): Promise<void> {
   const roomRef = doc(db, 'rooms', roomId);
-  const roomSnap = await getDoc(roomRef);
-  if (!roomSnap.exists()) throw new Error('Room not found');
-  
-  const room = roomSnap.data() as Room;
-  const gameState = room.pictionaryGameState;
-  if (!gameState) throw new Error('Game not initialized');
-  
-  // Mark round as ended
-  await updateDoc(roomRef, {
-    'pictionaryGameState.status': 'round_end',
+  let shouldMarkComplete = false;
+  await runTransaction(db, async (tx) => {
+    const roomSnap = await tx.get(roomRef);
+    if (!roomSnap.exists()) throw new Error('Room not found');
+    const room = roomSnap.data() as Room;
+    const gameState = room.pictionaryGameState;
+    if (!gameState) throw new Error('Game not initialized');
+
+    // If already ended/completed, don't do anything.
+    if (gameState.status === 'round_end' || gameState.status === 'completed') return;
+
+    const roundEndState: Room['pictionaryGameState'] = {
+      ...gameState,
+      status: 'round_end',
+    };
+
+    tx.update(roomRef, { pictionaryGameState: roundEndState });
+    shouldMarkComplete = gameState.currentRound >= gameState.totalRounds;
+
+    if (shouldMarkComplete) {
+      const completedState: Room['pictionaryGameState'] = {
+        ...roundEndState,
+        status: 'completed',
+      };
+      tx.update(roomRef, { pictionaryGameState: completedState });
+    }
   });
-  
-  // If this was the last round, mark game as completed
-  if (gameState.currentRound >= gameState.totalRounds) {
-    await updateDoc(roomRef, {
-      'pictionaryGameState.status': 'completed',
-    });
-    
-    // Mark all players as completed
+
+  if (shouldMarkComplete) {
+    // Mark all players as completed (best-effort; keep scores on room doc as source of truth).
+    const roomSnap = await getDoc(roomRef);
+    const room = roomSnap.data() as Room;
+    const totals = room?.pictionaryGameState?.totalScores ?? {};
+
     const playersRef = collection(db, 'rooms', roomId, 'players');
     const playersSnapshot = await getDocs(playersRef);
-    const batch = playersSnapshot.docs.map((playerDoc) => {
-      const player = playerDoc.data() as Player;
-      const currentProgress = player.miniGameProgress?.pictionary ?? { score: 0 };
-      return updateDoc(playerDoc.ref, {
-        'miniGameProgress.pictionary.completedAt': Date.now(),
-        'miniGameProgress.pictionary.score': currentProgress.score || 0,
-      });
-    });
-    await Promise.all(batch);
+    await Promise.all(
+      playersSnapshot.docs.map((playerDoc) => {
+        const player = playerDoc.data() as Player;
+        const score = Number(totals[playerDoc.id] ?? 0);
+        return updateDoc(playerDoc.ref, {
+          'miniGameProgress.pictionary.completedAt': Date.now(),
+          'miniGameProgress.pictionary.score': score,
+        });
+      })
+    );
   }
 }
 
@@ -549,11 +689,12 @@ export async function submitPictionaryDrawing(params: {
   if (!playerSnap.exists()) throw new Error('Player not found');
   
   const player = playerSnap.data() as Player;
-  const currentProgress = player.miniGameProgress?.pictionary ?? { drawings: [], score: 0 };
+  const currentProgress = player.miniGameProgress?.pictionary;
+  const currentDrawings: any[] = Array.isArray((currentProgress as any)?.drawings) ? (currentProgress as any).drawings : [];
   
   // Ensure the drawings array is properly sized to match selectedIds length
   const newDrawings = Array(selectedIds.length).fill(null).map((_, idx) => 
-    currentProgress.drawings[idx] || null
+    currentDrawings[idx] || null
   );
   newDrawings[questionIndex] = { promptId, dataUrl };
   

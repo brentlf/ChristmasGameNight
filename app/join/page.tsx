@@ -7,10 +7,12 @@ import { findRoomByCode } from '@/lib/utils/room';
 import { useRoom } from '@/lib/hooks/useRoom';
 import toast from 'react-hot-toast';
 import { validateRoomPin } from '@/lib/utils/room';
+import { useAudio } from '@/lib/contexts/AudioContext';
 
 export default function JoinPage() {
   const router = useRouter();
   const lang = getLanguage();
+  const { playSound } = useAudio();
   const [code, setCode] = useState('');
   const [pin, setPin] = useState('');
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -44,6 +46,7 @@ export default function JoinPage() {
       return;
     }
 
+    playSound('click');
     setLoading(true);
     try {
       const foundRoomId = await findRoomByCode(codeToUse);
@@ -52,6 +55,7 @@ export default function JoinPage() {
         setLoading(false);
         return;
       }
+      playSound('success');
       setRoomId(foundRoomId);
     } catch (error: any) {
       toast.error(error.message || 'Failed to find room');
@@ -71,12 +75,15 @@ export default function JoinPage() {
       return;
     }
 
+    playSound('click');
     try {
       const ok = await validateRoomPin(roomId, pin);
       if (!ok) {
+        playSound('ding', 0.15);
         toast.error(t('join.wrongPin', lang));
         return;
       }
+      playSound('success');
       setPinOk(true);
       router.push(`/room/${roomId}/play`);
     } catch (e: any) {
