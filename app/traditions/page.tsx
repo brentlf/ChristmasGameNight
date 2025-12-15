@@ -28,6 +28,9 @@ export default function TraditionsPage() {
   const [pendingSelection, setPendingSelection] = useState<TraditionItem | null>(null);
   // Freeze the wheel segments for a spin so they don't change after we mark a tradition as used.
   const [wheelTraditions, setWheelTraditions] = useState<TraditionItem[]>(traditionsChristmasPool);
+  const [freezeWheel, setFreezeWheel] = useState(false);
+  // Local-mode source of truth (do NOT rely on localStorage reads to drive renders).
+  const [localUsedIds, setLocalUsedIds] = useState<string[]>([]);
   const [userUid, setUserUid] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,7 +70,10 @@ export default function TraditionsPage() {
         try {
           const data = JSON.parse(stored);
           setSelectedTradition(data.selectedTradition ? traditionsChristmasPool.find(t => t.id === data.selectedTradition.id) || null : null);
+          setLocalUsedIds(Array.isArray(data.usedIds) ? data.usedIds : []);
         } catch {}
+      } else {
+        setLocalUsedIds([]);
       }
       setLoading(false);
     }
@@ -111,41 +117,39 @@ export default function TraditionsPage() {
   }, [mode, wheelId]);
 
   const availableTraditions = useMemo(() => {
-    // `localStorage` is not available during server rendering, even in client components.
-    if (typeof window === 'undefined') return traditionsChristmasPool;
-
     if (mode === 'local') {
-      const stored = localStorage.getItem(STORAGE_KEY_LOCAL);
-      const usedIds: string[] = stored ? (JSON.parse(stored).usedIds || []) : [];
-      return traditionsChristmasPool.filter(t => !usedIds.includes(t.id));
-    } else if (wheel) {
-      return traditionsChristmasPool.filter(t => !wheel.usedIds.includes(t.id));
+      return traditionsChristmasPool.filter((t) => !localUsedIds.includes(t.id));
+    }
+    if (wheel) {
+      return traditionsChristmasPool.filter((t) => !wheel.usedIds.includes(t.id));
     }
     return traditionsChristmasPool;
-  }, [mode, wheel]);
+  }, [mode, wheel, localUsedIds]);
 
-  // Keep the wheel showing the current available set *until the next spin starts*.
-  // (This prevents a post-spin re-render from removing the selected slice and shifting the top segment.)
+  // Auto-unfreeze when there's no active selection (e.g. day rollover, switching modes).
   useEffect(() => {
     if (spinning) return;
     if (pendingSelection) return;
     if (selectedTradition) return;
+    setFreezeWheel(false);
+  }, [pendingSelection, selectedTradition, spinning]);
+
+  // Keep the wheel showing the current available set unless we're frozen after a spin.
+  // (This prevents a post-spin re-render from removing the selected slice and shifting the top segment.)
+  useEffect(() => {
+    if (spinning) return;
+    if (freezeWheel) return;
     setWheelTraditions(availableTraditions);
-  }, [availableTraditions, pendingSelection, selectedTradition, spinning]);
+  }, [availableTraditions, freezeWheel, spinning]);
 
   const usedTraditions = useMemo(() => {
-    // `localStorage` is not available during server rendering, even in client components.
-    if (typeof window === 'undefined') return [];
-
     if (mode === 'local') {
-      const stored = localStorage.getItem(STORAGE_KEY_LOCAL);
-      const usedIds: string[] = stored ? (JSON.parse(stored).usedIds || []) : [];
-      return traditionsChristmasPool.filter(t => usedIds.includes(t.id));
+      return traditionsChristmasPool.filter((t) => localUsedIds.includes(t.id));
     } else if (wheel) {
       return traditionsChristmasPool.filter(t => wheel.usedIds.includes(t.id));
     }
     return [];
-  }, [mode, wheel]);
+  }, [mode, wheel, localUsedIds]);
 
   const handleSpin = async () => {
     if (availableTraditions.length === 0) {
@@ -156,6 +160,7 @@ export default function TraditionsPage() {
     // Freeze the segment list for this spin (so the visual wheel can't shift after completion)
     const snapshot = availableTraditions;
     setWheelTraditions(snapshot);
+    setFreezeWheel(true);
 
     // Wheel will decide the final slice and report it back.
     setPendingSelection(null);
@@ -197,10 +202,12 @@ export default function TraditionsPage() {
     if (mode === 'local') {
       const stored = localStorage.getItem(STORAGE_KEY_LOCAL);
       const data = stored ? JSON.parse(stored) : { usedIds: [] };
-      data.usedIds = [...(data.usedIds || []), selected.id];
+      const nextUsedIds = [...(data.usedIds || []), selected.id];
+      data.usedIds = nextUsedIds;
       data.selectedTradition = selected;
       data.lastSpunAt = Date.now();
       localStorage.setItem(STORAGE_KEY_LOCAL, JSON.stringify(data));
+      setLocalUsedIds(nextUsedIds);
     } else if (wheel && userUid && wheel.controllerUid === userUid) {
       const wheelRef = doc(db, 'traditionWheels', wheel.id);
       await updateDoc(wheelRef, {
@@ -214,27 +221,34 @@ export default function TraditionsPage() {
   };
 
   const handleRestoreTradition = async (traditionId: string) => {
+    // Restores are explicit user actions; allow the wheel to re-render to reflect the new available set.
+    setFreezeWheel(false);
     if (mode === 'local') {
       const stored = localStorage.getItem(STORAGE_KEY_LOCAL);
       const data = stored ? JSON.parse(stored) : { usedIds: [] };
-      data.usedIds = (data.usedIds || []).filter((id: string) => id !== traditionId);
+      const nextUsedIds = (data.usedIds || []).filter((id: string) => id !== traditionId);
+      data.usedIds = nextUsedIds;
       if (data.selectedTradition?.id === traditionId) {
         data.selectedTradition = null;
       }
       localStorage.setItem(STORAGE_KEY_LOCAL, JSON.stringify(data));
-      setSelectedTradition(null);
+      setLocalUsedIds(nextUsedIds);
+      if (selectedTradition?.id === traditionId) setSelectedTradition(null);
     } else if (wheel && userUid && wheel.controllerUid === userUid) {
       const wheelRef = doc(db, 'traditionWheels', wheel.id);
       await updateDoc(wheelRef, {
         usedIds: wheel.usedIds.filter(id => id !== traditionId),
         lastSpunAt: wheel.usedIds.length === 1 ? null : wheel.lastSpunAt,
       });
+      if (selectedTradition?.id === traditionId) setSelectedTradition(null);
     }
   };
 
   const handleRestoreAll = async () => {
+    setFreezeWheel(false);
     if (mode === 'local') {
       localStorage.setItem(STORAGE_KEY_LOCAL, JSON.stringify({ usedIds: [], selectedTradition: null }));
+      setLocalUsedIds([]);
       setSelectedTradition(null);
       toast.success(lang === 'en' ? 'All traditions restored' : 'Všechny tradice obnoveny');
     } else if (wheel && userUid && wheel.controllerUid === userUid) {
@@ -243,6 +257,7 @@ export default function TraditionsPage() {
         usedIds: [],
         lastSpunAt: null,
       });
+      setSelectedTradition(null);
       toast.success(lang === 'en' ? 'All traditions restored' : 'Všechny tradice obnoveny');
     }
   };
