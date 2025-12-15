@@ -10,6 +10,7 @@ import {
   photoPrompts,
   riddleGatePool,
 } from '@/content/raceTracks/christmas_race_v1';
+import { generateSeed, pickRandomIdsSeeded } from '@/lib/utils/seededRandom';
 
 export type RaceLang = 'en' | 'cs';
 
@@ -38,16 +39,6 @@ export function normalizeAnswer(input: string): string {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function pickRandomIds<T extends { id: string }>(pool: T[], count: number): string[] {
-  const copy = [...pool];
-  // Fisher-Yates shuffle
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy.slice(0, Math.min(count, copy.length)).map((x) => x.id);
 }
 
 function computeSpeedBonusMs(startedAt: number | undefined, completedAt: number, maxBonus = 5): number {
@@ -90,6 +81,7 @@ export async function ensureStageInitialized(params: {
   if (!stage) return;
 
   const playerRef = doc(db, 'rooms', roomId, 'players', uid);
+  const roomRef = doc(db, 'rooms', roomId);
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(playerRef);
@@ -98,39 +90,78 @@ export async function ensureStageInitialized(params: {
     const stageState = (p.stageState ?? {}) as Record<string, any>;
     if (stageState[stage.id]?.startedAt) return;
 
+    // Get room to check/initialize stage questions
+    const roomSnap = await tx.get(roomRef);
+    if (!roomSnap.exists()) return;
+    const room = roomSnap.data() as Room;
+    
+    // Initialize stage questions in room if not already set (ensures all players get same questions)
+    const raceStageQuestions = room.raceStageQuestions ?? {};
+    const stageKey = stage.id;
+    let stageQuestions = raceStageQuestions[stageKey];
+    
+    if (!stageQuestions) {
+      // Generate questions deterministically based on roomId and stageIndex
+      const seed = generateSeed(roomId, stageIndex);
+      stageQuestions = {};
+      
+      if (stage.type === 'riddle_gate') {
+        stageQuestions.riddleId = pickRandomIdsSeeded(riddleGatePool, 1, seed)[0];
+      }
+      if (stage.type === 'emoji_guess') {
+        stageQuestions.clueIds = pickRandomIdsSeeded(emojiClues, 5, seed);
+      }
+      if (stage.type === 'trivia_solo') {
+        stageQuestions.questionIds = pickRandomIdsSeeded(getTriviaPool('en'), 5, seed);
+      }
+      if (stage.type === 'code_lock') {
+        stageQuestions.puzzleId = pickRandomIdsSeeded(codePuzzles, 1, seed)[0];
+      }
+      if (stage.type === 'photo_scavenger') {
+        stageQuestions.promptId = pickRandomIdsSeeded(photoPrompts, 1, seed)[0];
+      }
+      if (stage.type === 'final_riddle') {
+        stageQuestions.riddleId = pickRandomIdsSeeded(finalRiddlePool, 1, seed)[0];
+      }
+      
+      // Store in room document
+      tx.update(roomRef, {
+        raceStageQuestions: { ...raceStageQuestions, [stageKey]: stageQuestions },
+      } as any);
+    }
+
+    // Use the room's stored questions for this player
     const now = Date.now();
     const base: any = { startedAt: now, attempts: 0 };
 
     if (stage.type === 'riddle_gate') {
-      base.riddleId = pickRandomIds(riddleGatePool, 1)[0];
+      base.riddleId = stageQuestions.riddleId;
     }
     if (stage.type === 'emoji_guess') {
-      base.clueIds = pickRandomIds(emojiClues, 5);
+      base.clueIds = stageQuestions.clueIds;
       base.correctCount = 0;
       base.answered = {};
       base.lockoutUntil = 0;
     }
     if (stage.type === 'trivia_solo') {
-      // store ids only; language can change later
-      const ids = pickRandomIds(getTriviaPool('en'), 5);
-      base.questionIds = ids;
+      base.questionIds = stageQuestions.questionIds;
       base.current = 0;
       base.correctCount = 0;
       base.answers = {};
       base.questionStartedAt = now;
     }
     if (stage.type === 'code_lock') {
-      base.puzzleId = pickRandomIds(codePuzzles, 1)[0];
+      base.puzzleId = stageQuestions.puzzleId;
       base.lockoutUntil = 0;
     }
     if (stage.type === 'photo_scavenger') {
-      base.promptId = pickRandomIds(photoPrompts, 1)[0];
+      base.promptId = stageQuestions.promptId;
       base.photoUrl = null;
       base.photoUploaded = false;
       base.done = false;
     }
     if (stage.type === 'final_riddle') {
-      base.riddleId = pickRandomIds(finalRiddlePool, 1)[0];
+      base.riddleId = stageQuestions.riddleId;
     }
 
     tx.update(playerRef, {

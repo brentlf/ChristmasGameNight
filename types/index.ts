@@ -52,6 +52,14 @@ export interface Room {
   // Overall scoring (meta layer)
   overallScoringEnabled?: boolean;
   overallScoringMode?: 'placements' | 'sumMiniGameScores' | 'hybrid';
+  // Race stage questions (stored per stage to ensure all players see same questions)
+  raceStageQuestions?: Record<string, {
+    riddleId?: string;
+    clueIds?: string[];
+    questionIds?: string[];
+    puzzleId?: string;
+    promptId?: string;
+  }>;
 }
 
 export type RaceStageType =

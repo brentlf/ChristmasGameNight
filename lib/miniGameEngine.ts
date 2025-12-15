@@ -5,8 +5,11 @@ import { triviaChristmasPool } from '@/content/trivia_christmas';
 import { emojiMoviesChristmasPool } from '@/content/emoji_movies_christmas';
 import { wouldYouRatherChristmasPool } from '@/content/would_you_rather_christmas';
 import { pictionaryChristmasPool } from '@/content/pictionary_christmas';
+import { generateSeed, shuffleSeeded } from '@/lib/utils/seededRandom';
 
 // Generate random selection of 10 items from a pool
+// Note: This is used during room initialization, so we can use Math.random() here
+// as it's called once per room and stored in the room document
 export function selectRandomItems<T>(pool: T[], count: number): T[] {
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);
@@ -101,8 +104,10 @@ export async function initializePictionaryGame(roomId: string): Promise<void> {
     throw new Error('Need at least 2 players to start pictionary');
   }
   
-  // Shuffle drawer order
-  const drawerOrder = [...playerUids].sort(() => Math.random() - 0.5);
+  // Shuffle drawer order deterministically based on roomId
+  // This ensures the same order for all players
+  const seed = generateSeed(roomId, 0);
+  const drawerOrder = shuffleSeeded([...playerUids], seed);
   const totalRounds = drawerOrder.length * 3; // 3 rounds per player
   
   const gameState: Room['pictionaryGameState'] = {
@@ -147,10 +152,13 @@ export async function startPictionaryRound(roomId: string): Promise<void> {
   const drawerIndex = (nextRound - 1) % gameState.drawerOrder.length;
   const drawerUid = gameState.drawerOrder[drawerIndex];
   
-  // Get a random prompt
+  // Get a deterministic prompt based on round number (ensures same prompt for all players viewing)
   const selectedIds = room.miniGames?.pictionary?.selectedIds ?? [];
   if (selectedIds.length === 0) throw new Error('No prompts available');
-  const randomPromptId = selectedIds[Math.floor(Math.random() * selectedIds.length)];
+  // Use round number as seed to ensure deterministic selection
+  const seed = generateSeed(roomId, nextRound);
+  const promptIndex = Math.floor((seed % 1000000) / (1000000 / selectedIds.length)) % selectedIds.length;
+  const randomPromptId = selectedIds[promptIndex];
   
   await updateDoc(roomRef, {
     'pictionaryGameState.status': 'drawing',

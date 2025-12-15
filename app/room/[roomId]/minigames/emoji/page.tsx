@@ -9,6 +9,7 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { submitEmojiAnswer } from '@/lib/miniGameEngine';
 import { getEmojiItemById } from '@/lib/miniGameContent';
+import { shuffleSeeded, generateSeed } from '@/lib/utils/seededRandom';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
@@ -128,8 +129,10 @@ function EmojiQuestion({
 
   if (!item) return null;
 
-  // Combine correct answer with decoy options and shuffle
-  const allOptions = [item.correct[lang], ...item.decoyOptions[lang]].sort(() => Math.random() - 0.5);
+  // Combine correct answer with decoy options and shuffle deterministically
+  // Use roomId and questionIndex as seed to ensure same order for all players
+  const seed = generateSeed(roomId, questionIndex);
+  const allOptions = shuffleSeeded([item.correct[lang], ...item.decoyOptions[lang]], seed);
 
   const handleSubmit = async () => {
     if (!selected) return;
