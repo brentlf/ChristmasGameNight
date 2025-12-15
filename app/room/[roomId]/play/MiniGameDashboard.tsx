@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { startRace } from '@/lib/utils/room';
 import { getLanguage, t } from '@/lib/i18n';
 import type { Player, Room } from '@/types';
 

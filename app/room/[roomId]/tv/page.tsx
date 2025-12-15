@@ -17,9 +17,73 @@ import { getWYRItemById } from '@/lib/miniGameContent';
 import { endPictionaryRound, initializePictionaryGame, startPictionaryRound } from '@/lib/miniGameEngine';
 import type { Player, Room } from '@/types';
 import toast from 'react-hot-toast';
+import MiniGamesTVHub from './_components/MiniGamesTVHub';
+import { useSessionScores } from '@/lib/hooks/useSessionScores';
 
 function isLocalhost(hostname: string) {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  // 0.0.0.0 is a bind-all address (valid for the server) but not a routable client hostname.
+  // Treat it as localhost so we swap to LAN IP for QR codes and avoid invalid asset URLs.
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '0.0.0.0';
+}
+
+function ExpandableQRCode({ value, smallSize = 160 }: { value: string; smallSize?: number }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open]);
+
+  if (!value) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-christmas-gold/60 rounded-2xl"
+        aria-label="Expand QR code"
+        title="Click to expand"
+      >
+        <QRCodeSVG value={value} size={smallSize} />
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+          onClick={() => setOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Expanded QR code"
+        >
+          <div
+            className="relative w-full max-w-2xl rounded-3xl border border-white/15 bg-black/60 backdrop-blur-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="min-w-0">
+                <p className="text-sm text-white/70">Scan to join</p>
+                <p className="text-xs text-white/50 mt-1">Tip: press ESC to minimize</p>
+              </div>
+              <button type="button" className="btn-secondary" onClick={() => setOpen(false)}>
+                Minimise
+              </button>
+            </div>
+
+            <div className="mx-auto w-fit rounded-2xl bg-white p-4">
+              <QRCodeSVG value={value} size={420} />
+            </div>
+
+            <p className="mt-4 text-xs text-white/50 break-all text-center">{value}</p>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 function WYRVisualSnapshot({ room, players, lang }: { room: Room; players: Player[]; lang: 'en' | 'cs' }) {
@@ -163,6 +227,7 @@ export default function TVPage() {
   const roomId = params.roomId as string;
   const { room, loading: roomLoading, updateRoom } = useRoom(roomId);
   const { players, loading: playersLoading } = usePlayers(roomId);
+  const { scores: sessionScores } = useSessionScores(roomId, room?.currentSession?.sessionId ?? null);
   const lang = getLanguage();
   const [joinUrl, setJoinUrl] = useState('');
   const [viewerUid, setViewerUid] = useState<string | null>(null);
@@ -250,6 +315,161 @@ export default function TVPage() {
   const completedCount = players.filter((p: any) => (p.stageIndex ?? 0) >= totalStages).length;
   const leadStage = players.length ? Math.max(...players.map((p: any) => p.stageIndex ?? 0)) : 0;
 
+  // New TV-led synchronous mini-games hub.
+  if (room.roomMode === 'mini_games') {
+    const sessionScoreMap = new Map(sessionScores.map((s: any) => [s.uid, Number(s.score ?? 0)]));
+    const sidebarLeaders = [...players]
+      .map((p: any) => {
+        const sessionScore = sessionScoreMap.get(p.uid) ?? 0;
+        const fallbackScore = Number(p.totalMiniGameScore ?? p.score ?? 0);
+        const displayScore =
+          room.currentSession && room.currentSession.sessionId && room.currentSession.gameId ? sessionScore : fallbackScore;
+        return { ...p, sessionScore, displayScore };
+      })
+      .sort((a: any, b: any) => (b.displayScore ?? 0) - (a.displayScore ?? 0));
+
+    return (
+      <main className="min-h-screen px-4 py-10 md:py-12">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="card mb-6 relative overflow-hidden">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
+            <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
+
+            <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md mb-4">
+                  <span>📺</span>
+                  <span>TV Hub</span>
+                  <span className="text-white/40">•</span>
+                  <span className="text-white/70">Scan to join</span>
+                </div>
+
+                <h1 className="game-show-title text-5xl mb-3">{room.name}</h1>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 backdrop-blur-md">
+                    <span className="text-white/70">Room Code</span>
+                    <span className="font-black tracking-widest text-xl">{room.code}</span>
+                  </div>
+                  {isController && (
+                    <span className="inline-flex items-center gap-2 rounded-full bg-christmas-gold/25 border border-christmas-gold/40 px-4 py-2 backdrop-blur-md text-sm">
+                      <span className="font-semibold">HOST</span>
+                      <span className="text-white/70">controls enabled</span>
+                    </span>
+                  )}
+                  <span className="text-white/60">
+                    {players.length}/{room.maxPlayers} {t('tv.players', lang)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-center shrink-0">
+                <div className="inline-flex items-center justify-center rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
+                  <ExpandableQRCode value={joinUrl} smallSize={160} />
+                </div>
+                <p className="text-sm mt-3 text-white/70">{t('tv.scanToJoin', lang)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 3-pillar layout: Players | Game Stage | Leaderboard */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            {/* Players (left) */}
+            <div className="card xl:col-span-3">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h2 className="text-2xl font-bold">
+                  {t('tv.players', lang)} ({players.length}/{room.maxPlayers})
+                </h2>
+                <span className="text-xs text-white/60">{lang === 'cs' ? 'Ready = aktivní' : 'Ready = active'}</span>
+              </div>
+              <div className="space-y-3">
+                {sortedPlayers.map((p: any) => (
+                  <div key={p.uid} className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-lg font-bold">
+                          <span className="mr-2 text-xl">{p.avatar}</span>
+                          {p.name}
+                        </p>
+                        <p className="text-xs text-white/60 mt-1">
+                          {p.ready ? '✅ Ready' : '⏳ Not ready'}{' '}
+                          {p.lastActiveAt ? <span className="text-white/40">• {lang === 'cs' ? 'aktivní' : 'active'}</span> : null}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-base font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Game Stage (middle) */}
+            <div className="xl:col-span-6 space-y-6">
+              <MiniGamesTVHub roomId={roomId} room={room} players={players} lang={lang} isController={isController} />
+            </div>
+
+            {/* Leaderboard (right) */}
+            <div className="card xl:col-span-3">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h2 className="text-2xl font-bold">{t('common.leaderboard', lang)}</h2>
+                <span className="text-xs text-white/60">
+                  {room.currentSession?.sessionId && room.currentSession?.gameId
+                    ? lang === 'cs'
+                      ? 'Tato hra'
+                      : 'This game'
+                    : lang === 'cs'
+                    ? 'Celkem'
+                    : 'Overall'}
+                </span>
+              </div>
+
+              {sidebarLeaders.length === 0 ? (
+                <p className="text-sm text-white/60">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
+              ) : (
+                <div className="space-y-2">
+                  {sidebarLeaders.slice(0, 10).map((p: any, idx: number) => (
+                    <div
+                      key={p.uid}
+                      className={`rounded-2xl border p-3 flex items-center justify-between gap-3 ${
+                        idx === 0 ? 'border-christmas-gold/40 bg-christmas-gold/10' : 'border-white/10 bg-white/5'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-bold">
+                          <span className="mr-2">{idx === 0 ? '🏆' : `#${idx + 1}`}</span>
+                          <span className="mr-2">{p.avatar}</span>
+                          {p.name}
+                        </p>
+                        {room.currentSession?.sessionId && room.currentSession?.gameId && (
+                          <p className="text-xs text-white/60">
+                            {lang === 'cs' ? 'Skóre hry' : 'Session'}: {p.sessionScore}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-black text-christmas-gold">{p.displayScore}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <p className="text-xs text-white/50">
+                  {lang === 'cs'
+                    ? 'Tip: skóre “Tato hra” se zobrazuje během session. Mezi session ukazujeme celkové body hráčů.'
+                    : 'Tip: “This game” shows live session scores; between sessions we show overall player points.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const resetRoom = async () => {
     const batch = writeBatch(db);
     for (const p of players as any[]) {
@@ -303,7 +523,7 @@ export default function TVPage() {
 
             <div className="text-center shrink-0">
               <div className="inline-flex items-center justify-center rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
-                {joinUrl && <QRCodeSVG value={joinUrl} size={160} />}
+                <ExpandableQRCode value={joinUrl} smallSize={160} />
               </div>
               <p className="text-sm mt-3 text-white/70">{t('tv.scanToJoin', lang)}</p>
             </div>
@@ -496,7 +716,7 @@ export default function TVPage() {
           {/* Race Status */}
           <div className="card">
             <h2 className="text-3xl font-bold mb-4">
-              {room.roomMode === 'amazing_race' ? t('tv.raceStatus', lang) : room.roomMode === 'mini_games' ? 'Mini Games Status' : 'Room Status'}
+              {room.roomMode === 'amazing_race' ? t('tv.raceStatus', lang) : 'Room Status'}
             </h2>
             <div className="space-y-4">
               <div>
@@ -630,221 +850,7 @@ export default function TVPage() {
           </div>
         )}
 
-        {/* Mini Games Status - Only show for Mini Games mode and only show selected games */}
-        {room.roomMode === 'mini_games' && room.miniGamesEnabled && room.miniGamesEnabled.length > 0 && (
-          <div className="card mt-6">
-            <h2 className="text-3xl font-bold mb-4">{t('tv.miniGames', lang)}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Trivia */}
-              {room.miniGamesEnabled.includes('trivia') && (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <h3 className="text-xl font-bold mb-3">⚡ {t('game.triviaBlitz', lang)}</h3>
-                  <div className="space-y-2">
-                    <p className="text-sm text-white/70">
-                      {t('tv.completedBy', lang)}: {players.filter((p: any) => p.miniGameProgress?.trivia?.completedAt).length}/{players.length}
-                    </p>
-                    {(() => {
-                      const completed = players.filter((p: any) => p.miniGameProgress?.trivia?.completedAt);
-                      if (completed.length === 0) {
-                        return <p className="text-sm text-white/60">{t('tv.noCompletions', lang)}</p>;
-                      }
-                      const topScorer = [...completed].sort((a: any, b: any) => (b.miniGameProgress?.trivia?.score ?? 0) - (a.miniGameProgress?.trivia?.score ?? 0))[0];
-                      return (
-                        <p className="text-sm text-white/80">
-                          {t('tv.topScorer', lang)}: <span className="font-bold">{topScorer.name}</span> ({topScorer.miniGameProgress?.trivia?.score ?? 0})
-                        </p>
-                      );
-                    })()}
-                  </div>
-                </div>
-              )}
-
-              {/* Emoji */}
-              {room.miniGamesEnabled.includes('emoji') && (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <h3 className="text-xl font-bold mb-3">🎬 {t('game.emojiMovie', lang)}</h3>
-                  <div className="space-y-2">
-                    <p className="text-sm text-white/70">
-                      {t('tv.completedBy', lang)}: {players.filter((p: any) => p.miniGameProgress?.emoji?.completedAt).length}/{players.length}
-                    </p>
-                    {(() => {
-                      const completed = players.filter((p: any) => p.miniGameProgress?.emoji?.completedAt);
-                      if (completed.length === 0) {
-                        return <p className="text-sm text-white/60">{t('tv.noCompletions', lang)}</p>;
-                      }
-                      const topScorer = [...completed].sort((a: any, b: any) => (b.miniGameProgress?.emoji?.score ?? 0) - (a.miniGameProgress?.emoji?.score ?? 0))[0];
-                      return (
-                        <p className="text-sm text-white/80">
-                          {t('tv.topScorer', lang)}: <span className="font-bold">{topScorer.name}</span> ({topScorer.miniGameProgress?.emoji?.score ?? 0})
-                        </p>
-                      );
-                    })()}
-                  </div>
-                </div>
-              )}
-
-              {/* Would You Rather */}
-              {room.miniGamesEnabled.includes('wyr') && (
-                <WYRVisualSnapshot room={room} players={players} lang={lang} />
-              )}
-
-              {/* Pictionary */}
-              {room.miniGamesEnabled.includes('pictionary') && (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <h3 className="text-xl font-bold mb-3">🎨 {t('game.pictionary', lang)}</h3>
-                  <div className="space-y-2">
-                    <p className="text-sm text-white/70">
-                      {t('tv.completedBy', lang)}: {players.filter((p: any) => p.miniGameProgress?.pictionary?.completedAt).length}/{players.length}
-                    </p>
-                    <p className="text-sm text-white/70">
-                      Game state:{' '}
-                      <span className="font-semibold text-white/90">
-                        {room.pictionaryGameState?.status ?? 'not initialized'}
-                      </span>
-                      {room.pictionaryGameState ? (
-                        <>
-                          {' '}
-                          • Round{' '}
-                          <span className="font-semibold text-white/90">{room.pictionaryGameState.currentRound}</span>/
-                          <span className="font-semibold text-white/90">{room.pictionaryGameState.totalRounds}</span>
-                        </>
-                      ) : null}
-                    </p>
-
-                    {isController && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {!room.pictionaryGameState ? (
-                          <button
-                            className="btn-primary"
-                            disabled={pictionaryBusy || players.length < 2}
-                            onClick={async () => {
-                              if (players.length < 2) {
-                                toast.error('Need at least 2 players');
-                                return;
-                              }
-                              setPictionaryBusy(true);
-                              try {
-                                await initializePictionaryGame(roomId);
-                                await startPictionaryRound(roomId);
-                                toast.success('Pictionary started!');
-                              } catch (e: any) {
-                                console.error('TV init/start pictionary failed:', e);
-                                toast.error(e?.message || 'Failed to start pictionary');
-                              } finally {
-                                setPictionaryBusy(false);
-                              }
-                            }}
-                            type="button"
-                          >
-                            {pictionaryBusy ? t('common.loading', lang) : 'Initialize & Start'}
-                          </button>
-                        ) : room.pictionaryGameState.status === 'waiting' && room.pictionaryGameState.currentRound === 0 ? (
-                          <button
-                            className="btn-primary"
-                            disabled={pictionaryBusy || players.length < 2}
-                            onClick={async () => {
-                              setPictionaryBusy(true);
-                              try {
-                                await startPictionaryRound(roomId);
-                                toast.success('Round started!');
-                              } catch (e: any) {
-                                console.error('TV start pictionary round failed:', e);
-                                toast.error(e?.message || 'Failed to start round');
-                              } finally {
-                                setPictionaryBusy(false);
-                              }
-                            }}
-                            type="button"
-                          >
-                            {pictionaryBusy ? t('common.loading', lang) : 'Start Game'}
-                          </button>
-                        ) : room.pictionaryGameState.status === 'round_end' ? (
-                          <button
-                            className="btn-primary"
-                            disabled={pictionaryBusy}
-                            onClick={async () => {
-                              setPictionaryBusy(true);
-                              try {
-                                await startPictionaryRound(roomId);
-                                toast.success('Next round started!');
-                              } catch (e: any) {
-                                console.error('TV next pictionary round failed:', e);
-                                toast.error(e?.message || 'Failed to start next round');
-                              } finally {
-                                setPictionaryBusy(false);
-                              }
-                            }}
-                            type="button"
-                          >
-                            {pictionaryBusy ? t('common.loading', lang) : 'Next Round'}
-                          </button>
-                        ) : room.pictionaryGameState.status === 'drawing' ? (
-                          <button
-                            className="btn-secondary"
-                            disabled={pictionaryBusy}
-                            onClick={async () => {
-                              setPictionaryBusy(true);
-                              try {
-                                await endPictionaryRound(roomId);
-                                toast.success('Round ended!');
-                              } catch (e: any) {
-                                console.error('TV end pictionary round failed:', e);
-                                toast.error(e?.message || 'Failed to end round');
-                              } finally {
-                                setPictionaryBusy(false);
-                              }
-                            }}
-                            type="button"
-                          >
-                            {pictionaryBusy ? t('common.loading', lang) : 'End Round'}
-                          </button>
-                        ) : null}
-                      </div>
-                    )}
-                    {(() => {
-                      const completed = players.filter((p: any) => p.miniGameProgress?.pictionary?.completedAt);
-                      if (completed.length === 0) {
-                        return <p className="text-sm text-white/60">{t('tv.noCompletions', lang)}</p>;
-                      }
-                      const totalScores = room.pictionaryGameState?.totalScores ?? {};
-                      const topScorer = [...completed].sort((a: any, b: any) => (Number(totalScores[b.uid] ?? b.miniGameProgress?.pictionary?.score ?? 0)) - (Number(totalScores[a.uid] ?? a.miniGameProgress?.pictionary?.score ?? 0)))[0];
-                      return (
-                        <p className="text-sm text-white/80">
-                          {t('tv.topScorer', lang)}: <span className="font-bold">{topScorer.name}</span> ({Number(totalScores[topScorer.uid] ?? topScorer.miniGameProgress?.pictionary?.score ?? 0)})
-                        </p>
-                      );
-                    })()}
-
-                    {/* Live score table */}
-                    {room.pictionaryGameState?.totalScores && (
-                      <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
-                        <p className="text-xs font-semibold text-white/80 mb-2">Live scores</p>
-                        <div className="space-y-1">
-                          {[...players]
-                            .map((p: any) => ({
-                              ...p,
-                              liveScore: Number(room.pictionaryGameState?.totalScores?.[p.uid] ?? 0),
-                            }))
-                            .sort((a: any, b: any) => b.liveScore - a.liveScore)
-                            .slice(0, 8)
-                            .map((p: any) => (
-                              <div key={p.uid} className="flex items-center justify-between text-sm">
-                                <span className="truncate text-white/85">
-                                  <span className="mr-2">{p.avatar}</span>
-                                  {p.name}
-                                </span>
-                                <span className="font-bold text-christmas-gold">{p.liveScore}</span>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Mini-games mode has its own dedicated TV hub and returns early above. */}
       </div>
     </main>
   );

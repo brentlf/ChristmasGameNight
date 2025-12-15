@@ -7,7 +7,7 @@ import { usePlayer } from '@/lib/hooks/usePlayer';
 import { usePlayers } from '@/lib/hooks/usePlayers';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { getLanguage, t } from '@/lib/i18n';
-import { joinRoom, startRace } from '@/lib/utils/room';
+import { joinRoom } from '@/lib/utils/room';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import toast from 'react-hot-toast';
@@ -19,11 +19,13 @@ import { validatePhotoWithAI } from '@/lib/utils/openai';
 import type { Player, Room, RaceStageDefinition, MiniGameType } from '@/types';
 import { MiniGameDashboard } from './MiniGameDashboard';
 import { useAudio } from '@/lib/contexts/AudioContext';
+import MiniGamesPhoneClient from './MiniGamesPhoneClient';
 
 const AVATARS = ['🎅', '🎄', '🎁', '❄️', '🦌', '⛄', '🎄', '🎁', '🎅', '❄️'];
 
 export default function PlayPage() {
   const params = useParams();
+  const router = useRouter();
   const roomId = params.roomId as string;
   const { room, loading: roomLoading, updateRoom } = useRoom(roomId);
   const [playerUid, setPlayerUid] = useState<string | null>(null);
@@ -46,6 +48,13 @@ export default function PlayPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!room) return;
+    if (!room.redirectRoomId) return;
+    if (room.redirectRoomId === roomId) return;
+    router.replace(`/room/${room.redirectRoomId}/play`);
+  }, [room, roomId, router]);
 
   const handleJoin = async () => {
     if (!name.trim()) {
@@ -221,7 +230,7 @@ export default function PlayPage() {
   }
 
   if (roomMode === 'mini_games') {
-    return <MiniGameRouter roomId={roomId} room={room} player={player as Player} lang={lang} />;
+    return <MiniGamesPhoneClient roomId={roomId} room={room} player={player as Player} />;
   }
 
   if (roomMode === 'leaderboard') {
@@ -838,103 +847,4 @@ function StageBody(props: {
   return <p className="text-white/70">{t('common.error', lang)}</p>;
 }
 
-function MiniGameRouter({ roomId, room, player, lang }: { roomId: string; room: Room; player: Player; lang: 'en' | 'cs' }) {
-  const router = useRouter();
-  const progress = player.miniGameProgress ?? {};
-  const enabledGames = room.miniGamesEnabled || [];
-
-  // Define game order (can be customized)
-  const gameOrder: MiniGameType[] = ['trivia', 'emoji', 'wyr', 'pictionary'];
-
-  // Track completion status for each enabled game
-  const completionStatus = useMemo(() => {
-    const status: Record<string, boolean> = {};
-    enabledGames.forEach(gameType => {
-      const gameProgress = progress[gameType];
-      status[gameType] = !!(gameProgress && gameProgress.completedAt);
-    });
-    return status;
-  }, [enabledGames, progress.trivia?.completedAt, progress.emoji?.completedAt, progress.wyr?.completedAt, progress.pictionary?.completedAt]);
-
-  // Find the first game that is enabled and not completed
-  const nextGame = useMemo(() => {
-    for (const gameType of gameOrder) {
-      if (!enabledGames.includes(gameType)) continue;
-      if (!completionStatus[gameType]) {
-        return gameType;
-      }
-    }
-    return null; // All games completed
-  }, [enabledGames, completionStatus]);
-
-  // Only redirect to games when room status is 'running' or 'finished'
-  // Wait in lobby if status is 'lobby'
-  useEffect(() => {
-    if (room.status !== 'lobby' && nextGame) {
-      router.replace(`/room/${roomId}/minigames/${nextGame}`);
-    }
-  }, [roomId, nextGame, router, room.status]);
-
-  // Show lobby/waiting screen if room hasn't started
-  if (room.status === 'lobby') {
-    return (
-      <main className="min-h-screen px-4 py-10 md:py-16">
-        <div className="mx-auto max-w-2xl">
-          <div className="card text-center relative overflow-hidden">
-            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
-            <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
-            <div className="relative">
-              <div className="text-5xl mb-4">{player.avatar}</div>
-              <h1 className="game-show-title mb-4">{room.name}</h1>
-              <p className="text-white/75 mb-6">
-                {t('minigames.waitingForStart', lang) || 'Waiting for the host to start the games...'}
-              </p>
-              <p className="text-sm text-white/60 mb-6">
-                {t('minigames.waitingDesc', lang) || 'The games will begin once the host starts them from the TV view.'}
-              </p>
-              <Link href={`/room/${roomId}/tv`} className="btn-secondary inline-block">
-                📺 {t('race.openTv', lang)}
-              </Link>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  // Show loading or completion screen while redirecting
-  if (!nextGame) {
-    // All games completed
-    return (
-      <main className="min-h-screen px-4 py-10 md:py-16">
-        <div className="mx-auto max-w-2xl">
-          <div className="card text-center">
-            <div className="text-6xl mb-4">🎉</div>
-            <h1 className="game-show-title mb-4">{t('minigames.allCompleted', lang) || 'All Games Completed!'}</h1>
-            <p className="text-white/75 mb-6">
-              {t('minigames.allCompletedDesc', lang) || 'You have completed all available mini games. Great job!'}
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href={`/room/${roomId}/tv`} className="btn-secondary text-center">
-                📺 {t('race.openTv', lang)}
-              </Link>
-              <Link href={`/room/${roomId}/results`} className="btn-primary text-center">
-                🏆 {t('race.viewResults', lang)}
-              </Link>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  // Show loading while redirecting
-  return (
-    <main className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="text-4xl mb-4">{t('common.loading', lang)}</div>
-        <p className="text-white/70">{t('minigames.loadingGame', lang) || 'Loading game...'}</p>
-      </div>
-    </main>
-  );
-}
+// MiniGameRouter removed: mini-games are now TV-led sessions that auto-route on this /play page.
