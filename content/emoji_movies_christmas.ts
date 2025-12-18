@@ -98,7 +98,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_6',
-    emoji: '🎄🎁',
+    emoji: '🔫🎄',
     correct: {
       en: 'A Christmas Story',
       cs: 'Vánoční příběh',
@@ -178,7 +178,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_11',
-    emoji: '🎄🎵',
+    emoji: '🔔🛷',
     correct: {
       en: 'Jingle Bells',
       cs: 'Rolničky',
@@ -258,7 +258,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_16',
-    emoji: '🎁🎄',
+    emoji: '💝❤️',
     correct: {
       en: 'All I Want for Christmas Is You',
       cs: 'Všechno, co k Vánocům chci, jsi ty',
@@ -274,7 +274,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_17',
-    emoji: '🎄🎅',
+    emoji: '🎅🏘️',
     correct: {
       en: 'Santa Claus Is Coming to Town',
       cs: 'Santa Claus přijíždí do města',
@@ -306,7 +306,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_19',
-    emoji: '🎄🌟',
+    emoji: '⭐🌙',
     correct: {
       en: 'O Holy Night',
       cs: 'Ó svatá noc',
@@ -338,7 +338,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_21',
-    emoji: '🎄🎵',
+    emoji: '🔥🌰',
     correct: {
       en: 'The Christmas Song',
       cs: 'Vánoční píseň',
@@ -354,7 +354,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_22',
-    emoji: '🎄🎁',
+    emoji: '🎃🎄',
     correct: {
       en: 'The Nightmare Before Christmas',
       cs: 'Noční můra před Vánocemi',
@@ -418,7 +418,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_26',
-    emoji: '🎄🎅',
+    emoji: '📖🎅',
     correct: {
       en: 'The Christmas Chronicles',
       cs: 'Vánoční kroniky',
@@ -450,7 +450,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_28',
-    emoji: '🎄🎁',
+    emoji: '🥜⚙️',
     correct: {
       en: 'The Nutcracker',
       cs: 'Louskáček',
@@ -466,7 +466,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_29',
-    emoji: '🎄🎵',
+    emoji: '🇲🇽🎉',
     correct: {
       en: 'Feliz Navidad',
       cs: 'Feliz Navidad',
@@ -482,7 +482,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_30',
-    emoji: '🎄🎁',
+    emoji: '☕🎄',
     correct: {
       en: 'Have Yourself a Merry Little Christmas',
       cs: 'Užij si malé veselé Vánoce',
@@ -514,7 +514,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_32',
-    emoji: '🎄🎁',
+    emoji: '🏛️✨',
     correct: {
       en: 'Deck the Halls',
       cs: 'Ozdobme síně',
@@ -530,7 +530,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_33',
-    emoji: '🎄🎵',
+    emoji: '🍷🎄',
     correct: {
       en: 'We Wish You a Merry Christmas',
       cs: 'Přejeme vám veselé Vánoce',
@@ -546,7 +546,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_34',
-    emoji: '🎄🎁',
+    emoji: '🕐🕐🕐',
     correct: {
       en: 'The Twelve Days of Christmas',
       cs: 'Dvanáct dní Vánoc',
@@ -562,7 +562,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_35',
-    emoji: '🎄🎵',
+    emoji: '👼🎺',
     correct: {
       en: 'Hark! The Herald Angels Sing',
       cs: 'Slyšte, andělé zpívají',
@@ -578,7 +578,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_36',
-    emoji: '🎄🎁',
+    emoji: '🌍🎉',
     correct: {
       en: 'Joy to the World',
       cs: 'Raduj se, světe',
@@ -610,7 +610,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_38',
-    emoji: '🎄🎁',
+    emoji: '📅❌🎅',
     correct: {
       en: 'The Year Without a Santa Claus',
       cs: 'Rok bez Santa Clause',
@@ -626,7 +626,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_39',
-    emoji: '🎄🎵',
+    emoji: '❄️🚪',
     correct: {
       en: 'Baby It\'s Cold Outside',
       cs: 'Zlato, venku je zima',
@@ -642,7 +642,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_40',
-    emoji: '🎄🎁',
+    emoji: '❄️🏔️',
     correct: {
       en: 'Winter Wonderland',
       cs: 'Zimní pohádka',
@@ -658,7 +658,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_41',
-    emoji: '🎄🎵',
+    emoji: '🛷🐴',
     correct: {
       en: 'Sleigh Ride',
       cs: 'Jízda na saních',
@@ -674,7 +674,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_42',
-    emoji: '🎄🎁',
+    emoji: '🥁👶',
     correct: {
       en: 'The Little Drummer Boy',
       cs: 'Malý bubeník',
@@ -690,7 +690,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_43',
-    emoji: '🎄🎵',
+    emoji: '👂👂',
     correct: {
       en: 'Do You Hear What I Hear?',
       cs: 'Slyšíš, co slyším?',
@@ -706,7 +706,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_44',
-    emoji: '🎄🎁',
+    emoji: '🏠✈️',
     correct: {
       en: 'I\'ll Be Home for Christmas',
       cs: 'Budu doma na Vánoce',
@@ -722,7 +722,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_45',
-    emoji: '🎄🎵',
+    emoji: '🔔💎',
     correct: {
       en: 'Silver Bells',
       cs: 'Stříbrné zvony',
@@ -738,7 +738,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_46',
-    emoji: '🎄🎁',
+    emoji: '1️⃣⭐',
     correct: {
       en: 'The First Noel',
       cs: 'První Vánoce',
@@ -754,7 +754,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_47',
-    emoji: '🎄🎵',
+    emoji: '🙏👨',
     correct: {
       en: 'God Rest Ye Merry Gentlemen',
       cs: 'Bůh odpočívej, veselí pánové',
@@ -770,7 +770,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_48',
-    emoji: '🎄🎁',
+    emoji: '🔔🔔',
     correct: {
       en: 'Carol of the Bells',
       cs: 'Koleda zvonů',
@@ -786,7 +786,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_49',
-    emoji: '🎄🎵',
+    emoji: '👶🌾',
     correct: {
       en: 'Away in a Manger',
       cs: 'V jesličkách',
@@ -802,7 +802,7 @@ export const emojiMoviesChristmasPool: EmojiItem[] = [
   },
   {
     id: 'emoji_50',
-    emoji: '🎄🎁',
+    emoji: '❓👶',
     correct: {
       en: 'What Child Is This?',
       cs: 'Jaké to dítě je?',

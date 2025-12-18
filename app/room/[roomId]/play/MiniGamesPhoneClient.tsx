@@ -236,7 +236,10 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
 
                 {content?.type === 'emoji' && content.item && (
                   <div className="space-y-3">
-                    <p className="text-sm text-white/70">{lang === 'cs' ? 'Vyber odpověď:' : 'Pick an answer:'}</p>
+                    <div className="text-center mb-4">
+                      <div className="text-8xl mb-2">{content.item.emoji}</div>
+                      <p className="text-sm text-white/70">{lang === 'cs' ? 'Vyber odpověď:' : 'Pick an answer:'}</p>
+                    </div>
                     {(() => {
                       const seed = generateSeed(roomId, questionIndex!);
                       const opts = shuffleSeeded([content.item.correct[lang], ...content.item.decoyOptions[lang]], seed);
