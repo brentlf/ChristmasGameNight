@@ -21,7 +21,7 @@ import { MiniGameDashboard } from './MiniGameDashboard';
 import { useAudio } from '@/lib/contexts/AudioContext';
 import MiniGamesPhoneClient from './MiniGamesPhoneClient';
 
-const AVATARS = ['🎅', '🎄', '🎁', '❄️', '🦌', '⛄', '🎄', '🎁', '🎅', '❄️'];
+const AVATARS = ['🎅', '🎄', '🎁', '❄️', '🦌', '⛄', '🔔', '🕯️', '🧦', '🎀'];
 
 export default function PlayPage() {
   const params = useParams();
