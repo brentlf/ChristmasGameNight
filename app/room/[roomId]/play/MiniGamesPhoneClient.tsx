@@ -21,13 +21,6 @@ import { submitPictionaryGuess, writePictionaryLive, type PictionarySegment } fr
 import { usePictionaryLive } from '@/lib/hooks/usePictionaryLive';
 
 // TypeScript declarations for Speech Recognition API
-declare global {
-  interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
-  }
-}
-
 interface SpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -68,6 +61,13 @@ interface SpeechRecognitionResult {
 interface SpeechRecognitionAlternative {
   transcript: string;
   confidence: number;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
 }
 
 function answeredProgress(answered: number, total: number) {
@@ -1065,7 +1065,7 @@ function FamilyFeudPhoneRound(props: {
         setAnswer('');
       } else {
         playSound('ding', 0.15);
-        if (isStealMode && !result.stole) {
+        if (isStealMode && !('stole' in result ? result.stole : false)) {
           setFeedback(lang === 'cs' ? 'Ukradení selhalo ❌' : 'Steal failed ❌');
         } else {
           setFeedback(lang === 'cs' ? 'Špatně ❌' : 'Incorrect ❌');

@@ -359,7 +359,7 @@ export default function TVPage() {
 
   // Unified lobby: regardless of current roomMode, the TV lobby should show QR + game selection tiles.
   // This is what the "Back to lobby" button expects (instead of staying on the race screen).
-  if (room.status === 'lobby') {
+  if ((room.status as string) === 'lobby') {
     const lobbyLeaders = [...players].sort((a: any, b: any) => {
       const aScore = Number(a.totalMiniGameScore ?? a.score ?? 0);
       const bScore = Number(b.totalMiniGameScore ?? b.score ?? 0);
@@ -722,7 +722,7 @@ export default function TVPage() {
                 <span>TV View</span>
                 <span className="text-white/40">•</span>
                 <span className="text-white/70">
-                  {room.status === 'lobby' ? 'Scan to join' : lang === 'cs' ? 'Hra běží' : 'Game in progress'}
+                  {(room.status as string) === 'lobby' ? 'Scan to join' : lang === 'cs' ? 'Hra běží' : 'Game in progress'}
                 </span>
               </div>
 
@@ -746,7 +746,7 @@ export default function TVPage() {
 
             <div className="shrink-0">
               <div className="flex items-center justify-end gap-3">
-                {isController && room.status !== 'lobby' && (
+                 {isController && (room.status as string) !== 'lobby' && (
                   <button
                     type="button"
                     className="btn-secondary"
@@ -769,7 +769,7 @@ export default function TVPage() {
                   </button>
                 )}
 
-                {room.status === 'lobby' ? (
+                {(room.status as string) === 'lobby' ? (
                   <div className="inline-flex items-center justify-center rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
                     <ExpandableQRCode value={joinUrl} smallSize={160} />
                   </div>
@@ -878,7 +878,7 @@ export default function TVPage() {
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                       <p className="text-sm font-semibold mb-3">{t('controller.title', lang)}</p>
                       <div className="flex flex-wrap gap-2">
-                        {room.status === 'lobby' && (
+                        {(room.status as string) === 'lobby' && (
                           <button
                             onClick={async () => {
                               try {
