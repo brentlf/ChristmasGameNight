@@ -277,13 +277,14 @@ export async function controllerPictionaryReveal(params: {
   const scoreBatch = writeBatch(db);
   const now = Date.now();
 
-  // Scoring:
-  // - First correct guesser: +15
-  // - Drawer: +10 if someone guessed correctly
+  // Scoring (normalized for fairness):
+  // - First correct guesser: +12 (normalized from 15)
+  // - Drawer: +8 if someone guessed correctly (normalized from 10)
+  // Total: 20 points (average 10 per player, matching other games)
   if (correctUid) {
-    scoreBatch.set(doc(scoresBaseRef, correctUid), { uid: correctUid, score: increment(15), updatedAt: now }, { merge: true });
+    scoreBatch.set(doc(scoresBaseRef, correctUid), { uid: correctUid, score: increment(12), updatedAt: now }, { merge: true });
     if (drawerUid) {
-      scoreBatch.set(doc(scoresBaseRef, drawerUid), { uid: drawerUid, score: increment(10), updatedAt: now }, { merge: true });
+      scoreBatch.set(doc(scoresBaseRef, drawerUid), { uid: drawerUid, score: increment(8), updatedAt: now }, { merge: true });
     }
   }
   await scoreBatch.commit();
@@ -345,11 +346,13 @@ export async function controllerRevealAndScore(params: {
     for (const a of answers) {
       const ok = typeof a.answer === 'number' && a.answer === correctIndex;
       if (ok) correctUids.push(a.uid);
+      // Normalize scores for fairness (Trivia uses 10 points, multiplier = 1.0)
+      const points = ok ? 10 : 0;
       scoreBatch.set(
         doc(scoresBaseRef, a.uid),
         {
           uid: a.uid,
-          score: increment(ok ? 10 : 0),
+          score: increment(points),
           updatedAt: Date.now(),
         },
         { merge: true }
@@ -379,11 +382,13 @@ export async function controllerRevealAndScore(params: {
       const s = typeof a.answer === 'string' ? a.answer.toLowerCase().trim() : '';
       const ok = s ? accepted.has(s) : false;
       if (ok) correctUids.push(a.uid);
+      // Normalize scores for fairness (Trivia uses 10 points, multiplier = 1.0)
+      const points = ok ? 10 : 0;
       scoreBatch.set(
         doc(scoresBaseRef, a.uid),
         {
           uid: a.uid,
-          score: increment(ok ? 10 : 0),
+          score: increment(points),
           updatedAt: Date.now(),
         },
         { merge: true }
@@ -435,11 +440,13 @@ export async function controllerRevealAndScore(params: {
     for (const a of answers) {
       const ok = typeof a.answer === 'number' && a.answer === correctIndex;
       if (ok) correctUids.push(a.uid);
+      // Normalize scores for fairness (Trivia uses 10 points, multiplier = 1.0)
+      const points = ok ? 10 : 0;
       scoreBatch.set(
         doc(scoresBaseRef, a.uid),
         {
           uid: a.uid,
-          score: increment(ok ? 10 : 0),
+          score: increment(points),
           updatedAt: Date.now(),
         },
         { merge: true }
@@ -470,13 +477,67 @@ export async function controllerRevealAndScore(params: {
 export async function controllerFinishSession(params: { roomId: string; sessionId: string }): Promise<void> {
   const { roomId, sessionId } = params;
   const roomRef = doc(db, 'rooms', roomId);
-  await updateDoc(roomRef, {
+  const roomSnap = await getDoc(roomRef);
+  if (!roomSnap.exists()) throw new Error('Room not found');
+  const room = { id: roomSnap.id, ...(roomSnap.data() as any) } as Room;
+
+  const currentSession = room.currentSession;
+  const gameId = (currentSession?.gameId as MiniGameType | undefined) ?? undefined;
+  const activeUids = currentSession?.activePlayerUids ?? [];
+
+  // Idempotency guard: avoid double-counting if the host clicks "Finish" twice
+  // or refreshes while the session is finishing.
+  if (currentSession?.sessionId === sessionId && (currentSession as any)?.rollupApplied) {
+    await updateDoc(roomRef, {
+      roomMode: 'mini_games',
+      status: 'session_results',
+      'currentSession.sessionId': sessionId,
+      'currentSession.status': 'finished',
+      'currentSession.revealData': null,
+    } as any);
+    return;
+  }
+
+  // Read final scores for this session.
+  const scoresSnap = await getDocs(collection(db, 'rooms', roomId, 'sessions', sessionId, 'scores'));
+  const scoreMap = new Map<string, number>();
+  scoresSnap.forEach((d) => {
+    const s = d.data() as any;
+    scoreMap.set(d.id, Number(s?.score ?? 0));
+  });
+
+  const now = Date.now();
+  const batch = writeBatch(db);
+
+  // Roll up per-session scores into per-player "night total" fields so:
+  // - TV sidebar totals update live
+  // - /leaderboard (global) can aggregate from player docs
+  for (const uid of activeUids) {
+    const score = Number(scoreMap.get(uid) ?? 0);
+    const playerRef = doc(db, 'rooms', roomId, 'players', uid);
+    const update: any = {
+      totalMiniGameScore: increment(score),
+      lastActiveAt: now,
+    };
+    if (gameId) {
+      update[`miniGameProgress.${gameId}.score`] = increment(score);
+      update[`miniGameProgress.${gameId}.completedAt`] = now;
+    }
+    batch.update(playerRef, update);
+  }
+
+  // Transition room into a results state (TV + phones show the finale).
+  batch.update(roomRef, {
     roomMode: 'mini_games',
-    status: 'between_sessions',
+    status: 'session_results',
     'currentSession.sessionId': sessionId,
     'currentSession.status': 'finished',
     'currentSession.revealData': null,
+    'currentSession.rollupApplied': true,
+    'currentSession.rollupAppliedAt': now,
   } as any);
+
+  await batch.commit();
 }
 
 export async function submitSessionAnswer(params: {
@@ -776,7 +837,53 @@ export async function endFamilyFeudRound(params: {
   const totalRounds = selected.selectedIds?.length || 0;
   
   if (roundIndex + 1 >= totalRounds) {
-    // Game over
+    // Game over - convert team scores to individual session scores
+    const teamScores = currentSession.teamScores || { A: 0, B: 0 };
+    const teamMapping = currentSession.teamMapping || {};
+    
+    // Get all players in the session
+    const active = currentSession.activePlayerUids || [];
+    
+    // Write individual scores based on team scores
+    // Each player on a team gets their team's total score
+    const scoresBaseRef = collection(db, 'rooms', roomId, 'sessions', sessionId, 'scores');
+    const scoreBatch = writeBatch(db);
+    const now = Date.now();
+    
+    // Normalize Family Feud scores (multiply by 0.5 to prevent dominance)
+    // Average team score per round is normalized to ~10 points per player
+    for (const uid of active) {
+      const team = teamMapping[uid];
+      if (team === 'A' || team === 'B') {
+        const teamScore = teamScores[team] || 0;
+        // Normalize: Family Feud scores can be high (e.g., 100+ per round)
+        // Scale down to match other games (~10 points per round average)
+        const normalizedScore = Math.round(teamScore * 0.5);
+        scoreBatch.set(
+          doc(scoresBaseRef, uid),
+          {
+            uid,
+            score: normalizedScore,
+            updatedAt: now,
+          },
+          { merge: true }
+        );
+      } else {
+        // Player not on a team - give 0 score
+        scoreBatch.set(
+          doc(scoresBaseRef, uid),
+          {
+            uid,
+            score: 0,
+            updatedAt: now,
+          },
+          { merge: true }
+        );
+      }
+    }
+    
+    await scoreBatch.commit();
+    
     await updateDoc(roomRef, {
       status: 'session_results',
       'currentSession.status': 'finished',

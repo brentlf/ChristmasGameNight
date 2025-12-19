@@ -26,6 +26,7 @@ import { useGameContent } from '@/lib/hooks/useGameContent';
 import type { FamilyFeudQuestion } from '@/content/family_feud_christmas';
 import TimerRing from '@/app/components/TimerRing';
 import GameIntro from '@/app/components/GameIntro';
+import GameFinale from '@/app/components/GameFinale';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { rolloverRoomWithSamePlayers } from '@/lib/utils/room';
@@ -57,10 +58,11 @@ function GameTile(props: {
   description: string;
   icon: string;
   accent: 'gold' | 'green' | 'blue' | 'red';
+  size?: 'main' | 'mini';
   disabled?: boolean;
   onClick?: () => void;
 }) {
-  const { title, subtitle, description, icon, accent, disabled, onClick } = props;
+  const { title, subtitle, description, icon, accent, size = 'mini', disabled, onClick } = props;
 
   const accentBorder =
     accent === 'gold'
@@ -99,6 +101,7 @@ function GameTile(props: {
         accentBorder,
         'transition-all duration-500',
         disabled ? 'opacity-60 cursor-not-allowed' : 'hover:scale-[1.03] hover:bg-wood-dark/50',
+        size === 'main' ? 'min-h-[210px]' : 'min-h-[180px]',
       ].join(' ')}
       style={{
         boxShadow:
@@ -115,17 +118,33 @@ function GameTile(props: {
       {/* Shimmer */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-fire-gold/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
 
-      <div className="relative z-10 p-6 text-left">
-        <div className={`text-6xl mb-4 transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500 ${iconGlow}`}>
+      <div className={['relative z-10 text-left', size === 'main' ? 'p-8' : 'p-6'].join(' ')}>
+        <div
+          className={[
+            size === 'main' ? 'text-7xl mb-4' : 'text-6xl mb-4',
+            'transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500',
+            iconGlow,
+          ].join(' ')}
+        >
           {icon}
         </div>
         <div className="space-y-1">
-          <h3 className="text-2xl font-black text-white group-hover:text-fire-gold transition-colors duration-300">
+          <h3
+            className={[
+              size === 'main' ? 'text-3xl' : 'text-2xl',
+              'font-black text-white group-hover:text-fire-gold transition-colors duration-300',
+            ].join(' ')}
+          >
             {title}
           </h3>
           <div className="text-xs font-semibold text-white/70 whitespace-normal break-words pr-1">{subtitle}</div>
         </div>
-        <p className="text-sm text-white/75 mt-3 group-hover:text-white/95 transition-colors duration-300 whitespace-normal break-words">
+        <p
+          className={[
+            size === 'main' ? 'text-base' : 'text-sm',
+            'text-white/75 mt-3 group-hover:text-white/95 transition-colors duration-300 whitespace-normal break-words',
+          ].join(' ')}
+        >
           {description}
         </p>
       </div>
@@ -742,70 +761,113 @@ export default function MiniGamesTVHub(props: {
             )}
           </div>
 
-          <div className="relative mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            <GameTile
-              title={lang === 'cs' ? 'Amazing Race' : 'Amazing Race'}
-              subtitle={lang === 'cs' ? 'Hlavní hra' : 'Main event'}
-              description={lang === 'cs' ? 'Velká týmová jízda s checkpointy.' : 'A bigger adventure with checkpoints.'}
-              icon="🏁"
-              accent="red"
-              disabled={!isController || busy}
-              onClick={requestStartRace}
-            />
-            <GameTile
-              title="Trivia Blitz"
-              subtitle={lang === 'cs' ? 'Rychlé body' : 'Fast points'}
-              description={lang === 'cs' ? '10 otázek. Odpovídej na telefonu.' : '10 questions. Answer on your phone.'}
-              icon="⚡"
-              accent="gold"
-              disabled={!isController || busy}
-              onClick={() => requestStartGame('trivia')}
-            />
-            <GameTile
-              title={lang === 'cs' ? 'Emoji hádanka' : 'Emoji Guess'}
-              subtitle={lang === 'cs' ? 'Filmy & písně' : 'Movies & songs'}
-              description={lang === 'cs' ? 'Uhodni název podle emotikonů.' : 'Guess from the emoji clue.'}
-              icon="🎬"
-              accent="blue"
-              disabled={!isController || busy}
-              onClick={() => requestStartGame('emoji')}
-            />
-            <GameTile
-              title={lang === 'cs' ? 'Co radši?' : 'Would You Rather'}
-              subtitle={lang === 'cs' ? 'Hlasování' : 'Vote'}
-              description={lang === 'cs' ? 'Vyber A/B. Pak se zasměj splitu.' : 'Pick A/B. Enjoy the chaos split.'}
-              icon="🎄"
-              accent="green"
-              disabled={!isController || busy}
-              onClick={() => requestStartGame('wyr')}
-            />
-            <GameTile
-              title="Pictionary"
-              subtitle={lang === 'cs' ? 'Kresli & hádej' : 'Draw & guess'}
-              description={lang === 'cs' ? 'Jeden kreslí, ostatní tipují z TV.' : 'One draws, everyone guesses from the TV.'}
-              icon="🎨"
-              accent="gold"
-              disabled={!isController || busy}
-              onClick={() => requestStartGame('pictionary')}
-            />
-            <GameTile
-              title={lang === 'cs' ? 'Uhádni písničku' : 'Guess the Song'}
-              subtitle={lang === 'cs' ? 'Poslouchej & hádej' : 'Listen & guess'}
-              description={lang === 'cs' ? 'Poslouchej úryvek a uhodni vánoční písničku.' : 'Listen to the snippet and guess the Christmas song.'}
-              icon="🎵"
-              accent="blue"
-              disabled={!isController || busy}
-              onClick={() => requestStartGame('guess_the_song')}
-            />
-            <GameTile
-              title={lang === 'cs' ? 'Vánoční rodinný souboj' : 'Christmas Family Feud'}
-              subtitle={lang === 'cs' ? 'Týmová hra' : 'Team game'}
-              description={lang === 'cs' ? 'Dva týmy soupeří. Hádejte odpovědi a odhalte je na tabuli.' : 'Two teams compete. Guess answers to reveal them on the board.'}
-              icon="🎯"
-              accent="red"
-              disabled={!isController || busy}
-              onClick={() => requestStartGame('family_feud')}
-            />
+          <div className="relative mt-6 space-y-6">
+            {/* Main Events (top row) */}
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-xs font-black tracking-widest text-white/60 uppercase">
+                  {lang === 'cs' ? 'Hlavní události' : 'Main Events'}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <GameTile
+                  size="main"
+                  title={lang === 'cs' ? 'Amazing Race' : 'Amazing Race'}
+                  subtitle={lang === 'cs' ? 'Hlavní hra' : 'Main event'}
+                  description={lang === 'cs' ? 'Velká týmová jízda s checkpointy.' : 'A bigger adventure with checkpoints.'}
+                  icon="🏁"
+                  accent="red"
+                  disabled={!isController || busy}
+                  onClick={requestStartRace}
+                />
+                <GameTile
+                  size="main"
+                  title={lang === 'cs' ? 'Vánoční rodinný souboj' : 'Christmas Family Feud'}
+                  subtitle={lang === 'cs' ? 'Hlavní hra' : 'Main event'}
+                  description={
+                    lang === 'cs'
+                      ? 'Dva týmy soupeří. Hádejte odpovědi a odhalte je na tabuli.'
+                      : 'Two teams compete. Guess answers to reveal them on the board.'
+                  }
+                  icon="🎯"
+                  accent="red"
+                  disabled={!isController || busy}
+                  onClick={() => requestStartGame('family_feud')}
+                />
+              </div>
+            </div>
+
+            {/* Mini Games (next two rows) */}
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-xs font-black tracking-widest text-white/60 uppercase">
+                  {lang === 'cs' ? 'Mini hry' : 'Mini Games'}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <GameTile
+                  title="Trivia Blitz"
+                  subtitle={lang === 'cs' ? 'Rychlé body' : 'Fast points'}
+                  description={lang === 'cs' ? '10 otázek. Odpovídej na telefonu.' : '10 questions. Answer on your phone.'}
+                  icon="⚡"
+                  accent="gold"
+                  disabled={!isController || busy}
+                  onClick={() => requestStartGame('trivia')}
+                />
+                <GameTile
+                  title={lang === 'cs' ? 'Emoji hádanka' : 'Emoji Guess'}
+                  subtitle={lang === 'cs' ? 'Filmy & písně' : 'Movies & songs'}
+                  description={lang === 'cs' ? 'Uhodni název podle emotikonů.' : 'Guess from the emoji clue.'}
+                  icon="🎬"
+                  accent="blue"
+                  disabled={!isController || busy}
+                  onClick={() => requestStartGame('emoji')}
+                />
+                <GameTile
+                  title={lang === 'cs' ? 'Co radši?' : 'Would You Rather'}
+                  subtitle={lang === 'cs' ? 'Hlasování' : 'Vote'}
+                  description={lang === 'cs' ? 'Vyber A/B. Pak se zasměj splitu.' : 'Pick A/B. Enjoy the chaos split.'}
+                  icon="🎄"
+                  accent="green"
+                  disabled={!isController || busy}
+                  onClick={() => requestStartGame('wyr')}
+                />
+                <GameTile
+                  title="Pictionary"
+                  subtitle={lang === 'cs' ? 'Kresli & hádej' : 'Draw & guess'}
+                  description={lang === 'cs' ? 'Jeden kreslí, ostatní tipují z TV.' : 'One draws, everyone guesses from the TV.'}
+                  icon="🎨"
+                  accent="gold"
+                  disabled={!isController || busy}
+                  onClick={() => requestStartGame('pictionary')}
+                />
+                <GameTile
+                  title={lang === 'cs' ? 'Uhádni písničku' : 'Guess the Song'}
+                  subtitle={lang === 'cs' ? 'Poslouchej & hádej' : 'Listen & guess'}
+                  description={
+                    lang === 'cs'
+                      ? 'Poslouchej úryvek a uhodni vánoční písničku.'
+                      : 'Listen to the snippet and guess the Christmas song.'
+                  }
+                  icon="🎵"
+                  accent="blue"
+                  disabled={!isController || busy}
+                  onClick={() => requestStartGame('guess_the_song')}
+                />
+                <GameTile
+                  title={lang === 'cs' ? 'Kolo tradic' : 'Tradition Wheel'}
+                  subtitle={lang === 'cs' ? 'Mini hra' : 'Mini game'}
+                  description={lang === 'cs' ? 'Rychlé roztočení a vyber vánoční tradici.' : 'Quick spin to pick a festive tradition.'}
+                  icon="🎡"
+                  accent="green"
+                  disabled={busy}
+                  onClick={() => {
+                    if (typeof window === 'undefined') return;
+                    window.open('/traditions', '_blank', 'noopener,noreferrer');
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
           {!isController && (
@@ -939,40 +1001,21 @@ export default function MiniGamesTVHub(props: {
         .sort((a, b) => b.sessionScore - a.sessionScore);
 
       return (
-        <div className="flex-1 min-h-0 rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8 flex flex-col">
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <div>
-              <div className="text-sm text-white/70">{gameLabel(gameId)}</div>
-              <h2 className="text-3xl font-black">{lang === 'cs' ? 'Výsledky' : 'Results'}</h2>
-            </div>
-            {isController && (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  updateDoc(doc(db, 'rooms', roomId), { status: 'lobby', currentSession: null } as any).catch(() => {});
-                }}
-              >
-                {lang === 'cs' ? 'Zpět do lobby' : 'Back to lobby'}
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1 min-h-0 overflow-auto pr-1">
-            {ranked.slice(0, 8).map((p, idx) => (
-              <div key={p.uid} className="rounded-2xl border border-white/10 bg-black/20 p-4 flex items-center justify-between">
-                <div className="min-w-0">
-                  <div className="text-white/70 text-xs font-black">{idx === 0 ? '🏆' : `#${idx + 1}`}</div>
-                  <div className="truncate text-xl font-bold">
-                    <span className="mr-2 text-2xl">{p.avatar}</span>
-                    {p.name}
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-christmas-gold">{(p as any).sessionScore}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <GameFinale
+          ranked={ranked}
+          gameTitle={gameLabel(gameId)}
+          lang={lang}
+          onBackToLobby={
+            isController
+              ? () => {
+                  // Continue to the "choose next game" screen.
+                  updateDoc(doc(db, 'rooms', roomId), { status: 'between_sessions', currentSession: null } as any).catch(() => {});
+                }
+              : undefined
+          }
+          showBackButton={isController}
+          backButtonLabel={isController ? (lang === 'cs' ? 'Další hra' : 'Next game') : undefined}
+        />
       );
     }
 

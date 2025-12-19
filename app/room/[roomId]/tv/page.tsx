@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useRoom } from '@/lib/hooks/useRoom';
 import { usePlayers } from '@/lib/hooks/usePlayers';
 import { getLanguage, t } from '@/lib/i18n';
@@ -22,6 +23,8 @@ import MiniGamesTVHub from './_components/MiniGamesTVHub';
 import { useSessionScores } from '@/lib/hooks/useSessionScores';
 import { useAudio } from '@/lib/contexts/AudioContext';
 import RaceTrackTV from './_components/RaceTrackTV';
+import GameFinale from '@/app/components/GameFinale';
+import { calculateOverallScoring } from '@/lib/utils/overallScoring';
 
 function isLocalhost(hostname: string) {
   // 0.0.0.0 is a bind-all address (valid for the server) but not a routable client hostname.
@@ -236,6 +239,7 @@ function WYRVisualSnapshot({ room, players, lang }: { room: Room; players: Playe
 
 export default function TVPage() {
   const params = useParams();
+  const router = useRouter();
   const roomId = params.roomId as string;
   const { room, loading: roomLoading, updateRoom } = useRoom(roomId);
   const { players, loading: playersLoading } = usePlayers(roomId);
@@ -325,24 +329,8 @@ export default function TVPage() {
     if (anyAdvanced) playSound('sleighbells', 0.22);
   }, [playSound, players, room]);
 
-  if (roomLoading || playersLoading) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <div className="text-4xl">{t('common.loading', lang)}</div>
-      </div>
-    );
-  }
-
-  if (!room) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <div className="text-4xl">{t('common.error', lang)}</div>
-      </div>
-    );
-  }
-
-  const isController = Boolean(viewerUid && room.controllerUid === viewerUid);
-  const track = room.roomMode === 'amazing_race' ? getRaceTrack(room.raceTrackId) : null;
+  const isController = Boolean(viewerUid && room?.controllerUid === viewerUid);
+  const track = room?.roomMode === 'amazing_race' ? getRaceTrack(room.raceTrackId) : null;
   const totalStages = track?.stages.length ?? 0;
 
   const sortedPlayers = [...players].sort((a: any, b: any) => {
@@ -359,6 +347,59 @@ export default function TVPage() {
 
   const completedCount = players.filter((p: any) => (p.stageIndex ?? 0) >= totalStages).length;
   const leadStage = players.length ? Math.max(...players.map((p: any) => p.stageIndex ?? 0)) : 0;
+  const allPlayersFinished = players.length > 0 && totalStages > 0 && completedCount === players.length;
+
+  const overallScoring = players.length && room ? calculateOverallScoring(players, room) : null;
+
+  const finaleRanked: Array<Player & { overallPoints?: number }> =
+    room?.roomMode !== 'amazing_race' || !allPlayersFinished || !players.length
+      ? []
+      : overallScoring && overallScoring.length > 0
+      ? overallScoring
+          .map((result) => {
+            const player = players.find((p: any) => p.uid === result.playerUid);
+            if (!player) return null;
+            return { ...(player as Player), overallPoints: result.overallPoints };
+          })
+          .filter((p): p is Player & { overallPoints: number } => p !== null)
+      : (sortedPlayers as any);
+
+  // Auto-finish Amazing Race once everyone is done (host TV only).
+  useEffect(() => {
+    if (!room) return;
+    if (!isController) return;
+    if (room.roomMode !== 'amazing_race') return;
+    if (room.status !== 'running') return;
+    if (!allPlayersFinished) return;
+
+    updateRoom({ status: 'finished' }).catch((e: any) => {
+      console.error('Failed to auto-finish race:', e);
+    });
+  }, [allPlayersFinished, isController, room, updateRoom]);
+
+  // When the room is finished, show the results celebration page.
+  useEffect(() => {
+    if (!roomId) return;
+    if (!room) return;
+    if (room.status !== 'finished') return;
+    router.replace(`/room/${roomId}/results`);
+  }, [room?.status, roomId, router, room]);
+
+  if (roomLoading || playersLoading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <div className="text-4xl">{t('common.loading', lang)}</div>
+      </div>
+    );
+  }
+
+  if (!room) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <div className="text-4xl">{t('common.error', lang)}</div>
+      </div>
+    );
+  }
 
   // Unified lobby: regardless of current roomMode, the TV lobby should show QR + game selection tiles.
   // This is what the "Back to lobby" button expects (instead of staying on the race screen).
@@ -851,18 +892,26 @@ export default function TVPage() {
             </div>
           </div>
 
-          {/* Track (middle) */}
+          {/* Track (middle) or Finale */}
           <div className="xl:col-span-8 h-full flex flex-col min-h-0">
-            {track ? (
-              <RaceTrackTV track={track as any} players={players} lang={lang} />
-            ) : (
-              <div className="card flex-1 flex items-center justify-center">
-                <div className="text-white/70">{lang === 'cs' ? 'Chybí trať.' : 'Missing race track.'}</div>
-              </div>
-            )}
+            {allPlayersFinished && room.status === 'running' ? (
+              // Show finale when all players are done
+              <GameFinale
+                ranked={finaleRanked}
+                gameTitle={lang === 'cs' ? '🏁 Amazing Race' : '🏁 Amazing Race'}
+                lang={lang}
+                scoreKey={overallScoring && overallScoring.length > 0 ? 'overallPoints' : 'score'}
+                scoreLabel={overallScoring && overallScoring.length > 0 
+                  ? t('scoring.totalPoints', lang)
+                  : (lang === 'cs' ? 'bodů' : 'points')}
+                showBackButton={false}
+              />
+            ) : track ? (
+              <>
+                <RaceTrackTV track={track as any} players={players} lang={lang} />
 
-            {/* Controls + event feed under the track */}
-            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Controls + event feed under the track */}
+                <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="card">
                 <h3 className="text-2xl font-bold mb-3">{t('tv.raceStatus', lang)}</h3>
                 <div className="space-y-3">
@@ -944,7 +993,13 @@ export default function TVPage() {
                   ))}
                 </div>
               </div>
-            </div>
+                </div>
+              </>
+            ) : (
+              <div className="card flex-1 flex items-center justify-center">
+                <div className="text-white/70">{lang === 'cs' ? 'Chybí trať.' : 'Missing race track.'}</div>
+              </div>
+            )}
           </div>
 
           {/* Leaderboard (right) */}

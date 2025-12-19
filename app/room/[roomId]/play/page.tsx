@@ -6,6 +6,7 @@ import { useRoom } from '@/lib/hooks/useRoom';
 import { usePlayer } from '@/lib/hooks/usePlayer';
 import { usePlayers } from '@/lib/hooks/usePlayers';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
+import { calculateOverallScoring } from '@/lib/utils/overallScoring';
 import { getLanguage, t } from '@/lib/i18n';
 import { joinRoom } from '@/lib/utils/room';
 import { auth } from '@/lib/firebase';
@@ -267,6 +268,7 @@ export default function PlayPage() {
 function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en' | 'cs' }) {
   const { roomId, room, player, lang } = props;
   const trackId = room.raceTrackId;
+  const { players: allPlayers } = usePlayers(roomId);
   
   // Safety check for trackId
   if (!trackId) {
@@ -320,21 +322,111 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
 
   const pct = totalStages > 0 ? Math.min(100, Math.round((stageIndex / totalStages) * 100)) : 0;
 
+  const overallScoring = useMemo(() => {
+    if (!room || !allPlayers.length) return null;
+    return calculateOverallScoring(allPlayers, room);
+  }, [allPlayers, room]);
+
+  const finishedRanked = useMemo(() => {
+    if (!allPlayers.length) return [];
+    if (overallScoring && overallScoring.length > 0) {
+      return overallScoring
+        .map((result) => {
+          const p = allPlayers.find((pl: any) => pl.uid === result.playerUid);
+          if (!p) return null;
+          return { ...(p as any), overallPoints: result.overallPoints };
+        })
+        .filter(Boolean) as Array<any>;
+    }
+    return [...allPlayers].sort((a: any, b: any) => {
+      const aStage = a.stageIndex ?? 0;
+      const bStage = b.stageIndex ?? 0;
+      if (bStage !== aStage) return bStage - aStage;
+      const aFinished = a.finishedAt ?? Number.POSITIVE_INFINITY;
+      const bFinished = b.finishedAt ?? Number.POSITIVE_INFINITY;
+      if (aFinished !== bFinished) return aFinished - bFinished;
+      const aScore = a.score ?? 0;
+      const bScore = b.score ?? 0;
+      return bScore - aScore;
+    });
+  }, [allPlayers, overallScoring]);
+
   if (stageIndex >= totalStages) {
+    const myRank = finishedRanked.findIndex((p: any) => p?.uid === player.uid);
+    const isWinner = myRank === 0;
+
     return (
-      <main className="min-h-dvh px-4 py-8 md:py-12">
-        <div className="mx-auto max-w-xl">
-          <div className="card text-center">
-            <div className="text-6xl mb-4">🏁</div>
-            <h1 className="game-show-title mb-3">{t('race.finishedTitle', lang)}</h1>
-            <p className="text-white/80 mb-6">{t('race.finishedSubtitle', lang)}</p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href={`/room/${roomId}/tv`} className="btn-secondary text-center">
-                📺 {t('race.backToTv', lang)}
-              </Link>
-              <Link href={`/room/${roomId}/results`} className="btn-primary text-center">
-                🏆 {t('race.viewResults', lang)}
-              </Link>
+      <main className="min-h-dvh px-4 py-10">
+        <div className="max-w-xl mx-auto">
+          <div className="card text-center relative overflow-hidden">
+            {/* Celebration background */}
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
+            <div className="absolute -left-24 -bottom-24 h-72 w-72 rounded-full bg-christmas-green/15 blur-3xl" />
+
+            <div className="relative">
+              {/* Winner celebration */}
+              {isWinner ? (
+                <>
+                  <div className="text-8xl mb-4 animate-bounce-slow">{player.avatar}</div>
+                  <div className="text-6xl mb-4 animate-spin-slow">👑</div>
+                  <h1 className="game-show-title mb-2 text-5xl">
+                    {lang === 'cs' ? '🎉 VÝBORNĚ! 🎉' : '🎉 YOU WON! 🎉'}
+                  </h1>
+                  <p className="text-white/80 mb-4 text-xl">
+                    {lang === 'cs' ? 'Jsi vítěz Amazing Race!' : "You're the Amazing Race winner!"}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-6xl mb-4">🏁</div>
+                  <h1 className="game-show-title mb-2">{lang === 'cs' ? 'Hotovo!' : 'Race Complete!'}</h1>
+                  <p className="text-white/70 mb-4">
+                    {lang === 'cs' 
+                      ? `Dokončil jsi Amazing Race na ${myRank + 1}. místě!` 
+                      : `You finished Amazing Race in ${myRank + 1}${myRank === 0 ? 'st' : myRank === 1 ? 'nd' : myRank === 2 ? 'rd' : 'th'} place!`}
+                  </p>
+                </>
+              )}
+
+              {/* Top 3 preview */}
+              {finishedRanked.length > 0 && (
+                <div className="mb-6 p-4 rounded-2xl border border-white/10 bg-white/5">
+                  <p className="text-sm text-white/70 mb-3">{lang === 'cs' ? 'Top 3:' : 'Top 3:'}</p>
+                  <div className="space-y-2">
+                    {finishedRanked.slice(0, 3).map((p: any, idx: number) => {
+                      const score = overallScoring && overallScoring.length > 0 
+                        ? p.overallPoints ?? 0
+                        : p.score ?? 0;
+                      return (
+                        <div
+                          key={p?.uid}
+                          className={`flex items-center justify-between p-2 rounded-xl ${
+                            p?.uid === player.uid ? 'bg-christmas-gold/20 border border-christmas-gold/50' : 'bg-white/5'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">
+                              {idx === 0 ? '👑' : idx === 1 ? '🥈' : '🥉'}
+                            </span>
+                            <span className="text-xl">{p?.avatar}</span>
+                            <span className="font-semibold">{p?.name}</span>
+                          </div>
+                          <span className="text-xl font-bold text-christmas-gold">{score}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link href={`/room/${roomId}/tv`} className="btn-secondary text-center">
+                  📺 {t('race.backToTv', lang)}
+                </Link>
+                <Link href={`/room/${roomId}/results`} className="btn-primary text-center">
+                  🏆 {t('race.viewResults', lang)}
+                </Link>
+              </div>
             </div>
           </div>
         </div>

@@ -107,19 +107,21 @@ export default function TopLeftNav() {
   const showBack = pathname !== '/'
   const showReturnToActiveRoom =
     Boolean(activeRoomId) && !pathname.startsWith(`/room/${activeRoomId}`)
+  // Show back to play when on TV view but have active room
+  const showBackToPlay = Boolean(activeRoomId) && pathname.startsWith(`/room/${activeRoomId}/tv`)
 
   if (!showBack && !showHome) return null
 
   return (
     <div className="fixed left-2 top-2 sm:left-4 sm:top-4 z-50 max-w-[calc(100vw-1rem)]">
       <div className="flex flex-wrap items-center gap-1 sm:gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-lg px-2 py-2 max-w-full">
-        {showReturnToActiveRoom && activeRoomId && (
+        {(showReturnToActiveRoom || showBackToPlay) && activeRoomId && (
           <Link
             href={`/room/${activeRoomId}/play`}
             onClick={() => playSound('click')}
-            className="inline-flex md:hidden items-center justify-center rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
-            aria-label={t('nav.returnToActiveRoom', lang)}
-            title={t('nav.returnToActiveRoom', lang)}
+            className="inline-flex items-center justify-center rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
+            aria-label={showBackToPlay ? (lang === 'cs' ? 'Zpět do hry' : 'Back to Game') : t('nav.returnToActiveRoom', lang)}
+            title={showBackToPlay ? (lang === 'cs' ? 'Zpět do hry' : 'Back to Game') : t('nav.returnToActiveRoom', lang)}
           >
             <IconDoorReturn className="h-5 w-5" />
           </Link>
@@ -193,6 +195,22 @@ export default function TopLeftNav() {
         </button>
 
         <div className="h-6 w-px bg-white/20 mx-1" />
+
+        {activeRoomId && (
+          <>
+            <Link
+              href={`/room/${activeRoomId}/leaderboard`}
+              onClick={() => playSound('click')}
+              className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
+              aria-label={lang === 'cs' ? 'Žebříček' : 'Leaderboard'}
+              title={lang === 'cs' ? 'Žebříček' : 'Leaderboard'}
+            >
+              🏆
+              <span className="hidden sm:inline">{lang === 'cs' ? 'Žebříček' : 'Leaderboard'}</span>
+            </Link>
+            <div className="h-6 w-px bg-white/20 mx-1" />
+          </>
+        )}
 
         <Link
           href="/traditions"

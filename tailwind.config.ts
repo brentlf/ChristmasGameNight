@@ -43,6 +43,10 @@ const config: Config = {
         'candle-flicker-delayed': 'candleFlicker 3s ease-in-out infinite 1s',
         'twinkle': 'twinkle 5s ease-in-out infinite',
         'twinkle-delayed': 'twinkle 5s ease-in-out infinite 2s',
+        'confetti-fall': 'confettiFall linear forwards',
+        'bounce-slow': 'bounceSlow 2s ease-in-out infinite',
+        'spin-slow': 'spinSlow 3s linear infinite',
+        'slide-up-finale': 'slideUpFinale 0.6s ease-out forwards',
       },
       keyframes: {
         snow: {
@@ -83,6 +87,22 @@ const config: Config = {
         twinkle: {
           '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
           '50%': { opacity: '0.8', transform: 'scale(1.1)' },
+        },
+        confettiFall: {
+          '0%': { transform: 'translateY(-10px) translateX(0) rotate(0deg)', opacity: '1' },
+          '100%': { transform: 'translateY(100vh) translateX(50px) rotate(720deg)', opacity: '0' },
+        },
+        bounceSlow: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-10px)' },
+        },
+        spinSlow: {
+          'from': { transform: 'rotate(0deg)' },
+          'to': { transform: 'rotate(360deg)' },
+        },
+        slideUpFinale: {
+          '0%': { opacity: '0', transform: 'translateY(30px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
         },
       },
       backgroundImage: {

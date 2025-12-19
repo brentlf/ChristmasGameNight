@@ -169,6 +169,8 @@ const translations: Record<Language, Record<string, string>> = {
     'trivia.points': 'points',
     'trivia.completed': 'Completed!',
     'trivia.viewLeaderboard': 'View Leaderboard',
+    'trivia.finaleTitle': 'Grand Finale!',
+    'trivia.finaleWinner': 'Winner!',
     
     // Missions
     'missions.yourMissions': 'Your Missions',

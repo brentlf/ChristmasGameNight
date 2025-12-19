@@ -19,6 +19,8 @@ interface AggregatedPlayer {
     emoji: number;
     wyr: number;
     pictionary: number;
+    guess_the_song: number;
+    family_feud: number;
     leaderboard: number;
   };
 }
@@ -67,6 +69,8 @@ export default function GlobalLeaderboardPage() {
                   emoji: 0,
                   wyr: 0,
                   pictionary: 0,
+                  guess_the_song: 0,
+                  family_feud: 0,
                   leaderboard: 0,
                 },
               });
@@ -112,6 +116,18 @@ export default function GlobalLeaderboardPage() {
                   miniGameTotal += pictionaryScore;
                   hasIndividualScores = true;
                 }
+                if (player.miniGameProgress.guess_the_song !== undefined) {
+                  const gtsScore = player.miniGameProgress.guess_the_song?.score ?? 0;
+                  aggregated.scoresByGame.guess_the_song += gtsScore;
+                  miniGameTotal += gtsScore;
+                  hasIndividualScores = true;
+                }
+                if (player.miniGameProgress.family_feud !== undefined) {
+                  const ffScore = player.miniGameProgress.family_feud?.score ?? 0;
+                  aggregated.scoresByGame.family_feud += ffScore;
+                  miniGameTotal += ffScore;
+                  hasIndividualScores = true;
+                }
               }
               
               // Fallback: if no individual scores found, use totalMiniGameScore or playerScore
@@ -130,6 +146,8 @@ export default function GlobalLeaderboardPage() {
                       if (game === 'emoji') aggregated.scoresByGame.emoji += perGame;
                       // wyr doesn't count for points
                       if (game === 'pictionary') aggregated.scoresByGame.pictionary += perGame;
+                      if (game === 'guess_the_song') aggregated.scoresByGame.guess_the_song += perGame;
+                      if (game === 'family_feud') aggregated.scoresByGame.family_feud += perGame;
                     });
                   }
                 }
@@ -178,6 +196,8 @@ export default function GlobalLeaderboardPage() {
       { key: 'emoji', label: 'Emoji', emoji: '🎬', color: 'bg-purple-500', value: player.scoresByGame.emoji },
       // wyr doesn't count for points - excluded from breakdown
       { key: 'pictionary', label: 'Pictionary', emoji: '🎨', color: 'bg-orange-500', value: player.scoresByGame.pictionary },
+      { key: 'guess_the_song', label: 'Guess the Song', emoji: '🎵', color: 'bg-sky-500', value: player.scoresByGame.guess_the_song },
+      { key: 'family_feud', label: 'Family Feud', emoji: '🎯', color: 'bg-christmas-red', value: player.scoresByGame.family_feud },
       { key: 'leaderboard', label: 'Leaderboard', emoji: '🏆', color: 'bg-christmas-gold', value: player.scoresByGame.leaderboard },
     ].filter(g => g.value > 0);
     return games;

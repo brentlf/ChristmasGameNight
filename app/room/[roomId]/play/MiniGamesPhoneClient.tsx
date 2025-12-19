@@ -7,6 +7,7 @@ import { getLanguage, t } from '@/lib/i18n';
 import { useSessionSelected } from '@/lib/hooks/useSessionSelected';
 import { useSessionAnswers } from '@/lib/hooks/useSessionAnswers';
 import { useSessionScores } from '@/lib/hooks/useSessionScores';
+import { usePlayers } from '@/lib/hooks/usePlayers';
 import { submitSessionAnswer, submitFamilyFeudAnswer, submitFamilyFeudSteal } from '@/lib/sessions/sessionEngine';
 import { getGuessTheSongItemById, getFamilyFeudItemById } from '@/lib/miniGameContent';
 import type { FamilyFeudQuestion } from '@/content/family_feud_christmas';
@@ -80,6 +81,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   const { roomId, room, player } = props;
   const lang = getLanguage();
   const { playSound } = useAudio();
+  const { players: allPlayers } = usePlayers(roomId);
 
   const currentSession = room.currentSession ?? null;
   const sessionId = currentSession?.sessionId ?? null;
@@ -520,18 +522,79 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   // Finished
   if (status === 'finished') {
     const scoreMap = new Map(scores.map((s) => [s.uid, Number((s as any).score ?? 0)]));
-    const myScore = scoreMap.get(player.uid) ?? 0;
+    const ranked = [...allPlayers]
+      .map((p) => ({ ...p, sessionScore: scoreMap.get(p.uid) ?? 0 }))
+      .sort((a, b) => b.sessionScore - a.sessionScore);
+    const myRank = ranked.findIndex((p) => p.uid === player.uid);
+    const isWinner = myRank === 0;
+
     return (
       <main className="min-h-dvh px-4 py-10">
         <div className="max-w-xl mx-auto">
-          <div className="card text-center">
-            <div className="text-6xl mb-4">🏁</div>
-            <h1 className="game-show-title mb-2">{lang === 'cs' ? 'Hotovo!' : 'Done!'}</h1>
-            <p className="text-white/70 mb-6">{lang === 'cs' ? 'Podívej se na TV pro výsledky.' : 'Look at the TV for results.'}</p>
-            <div className="text-3xl font-black text-christmas-gold mb-6">{myScore}</div>
-            <Link href={`/room/${roomId}/tv`} className="btn-secondary inline-block">
-              📺 {t('race.tv', lang) || 'TV'}
-            </Link>
+          <div className="card text-center relative overflow-hidden">
+            {/* Celebration background */}
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
+            <div className="absolute -left-24 -bottom-24 h-72 w-72 rounded-full bg-christmas-green/15 blur-3xl" />
+
+            <div className="relative">
+              {/* Winner celebration */}
+              {isWinner ? (
+                <>
+                  <div className="text-8xl mb-4 animate-bounce-slow">{player.avatar}</div>
+                  <div className="text-6xl mb-4 animate-spin-slow">👑</div>
+                  <h1 className="game-show-title mb-2 text-5xl">
+                    {lang === 'cs' ? '🎉 VÝBORNĚ! 🎉' : '🎉 YOU WON! 🎉'}
+                  </h1>
+                  <p className="text-white/80 mb-4 text-xl">
+                    {lang === 'cs' ? 'Jsi vítěz!' : "You're the winner!"}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-6xl mb-4">🎊</div>
+                  <h1 className="game-show-title mb-2">{lang === 'cs' ? 'Hotovo!' : 'Well Played!'}</h1>
+                  <p className="text-white/70 mb-4">
+                    {lang === 'cs' ? `Skončil jsi na ${myRank + 1}. místě!` : `You finished in ${myRank + 1}${myRank === 0 ? 'st' : myRank === 1 ? 'nd' : myRank === 2 ? 'rd' : 'th'} place!`}
+                  </p>
+                </>
+              )}
+
+              <div className="mb-6">
+                <div className="text-4xl font-black text-christmas-gold mb-2">
+                  {scoreMap.get(player.uid) ?? 0} {lang === 'cs' ? 'bodů' : 'points'}
+                </div>
+              </div>
+
+              {/* Top 3 preview */}
+              {ranked.length > 0 && (
+                <div className="mb-6 p-4 rounded-2xl border border-white/10 bg-white/5">
+                  <p className="text-sm text-white/70 mb-3">{lang === 'cs' ? 'Top 3:' : 'Top 3:'}</p>
+                  <div className="space-y-2">
+                    {ranked.slice(0, 3).map((p, idx) => (
+                      <div
+                        key={p.uid}
+                        className={`flex items-center justify-between p-2 rounded-xl ${
+                          p.uid === player.uid ? 'bg-christmas-gold/20 border border-christmas-gold/50' : 'bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">
+                            {idx === 0 ? '👑' : idx === 1 ? '🥈' : '🥉'}
+                          </span>
+                          <span className="text-xl">{p.avatar}</span>
+                          <span className="font-semibold">{p.name}</span>
+                        </div>
+                        <span className="text-xl font-bold text-christmas-gold">{p.sessionScore}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Link href={`/room/${roomId}/tv`} className="btn-primary inline-block">
+                📺 {lang === 'cs' ? 'Podívat se na TV' : 'Watch on TV'}
+              </Link>
+            </div>
           </div>
         </div>
       </main>

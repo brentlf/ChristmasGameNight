@@ -1,20 +1,46 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useRoom } from '@/lib/hooks/useRoom';
 import { usePlayers } from '@/lib/hooks/usePlayers';
 import { getLanguage, t } from '@/lib/i18n';
 import Link from 'next/link';
 import { getRaceTrack } from '@/lib/raceEngine';
 import { calculateOverallScoring } from '@/lib/utils/overallScoring';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import GameFinale from '@/app/components/GameFinale';
+import type { Player } from '@/types';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, updateDoc, writeBatch } from 'firebase/firestore';
+import toast from 'react-hot-toast';
 
 export default function ResultsPage() {
   const params = useParams();
+  const router = useRouter();
   const roomId = params.roomId as string;
   const { room, loading: roomLoading } = useRoom(roomId);
   const { players, loading: playersLoading } = usePlayers(roomId);
   const lang = getLanguage();
+  const [viewerUid, setViewerUid] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (auth?.currentUser?.uid) setViewerUid(auth.currentUser.uid);
+    const unsub = onAuthStateChanged(auth, (user) => setViewerUid(user?.uid ?? null));
+    return () => unsub();
+  }, []);
+
+  const isController = Boolean(viewerUid && room?.controllerUid === viewerUid);
+
+  // If the host resets back to lobby while someone is viewing /results on a phone,
+  // bounce them back to their /play screen.
+  useEffect(() => {
+    if (!roomId) return;
+    if (!room) return;
+    if (isController) return;
+    if (room.status !== 'lobby') return;
+    router.replace(`/room/${roomId}/play`);
+  }, [isController, room, roomId, router]);
 
   const overallScoring = useMemo(() => {
     if (!room || !players.length) return null;
@@ -39,10 +65,13 @@ export default function ResultsPage() {
     if (!room || !players.length) return [];
     
     if (overallScoring && overallScoring.length > 0) {
-      return overallScoring.map((result) => {
-        const player = players.find((p: any) => p.uid === result.playerUid);
-        return { ...player, overallPoints: result.overallPoints };
-      });
+      return overallScoring
+        .map((result) => {
+          const player = players.find((p: any) => p.uid === result.playerUid);
+          if (!player) return null;
+          return { ...player, overallPoints: result.overallPoints };
+        })
+        .filter((p): p is Player & { overallPoints: number } => p !== null);
     }
     return [...players].sort((a: any, b: any) => {
       const aStage = a.stageIndex ?? 0;
@@ -73,24 +102,49 @@ export default function ResultsPage() {
     );
   }
 
-  const top3 = sortedPlayers.slice(0, 3);
-  const rest = sortedPlayers.slice(3);
+  const scoreKey: 'overallPoints' | 'score' = overallScoring && overallScoring.length > 0 ? 'overallPoints' : 'score';
+  const scoreLabel = overallScoring && overallScoring.length > 0 
+    ? t('scoring.totalPoints', lang)
+    : (lang === 'cs' ? 'bodů' : 'points');
+
+  const nextGame = async () => {
+    if (!isController) return;
+    const ok = window.confirm(
+      lang === 'cs' ? 'Vrátit se do lobby a připravit další hru?' : 'Return to the lobby and get ready for the next game?'
+    );
+    if (!ok) return;
+
+    try {
+      const batch = writeBatch(db);
+      for (const p of players as any[]) {
+        batch.update(doc(db, 'rooms', roomId, 'players', p.uid), {
+          score: 0,
+          stageIndex: 0,
+          stageState: {},
+          finishedAt: null,
+          photoUploaded: false,
+          ready: false,
+          lastActiveAt: Date.now(),
+        } as any);
+      }
+      await batch.commit();
+
+      await updateDoc(doc(db, 'rooms', roomId), {
+        status: 'lobby',
+        raceStartedAt: null,
+        currentSession: null,
+      } as any);
+
+      router.replace(`/room/${roomId}/tv`);
+    } catch (e: any) {
+      console.error('Failed to return to lobby', e);
+      toast.error(e?.message || 'Failed to return to lobby');
+    }
+  };
 
   return (
     <main className="min-h-dvh px-4 py-10 md:py-12">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-10 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md">
-            <span>🏁</span>
-            <span>Finale</span>
-            <span className="text-white/40">•</span>
-            <span className="text-white/70">Results</span>
-          </div>
-          <h1 className="game-show-title text-6xl text-center mt-4">
-            {t('results.finalResults', lang)}
-          </h1>
-        </div>
-
         {/* Overall Scoring Info */}
         {overallScoring && overallScoring.length > 0 && (
           <div className="card mb-6">
@@ -103,110 +157,29 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {/* Podium */}
-        <div className="card mb-8 relative overflow-hidden">
-          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
-          <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-red/15 blur-3xl" />
-
-          <div className="relative">
-            <h2 className="text-3xl font-bold mb-6 text-center">
-              {overallScoring && overallScoring.length > 0 ? `🏆 ${t('results.christmasChampion', lang)}` : '🏆 Podium'}
-            </h2>
-            <div className="flex justify-center items-end gap-4">
-          {top3[1] && (
-            <div className="flex flex-col items-center">
-              <div className="text-6xl mb-4">{top3[1].avatar}</div>
-              <div className="bg-white/20 w-32 h-32 rounded-t-2xl border border-white/20 flex items-center justify-center">
-                <span className="text-4xl font-bold">2</span>
-              </div>
-              <p className="text-2xl font-bold mt-2">{top3[1].name}</p>
-              <p className="text-xl text-christmas-gold">
-                {overallScoring && overallScoring.length > 0
-                  ? `${top3[1].overallPoints || 0} ${t('scoring.totalPoints', lang)}`
-                  : `${top3[1].score} ${t('common.score', lang)}`}
-              </p>
-            </div>
-          )}
-          {top3[0] && (
-            <div className="flex flex-col items-center">
-              <div className="text-6xl mb-4">{top3[0].avatar}</div>
-              <div className="bg-christmas-gold/80 w-32 h-40 rounded-t-2xl border border-white/20 flex items-center justify-center">
-                <span className="text-4xl font-bold">1</span>
-              </div>
-              <p className="text-2xl font-bold mt-2">{top3[0].name}</p>
-              <p className="text-xl text-christmas-gold">
-                {overallScoring && overallScoring.length > 0
-                  ? `${top3[0].overallPoints || 0} ${t('scoring.totalPoints', lang)}`
-                  : `${top3[0].score} ${t('common.score', lang)}`}
-              </p>
-            </div>
-          )}
-          {top3[2] && (
-            <div className="flex flex-col items-center">
-              <div className="text-6xl mb-4">{top3[2].avatar}</div>
-              <div className="bg-christmas-bronze/80 w-32 h-24 rounded-t-2xl border border-white/20 flex items-center justify-center">
-                <span className="text-4xl font-bold">3</span>
-              </div>
-              <p className="text-2xl font-bold mt-2">{top3[2].name}</p>
-              <p className="text-xl text-christmas-gold">
-                {overallScoring && overallScoring.length > 0
-                  ? `${top3[2].overallPoints || 0} ${t('scoring.totalPoints', lang)}`
-                  : `${top3[2].score} ${t('common.score', lang)}`}
-              </p>
-            </div>
-          )}
-            </div>
-          </div>
-        </div>
-
-        {/* Full Leaderboard */}
-        <div className="card mb-8">
-          <h2 className="text-4xl font-bold mb-6 text-center">{t('common.leaderboard', lang)}</h2>
-          <div className="space-y-3">
-            {sortedPlayers.map((player: any, index: number) => {
-              const finished = (player.stageIndex ?? 0) >= totalStages;
-              return (
-              <div
-                key={player.uid}
-                className={`flex items-center gap-4 p-4 rounded-2xl border border-white/10 ${
-                  index < 3 ? 'bg-christmas-gold/15' : 'bg-white/5'
-                }`}
-              >
-                <div className={`text-3xl font-bold w-12 text-center ${
-                  index === 0 ? 'text-christmas-gold' :
-                  index === 1 ? 'text-gray-300' :
-                  index === 2 ? 'text-christmas-bronze' : 'text-white/50'
-                }`}>
-                  {index + 1}
-                </div>
-                <span className="text-3xl">{player.avatar}</span>
-                <div className="flex-1">
-                  <p className="text-xl font-semibold">{player.name}</p>
-                  <p className="text-xs text-white/60">
-                    {finished
-                      ? t('results.finished', lang)
-                      : `${t('race.stage', lang)} ${(player.stageIndex ?? 0) + 1}/${totalStages}`}
-                  </p>
-                </div>
-                <p className="text-2xl font-bold">
-                  {overallScoring && overallScoring.length > 0
-                    ? player.overallPoints || 0
-                    : player.score}
-                </p>
-              </div>
-              );
-            })}
-          </div>
+        {/* Game Finale Component */}
+        <div style={{ minHeight: '600px' }}>
+          <GameFinale
+            ranked={sortedPlayers}
+            gameTitle={lang === 'cs' ? '🏁 Amazing Race' : '🏁 Amazing Race'}
+            lang={lang}
+            scoreKey={scoreKey}
+            scoreLabel={scoreLabel}
+            showBackButton={false}
+          />
         </div>
 
         {/* Actions */}
-        <div className="flex justify-center gap-4">
-          <Link href={`/room/${roomId}/tv`} className="btn-secondary">
-            Back to TV View
-          </Link>
-          <Link href="/game-night" className="btn-primary">
-            Create New Room
-          </Link>
+        <div className="flex justify-center gap-4 mt-6">
+          {isController ? (
+            <button type="button" className="btn-primary" onClick={nextGame}>
+              {lang === 'cs' ? 'Další hra' : 'Next game'}
+            </button>
+          ) : (
+            <div className="text-center text-sm text-white/60">
+              {lang === 'cs' ? 'Host spustí další hru na TV.' : 'The host will start the next game on the TV.'}
+            </div>
+          )}
         </div>
       </div>
     </main>

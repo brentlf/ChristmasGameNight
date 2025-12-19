@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface AudioContextType {
   playSound: (soundName: SoundName, volume?: number) => void;
@@ -64,12 +65,20 @@ const SFX_COOLDOWN_MS: Record<SoundName, number> = {
 const BACKGROUND_MUSIC = '/audio/christmas-ambient.ogg';
 
 export function AudioProvider({ children }: { children: ReactNode }) {
-  // Default to on (we ship a subtle loop); browsers will start after first interaction.
-  const [backgroundMusicEnabled, setBackgroundMusicEnabled] = useState(true);
+  const pathname = usePathname();
+  // Default to off on phone views, on for TV/desktop
+  const isPhoneView = pathname?.includes('/play') && !pathname?.includes('/tv');
+  const [backgroundMusicEnabled, setBackgroundMusicEnabled] = useState(!isPhoneView);
   const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(0.12); // Very subtle, 12%
   // Default to off unless audio files exist (prevents noisy 404s in dev).
   const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(false);
   const [soundEffectsVolume, setSoundEffectsVolume] = useState(0.25); // Subtle, 25%
+  
+  // Update music state when route changes
+  useEffect(() => {
+    const currentIsPhoneView = pathname?.includes('/play') && !pathname?.includes('/tv');
+    setBackgroundMusicEnabled(!currentIsPhoneView);
+  }, [pathname]);
   
   const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
   const soundEffectsCache = useRef<Map<string, HTMLAudioElement>>(new Map());
