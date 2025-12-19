@@ -9,12 +9,14 @@ import {
   getPictionaryItemById,
   getWYRItemById,
   getEmojiItemById,
+  getGuessTheSongItemById,
 } from '@/lib/miniGameContent';
 import type { TriviaItem } from '@/content/trivia_christmas';
 import type { FamilyFeudQuestion } from '@/content/family_feud_christmas';
 import type { PictionaryItem } from '@/content/pictionary_christmas';
 import type { WouldYouRatherItem } from '@/content/would_you_rather_christmas';
 import type { EmojiItem } from '@/content/emoji_movies_christmas';
+import type { GuessTheSongItem } from '@/content/guess_the_song_christmas';
 import type { MiniGameType } from '@/types';
 
 type GameContentItem =
@@ -22,7 +24,7 @@ type GameContentItem =
   | { type: 'emoji'; item: EmojiItem }
   | { type: 'wyr'; item: WouldYouRatherItem }
   | { type: 'pictionary'; item: PictionaryItem }
-  | { type: 'guess_the_song'; item: any }
+  | { type: 'guess_the_song'; item: GuessTheSongItem }
   | { type: 'family_feud'; item: FamilyFeudQuestion }
   | null;
 
@@ -76,6 +78,10 @@ export function useGameContent(
         } else if (gameId === 'family_feud') {
           const item = await getFamilyFeudItemById(id, roomIdOrUndef, sessionIdOrUndef);
           setContent(item ? { type: 'family_feud', item } : null);
+        } else if (gameId === 'guess_the_song') {
+          // Guess the song is synchronous (no AI support)
+          const item = getGuessTheSongItemById(id);
+          setContent(item ? { type: 'guess_the_song', item } : null);
         } else {
           setContent(null);
         }
