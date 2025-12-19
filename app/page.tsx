@@ -23,24 +23,24 @@ export default function Home() {
   };
 
     return (
-    <main className="min-h-dvh px-4 py-10 md:py-16 flex items-center justify-center">
+    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6 flex items-center justify-center">
       <div className="mx-auto max-w-4xl w-full">
         {/* Header with animation */}
-        <div className="mb-12 text-center animate-slide-up">
-          <div className="inline-flex items-center gap-2 rounded-full bg-wood-dark/40 border border-wood-light/30 px-4 py-2 text-sm text-white/90 backdrop-blur-md animate-float shadow-lg" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 193, 7, 0.15)' }}>
-            <span className="text-base animate-pulse-slow">🎄</span>
+        <div className="mb-6 md:mb-8 text-center animate-slide-up">
+          <div className="inline-flex items-center gap-2 rounded-full bg-wood-dark/40 border border-wood-light/30 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-white/90 backdrop-blur-md animate-float shadow-lg" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 193, 7, 0.15)' }}>
+            <span className="text-sm md:text-base animate-pulse-slow">🎄</span>
             <span>{mounted ? t('landing.christmas', language) : 'Christmas'}</span>
             </div>
           </div>
 
         {/* Main title */}
-        <div className="text-center mb-12 animate-slide-up-delayed">
-          <h1 className="game-show-title mb-4 text-5xl md:text-7xl">{mounted ? t('landing.title', language) : 'Christmas Game Night'}</h1>
-          <p className="text-xl md:text-2xl text-white/80">{mounted ? t('landing.subtitle', language) : 'Family Game Show'}</p>
+        <div className="text-center mb-6 md:mb-8 animate-slide-up-delayed">
+          <h1 className="game-show-title mb-3 md:mb-4 text-3xl md:text-5xl lg:text-7xl">{mounted ? t('landing.title', language) : 'Christmas Game Night'}</h1>
+          <p className="text-lg md:text-xl lg:text-2xl text-white/80">{mounted ? t('landing.subtitle', language) : 'Family Game Show'}</p>
         </div>
 
         {/* Square tiles grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 max-w-3xl mx-auto">
           {/* Christmas Game Night Tile */}
           <Link 
             href="/game-night"
@@ -58,14 +58,14 @@ export default function Home() {
             <div className="absolute bottom-4 left-4 w-32 h-32 rounded-full bg-fire-orange/20 blur-2xl animate-candle-flicker-delayed" />
             
             {/* Content */}
-            <div className="relative h-full flex flex-col items-center justify-center p-8 text-center z-10">
-              <div className="text-6xl md:text-7xl mb-4 transform group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500 filter drop-shadow-[0_0_15px_rgba(255,193,7,0.5)]">
+            <div className="relative h-full flex flex-col items-center justify-center p-6 md:p-8 text-center z-10">
+              <div className="text-5xl md:text-6xl lg:text-7xl mb-3 md:mb-4 transform group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500 filter drop-shadow-[0_0_15px_rgba(255,193,7,0.5)]">
                 🎮
               </div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white group-hover:text-fire-gold transition-colors duration-300 drop-shadow-lg">
+              <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1.5 md:mb-2 text-white group-hover:text-fire-gold transition-colors duration-300 drop-shadow-lg">
                 {mounted ? t('landing.gameNightTile', language) : 'Christmas Game Night'}
               </h2>
-              <p className="text-white/75 text-sm md:text-base group-hover:text-white/95 transition-colors duration-300">
+              <p className="text-white/75 text-xs md:text-sm lg:text-base group-hover:text-white/95 transition-colors duration-300">
                 {mounted ? t('landing.gameNightTileSub', language) : 'Amazing Race & Trivia'}
               </p>
               
@@ -93,14 +93,14 @@ export default function Home() {
             <div className="absolute bottom-4 right-4 w-24 h-24 rounded-full bg-fire-gold/20 blur-2xl animate-candle-flicker" />
             
             {/* Content */}
-            <div className="relative h-full flex flex-col items-center justify-center p-8 text-center z-10">
-              <div className="text-6xl md:text-7xl mb-4 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500 filter drop-shadow-[0_0_15px_rgba(22,163,74,0.5)]">
+            <div className="relative h-full flex flex-col items-center justify-center p-6 md:p-8 text-center z-10">
+              <div className="text-5xl md:text-6xl lg:text-7xl mb-3 md:mb-4 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500 filter drop-shadow-[0_0_15px_rgba(22,163,74,0.5)]">
                 🎡
               </div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white group-hover:text-fire-gold transition-colors duration-300 drop-shadow-lg">
+              <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1.5 md:mb-2 text-white group-hover:text-fire-gold transition-colors duration-300 drop-shadow-lg">
                 {mounted ? t('landing.traditionsTile', language) : 'Christmas Traditions'}
               </h2>
-              <p className="text-white/75 text-sm md:text-base group-hover:text-white/95 transition-colors duration-300">
+              <p className="text-white/75 text-xs md:text-sm lg:text-base group-hover:text-white/95 transition-colors duration-300">
                 {mounted ? t('landing.traditionsTileSub', language) : 'Explore & Learn'}
               </p>
               
@@ -112,8 +112,8 @@ export default function Home() {
 
         {/* Language selection buttons */}
         <div className="max-w-md mx-auto animate-slide-up-delayed">
-          <p className="text-xs mb-3 text-white/70 text-center">{mounted ? t('landing.selectLanguage', language) : 'Select Language'}</p>
-          <div className="flex gap-3 justify-center">
+          <p className="text-xs mb-2 md:mb-3 text-white/70 text-center">{mounted ? t('landing.selectLanguage', language) : 'Select Language'}</p>
+          <div className="flex gap-2 md:gap-3 justify-center">
             <button 
               onClick={() => handleLanguageSelect('en')} 
               className={`group relative px-6 py-2 rounded-full overflow-hidden backdrop-blur-md border transition-all duration-300 hover:scale-105 ${

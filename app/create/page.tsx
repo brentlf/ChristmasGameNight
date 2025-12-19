@@ -127,9 +127,9 @@ function CreatePageInner() {
   }
 
   return (
-    <main className="min-h-dvh px-4 py-10 md:py-16">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-8 flex items-center justify-between">
+    <main className="h-dvh px-4 py-4 md:py-6 flex flex-col overflow-hidden">
+      <div className="mx-auto max-w-3xl w-full flex-1 min-h-0 flex flex-col">
+        <div className="mb-4 md:mb-6 flex items-center justify-between shrink-0">
           <Link href="/game-night" className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md hover:bg-white/20 transition">
             <span>←</span>
             <span>{t('common.back', lang)}</span>
@@ -140,19 +140,21 @@ function CreatePageInner() {
           </div>
         </div>
 
-        <div className="card relative overflow-hidden">
+        <div className="card relative overflow-hidden flex-1 min-h-0 flex flex-col">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
           <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
 
-          <div className="relative">
-            <h1 className="game-show-title mb-2 text-center">{t('create.title', lang)}</h1>
-            <p className="text-center text-white/75 mb-8">
-              Create a room for {getModeDisplayName(roomMode)}
-            </p>
+          <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="mb-3 md:mb-4 shrink-0">
+              <h1 className="game-show-title mb-1 text-center text-2xl md:text-3xl">{t('create.title', lang)}</h1>
+              <p className="text-center text-white/75 text-xs md:text-sm">
+                Create a room for {getModeDisplayName(roomMode)}
+              </p>
+            </div>
           
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4 flex-1 min-h-0">
             <div>
-              <label className="block text-lg font-semibold mb-2">
+              <label className="block text-base md:text-lg font-semibold mb-1.5">
                 {t('create.roomName', lang)}
               </label>
               <input
@@ -166,10 +168,10 @@ function CreatePageInner() {
             </div>
 
             <div>
-              <label className="block text-lg font-semibold mb-2">
+              <label className="block text-base md:text-lg font-semibold mb-1.5">
                 {t('create.maxPlayers', lang)}: {maxPlayers}
               </label>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                 <input
                   type="range"
                   min="2"
@@ -225,13 +227,13 @@ function CreatePageInner() {
 
             {roomMode === 'amazing_race' && (
               <div>
-                <label className="block text-lg font-semibold mb-3">
+                <label className="block text-base md:text-lg font-semibold mb-2">
                   {t('create.raceSettings', lang)}
                 </label>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <label className="block text-sm font-semibold mb-2 text-white/80">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <label className="block text-xs md:text-sm font-semibold mb-1.5 text-white/80">
                       {t('create.difficulty', lang)}
                     </label>
                     <select
@@ -243,29 +245,29 @@ function CreatePageInner() {
                       <option value="medium">Medium</option>
                       <option value="hard">Hard</option>
                     </select>
-                    <p className="mt-2 text-xs text-white/60">
+                    <p className="mt-1.5 text-xs text-white/60">
                       {t('create.difficultyHelp', lang)}
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
-                    <label className="flex items-center justify-between gap-3 cursor-pointer">
-                      <span className="text-sm font-semibold text-white/80">{t('create.allowSkips', lang)}</span>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-3 space-y-2">
+                    <label className="flex items-center justify-between gap-2 cursor-pointer">
+                      <span className="text-xs md:text-sm font-semibold text-white/80">{t('create.allowSkips', lang)}</span>
                       <input
                         type="checkbox"
                         checked={allowSkips}
                         onChange={(e) => setAllowSkips(e.target.checked)}
-                        className="w-5 h-5"
+                        className="w-4 h-4"
                       />
                     </label>
 
-                    <label className="flex items-center justify-between gap-3 cursor-pointer">
-                      <span className="text-sm font-semibold text-white/80">{t('create.eventsEnabled', lang)}</span>
+                    <label className="flex items-center justify-between gap-2 cursor-pointer">
+                      <span className="text-xs md:text-sm font-semibold text-white/80">{t('create.eventsEnabled', lang)}</span>
                       <input
                         type="checkbox"
                         checked={eventsEnabled}
                         onChange={(e) => setEventsEnabled(e.target.checked)}
-                        className="w-5 h-5"
+                        className="w-4 h-4"
                       />
                     </label>
 
@@ -279,23 +281,23 @@ function CreatePageInner() {
 
             {(roomMode === 'amazing_race' || roomMode === 'mini_games') && (
               <div>
-              <label className="block text-lg font-semibold mb-3">
+              <label className="block text-base md:text-lg font-semibold mb-2">
                 {t('scoring.overallScoring', lang)}
               </label>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4">
-                <label className="flex items-center justify-between gap-3 cursor-pointer">
-                  <span className="text-sm font-semibold text-white/80">{t('scoring.enabled', lang)}</span>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3 space-y-3">
+                <label className="flex items-center justify-between gap-2 cursor-pointer">
+                  <span className="text-xs md:text-sm font-semibold text-white/80">{t('scoring.enabled', lang)}</span>
                   <input
                     type="checkbox"
                     checked={overallScoringEnabled}
                     onChange={(e) => setOverallScoringEnabled(e.target.checked)}
-                    className="w-5 h-5"
+                    className="w-4 h-4"
                   />
                 </label>
 
                 {overallScoringEnabled && (
                   <div>
-                    <label className="block text-sm font-semibold mb-2 text-white/80">
+                    <label className="block text-xs md:text-sm font-semibold mb-1.5 text-white/80">
                       {t('scoring.mode', lang)}
                     </label>
                     <select
@@ -316,7 +318,7 @@ function CreatePageInner() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full"
+              className="btn-primary w-full mt-2"
             >
               {loading ? t('common.loading', lang) : t('create.createRoom', lang)}
             </button>

@@ -209,12 +209,12 @@ export default function GlobalLeaderboardPage() {
     if (games.length === 0) return null;
 
     return (
-      <div className="mt-3">
-        <div className="flex items-center gap-2 mb-2">
+      <div className="mt-2 md:mt-3">
+        <div className="flex items-center gap-1.5 md:gap-2 mb-1.5 md:mb-2">
           <span className="text-xs text-white/60">Score Breakdown:</span>
         </div>
         {/* Visual bar chart */}
-        <div className="h-4 w-full rounded-full overflow-hidden bg-white/10 flex">
+        <div className="h-3 md:h-4 w-full rounded-full overflow-hidden bg-white/10 flex">
           {games.map((game) => {
             const percentage = (game.value / player.totalScore) * 100;
             return (
@@ -228,7 +228,7 @@ export default function GlobalLeaderboardPage() {
           })}
         </div>
         {/* Legend */}
-        <div className="flex flex-wrap gap-2 mt-2">
+        <div className="flex flex-wrap gap-1.5 md:gap-2 mt-1.5 md:mt-2">
           {games.map((game) => {
             const percentage = (game.value / player.totalScore) * 100;
             return (
@@ -236,7 +236,7 @@ export default function GlobalLeaderboardPage() {
                 key={game.key}
                 className="flex items-center gap-1 text-xs"
               >
-                <div className={`w-3 h-3 rounded ${game.color}`} />
+                <div className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded ${game.color}`} />
                 <span className="text-white/80">
                   {game.emoji} {game.label}: {game.value} ({percentage.toFixed(0)}%)
                 </span>
@@ -250,89 +250,89 @@ export default function GlobalLeaderboardPage() {
 
   if (loading) {
     return (
-      <main className="min-h-dvh flex items-center justify-center">
+      <main className="h-dvh flex items-center justify-center">
         <div className="text-4xl">{t('common.loading', lang)}</div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-dvh px-4 py-10 md:py-12">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-10 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md">
+    <main className="h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col overflow-hidden">
+      <div className="max-w-6xl mx-auto w-full flex-1 min-h-0 flex flex-col">
+        <div className="mb-4 md:mb-6 text-center shrink-0">
+          <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-white/10 border border-white/20 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-white/80 backdrop-blur-md">
             <span>🏆</span>
             <span>Global</span>
             <span className="text-white/40">•</span>
-            <span className="text-white/70">Leaderboard</span>
+            <span className="text-white/70 hidden sm:inline">Leaderboard</span>
           </div>
-          <h1 className="game-show-title text-6xl text-center mt-4">
+          <h1 className="game-show-title text-3xl md:text-5xl lg:text-6xl text-center mt-3 md:mt-4">
             {t('common.leaderboard', lang)}
           </h1>
-          <p className="text-lg text-white/70 mt-4">
+          <p className="text-sm md:text-base lg:text-lg text-white/70 mt-2 md:mt-4">
             All-time scores across all games
           </p>
         </div>
 
         {/* Podium */}
         {aggregatedPlayers.length > 0 && (
-          <div className="card mb-8 relative overflow-hidden">
+          <div className="card mb-4 md:mb-6 relative overflow-hidden shrink-0">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
             <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-red/15 blur-3xl" />
 
             <div className="relative">
-              <h2 className="text-3xl font-bold mb-6 text-center">🏆 Top Players</h2>
-              <div className="flex justify-center items-end gap-4">
+              <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-4 md:mb-6 text-center">🏆 Top Players</h2>
+              <div className="flex justify-center items-end gap-2 md:gap-4">
                 {top3[1] && (
                   <div className="flex flex-col items-center">
-                    <div className="text-6xl mb-4">{top3[1].avatar}</div>
-                    <div className="bg-white/20 w-32 h-32 rounded-t-2xl border border-white/20 flex items-center justify-center">
-                      <span className="text-4xl font-bold">2</span>
+                    <div className="text-4xl md:text-5xl lg:text-6xl mb-2 md:mb-4">{top3[1].avatar}</div>
+                    <div className="bg-white/20 w-20 h-20 md:w-28 md:h-28 lg:w-32 lg:h-32 rounded-t-xl md:rounded-t-2xl border border-white/20 flex items-center justify-center">
+                      <span className="text-2xl md:text-3xl lg:text-4xl font-bold">2</span>
                     </div>
-                    <p className="text-2xl font-bold mt-2">{top3[1].name}</p>
-                    <p className="text-xl text-christmas-gold">
+                    <p className="text-lg md:text-xl lg:text-2xl font-bold mt-1.5 md:mt-2">{top3[1].name}</p>
+                    <p className="text-base md:text-lg lg:text-xl text-christmas-gold">
                       {top3[1].totalScore} {t('common.score', lang)}
                     </p>
-                    <p className="text-sm text-white/60 mt-1">
+                    <p className="text-xs md:text-sm text-white/60 mt-0.5 md:mt-1">
                       {top3[1].gamesPlayed} {top3[1].gamesPlayed === 1 ? 'game' : 'games'}
                     </p>
-                    <div className="mt-3 w-full max-w-[200px]">
+                    <div className="mt-2 md:mt-3 w-full max-w-[150px] md:max-w-[200px]">
                       <ScoreBreakdown player={top3[1]} />
                     </div>
                   </div>
                 )}
                 {top3[0] && (
                   <div className="flex flex-col items-center">
-                    <div className="text-6xl mb-4">{top3[0].avatar}</div>
-                    <div className="bg-christmas-gold/80 w-32 h-40 rounded-t-2xl border border-white/20 flex items-center justify-center">
-                      <span className="text-4xl font-bold">1</span>
+                    <div className="text-4xl md:text-5xl lg:text-6xl mb-2 md:mb-4">{top3[0].avatar}</div>
+                    <div className="bg-christmas-gold/80 w-20 h-24 md:w-28 md:h-32 lg:w-32 lg:h-40 rounded-t-xl md:rounded-t-2xl border border-white/20 flex items-center justify-center">
+                      <span className="text-2xl md:text-3xl lg:text-4xl font-bold">1</span>
                     </div>
-                    <p className="text-2xl font-bold mt-2">{top3[0].name}</p>
-                    <p className="text-xl text-christmas-gold">
+                    <p className="text-lg md:text-xl lg:text-2xl font-bold mt-1.5 md:mt-2">{top3[0].name}</p>
+                    <p className="text-base md:text-lg lg:text-xl text-christmas-gold">
                       {top3[0].totalScore} {t('common.score', lang)}
                     </p>
-                    <p className="text-sm text-white/60 mt-1">
+                    <p className="text-xs md:text-sm text-white/60 mt-0.5 md:mt-1">
                       {top3[0].gamesPlayed} {top3[0].gamesPlayed === 1 ? 'game' : 'games'}
                     </p>
-                    <div className="mt-3 w-full max-w-[200px]">
+                    <div className="mt-2 md:mt-3 w-full max-w-[150px] md:max-w-[200px]">
                       <ScoreBreakdown player={top3[0]} />
                     </div>
                   </div>
                 )}
                 {top3[2] && (
                   <div className="flex flex-col items-center">
-                    <div className="text-6xl mb-4">{top3[2].avatar}</div>
-                    <div className="bg-christmas-bronze/80 w-32 h-24 rounded-t-2xl border border-white/20 flex items-center justify-center">
-                      <span className="text-4xl font-bold">3</span>
+                    <div className="text-4xl md:text-5xl lg:text-6xl mb-2 md:mb-4">{top3[2].avatar}</div>
+                    <div className="bg-christmas-bronze/80 w-20 h-16 md:w-28 md:h-20 lg:w-32 lg:h-24 rounded-t-xl md:rounded-t-2xl border border-white/20 flex items-center justify-center">
+                      <span className="text-2xl md:text-3xl lg:text-4xl font-bold">3</span>
                     </div>
-                    <p className="text-2xl font-bold mt-2">{top3[2].name}</p>
-                    <p className="text-xl text-christmas-gold">
+                    <p className="text-lg md:text-xl lg:text-2xl font-bold mt-1.5 md:mt-2">{top3[2].name}</p>
+                    <p className="text-base md:text-lg lg:text-xl text-christmas-gold">
                       {top3[2].totalScore} {t('common.score', lang)}
                     </p>
-                    <p className="text-sm text-white/60 mt-1">
+                    <p className="text-xs md:text-sm text-white/60 mt-0.5 md:mt-1">
                       {top3[2].gamesPlayed} {top3[2].gamesPlayed === 1 ? 'game' : 'games'}
                     </p>
-                    <div className="mt-3 w-full max-w-[200px]">
+                    <div className="mt-2 md:mt-3 w-full max-w-[150px] md:max-w-[200px]">
                       <ScoreBreakdown player={top3[2]} />
                     </div>
                   </div>
@@ -344,34 +344,34 @@ export default function GlobalLeaderboardPage() {
 
         {/* Full Leaderboard */}
         {aggregatedPlayers.length > 0 ? (
-          <div className="card mb-8">
-            <h2 className="text-4xl font-bold mb-6 text-center">{t('common.leaderboard', lang)}</h2>
-            <div className="space-y-3">
+          <div className="card flex-1 min-h-0 overflow-hidden">
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 md:mb-6 text-center">{t('common.leaderboard', lang)}</h2>
+            <div className="space-y-2 md:space-y-3 overflow-auto pr-1" style={{ maxHeight: '100%' }}>
               {aggregatedPlayers.map((player, index) => (
                 <div
                   key={`${player.name}-${player.avatar}-${index}`}
-                  className={`flex items-center gap-4 p-4 rounded-2xl border border-white/10 ${
+                  className={`flex items-center gap-2 md:gap-4 p-3 md:p-4 rounded-xl md:rounded-2xl border border-white/10 ${
                     index < 3 ? 'bg-christmas-gold/15' : 'bg-white/5'
                   }`}
                 >
-                  <div className={`text-3xl font-bold w-12 text-center ${
+                  <div className={`text-xl md:text-2xl lg:text-3xl font-bold w-8 md:w-10 lg:w-12 text-center ${
                     index === 0 ? 'text-christmas-gold' :
                     index === 1 ? 'text-gray-300' :
                     index === 2 ? 'text-christmas-bronze' : 'text-white/50'
                   }`}>
                     {index + 1}
                   </div>
-                  <span className="text-3xl">{player.avatar}</span>
-                  <div className="flex-1">
-                    <p className="text-xl font-semibold">{player.name}</p>
-                    <p className="text-xs text-white/60 mb-2">
+                  <span className="text-2xl md:text-3xl">{player.avatar}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base md:text-lg lg:text-xl font-semibold truncate">{player.name}</p>
+                    <p className="text-xs text-white/60 mb-1.5 md:mb-2">
                       {player.gamesPlayed} {player.gamesPlayed === 1 ? 'game' : 'games'} played
                     </p>
                     {/* Visual score breakdown */}
                     <ScoreBreakdown player={player} />
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold">{player.totalScore}</p>
+                  <div className="text-right shrink-0">
+                    <p className="text-lg md:text-xl lg:text-2xl font-bold">{player.totalScore}</p>
                     <p className="text-xs text-white/60">{t('common.score', lang)}</p>
                   </div>
                 </div>
@@ -379,19 +379,19 @@ export default function GlobalLeaderboardPage() {
             </div>
           </div>
         ) : (
-          <div className="card mb-8 text-center">
-            <p className="text-xl text-white/70">
+          <div className="card mb-6 md:mb-8 text-center flex-1 flex items-center justify-center">
+            <p className="text-base md:text-lg lg:text-xl text-white/70">
               No games completed yet. Play some games to see the leaderboard!
             </p>
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex justify-center gap-4">
-          <Link href="/game-night" className="btn-secondary">
+        <div className="flex flex-col sm:flex-row justify-center gap-2 md:gap-4 mt-4 md:mt-6 shrink-0">
+          <Link href="/game-night" className="btn-secondary text-sm md:text-base">
             Back to Game Night
           </Link>
-          <Link href="/" className="btn-primary">
+          <Link href="/" className="btn-primary text-sm md:text-base">
             Home
           </Link>
         </div>

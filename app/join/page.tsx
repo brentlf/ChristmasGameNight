@@ -93,32 +93,32 @@ export default function JoinPage() {
 
   if (room && room.pinEnabled && !pinOk) {
     return (
-      <main className="min-h-dvh px-4 py-10 md:py-16">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-lg">
           <div className="card relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-red/15 blur-3xl" />
             <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-gold/12 blur-3xl" />
 
             <div className="relative">
-              <div className="mb-6 text-center">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md">
+              <div className="mb-4 md:mb-6 text-center">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-white/80 backdrop-blur-md">
                   <span>🔒</span>
                   <span>Room PIN</span>
                 </div>
               </div>
 
-              <h1 className="game-show-title mb-3 text-center">{t('join.title', lang)}</h1>
-              <p className="text-center text-white/75 mb-6">{t('join.enterPin', lang)}</p>
+              <h1 className="game-show-title mb-2 md:mb-3 text-center text-2xl md:text-3xl">{t('join.title', lang)}</h1>
+              <p className="text-center text-white/75 mb-4 md:mb-6 text-sm md:text-base">{t('join.enterPin', lang)}</p>
 
               <input
                 type="text"
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\\D/g, '').slice(0, 4))}
                 placeholder={t('join.pinPlaceholder', lang)}
-                className="input-field text-center text-2xl font-bold tracking-widest mb-4"
+                className="input-field text-center text-xl md:text-2xl font-bold tracking-widest mb-3 md:mb-4"
                 maxLength={4}
               />
-              <button onClick={handlePinSubmit} className="btn-primary w-full">
+              <button onClick={handlePinSubmit} className="btn-primary w-full text-sm md:text-base">
                 🎟️ {t('join.join', lang)}
               </button>
             </div>
@@ -139,7 +139,7 @@ export default function JoinPage() {
   }
 
   return (
-    <main className="min-h-dvh px-4 py-10 md:py-16">
+    <main className="min-h-dvh px-4 py-6 md:py-10">
       <div className="mx-auto max-w-lg">
         <div className="mb-8 text-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md">

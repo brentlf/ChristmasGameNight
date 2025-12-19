@@ -360,179 +360,190 @@ export default function TraditionsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="h-dvh flex items-center justify-center">
         <div className="text-4xl">{t('common.loading', lang)}</div>
       </div>
     );
   }
 
   return (
-    <main className="min-h-dvh px-4 py-10 md:py-16">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-8 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md">
+    <main className="h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col overflow-hidden">
+      <div className="mx-auto max-w-6xl w-full flex-1 min-h-0 flex flex-col">
+        <div className="mb-3 md:mb-4 text-center shrink-0">
+          <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-white/10 border border-white/20 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-white/80 backdrop-blur-md">
             <span>🎡</span>
             <span>{t('traditions.title', lang)}</span>
           </div>
         </div>
 
-        <div className="card relative overflow-hidden mb-6">
-          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
-          <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-6 flex-1 min-h-0 overflow-auto pr-1">
+          <div className="xl:col-span-8">
+            <div className="card relative overflow-hidden">
+              <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
+              <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
 
-          <div className="relative">
-            <h1 className="game-show-title mb-2 text-center">{t('traditions.title', lang)}</h1>
-            <p className="text-center text-white/75 mb-6">{t('traditions.subtitle', lang)}</p>
+              <div className="relative">
+                <h1 className="game-show-title mb-1.5 md:mb-2 text-center text-2xl md:text-3xl">{t('traditions.title', lang)}</h1>
+                <p className="text-center text-white/75 mb-4 md:mb-6 text-sm md:text-base">{t('traditions.subtitle', lang)}</p>
 
-            {/* Mode selector */}
-            <div className="flex gap-2 mb-6 justify-center">
-              <button
-                onClick={handleSwitchToLocal}
-                className={`px-4 py-2 rounded-full text-sm transition ${
-                  mode === 'local'
-                    ? 'bg-christmas-gold/25 border border-christmas-gold/40 text-white'
-                    : 'bg-white/10 border border-white/20 text-white/80 hover:bg-white/20'
-                }`}
-              >
-                {t('traditions.localMode', lang)}
-              </button>
-              <button
-                onClick={() => {
-                  if (mode === 'synced' && !wheelId) {
-                    // Show join/create dialog
-                  } else {
-                    setMode('synced');
-                    localStorage.setItem(STORAGE_KEY_MODE, 'synced');
-                  }
-                }}
-                className={`px-4 py-2 rounded-full text-sm transition ${
-                  mode === 'synced'
-                    ? 'bg-christmas-gold/25 border border-christmas-gold/40 text-white'
-                    : 'bg-white/10 border border-white/20 text-white/80 hover:bg-white/20'
-                }`}
-              >
-                {t('traditions.syncedMode', lang)}
-              </button>
-            </div>
-
-            {/* Create/Join for synced mode */}
-            {mode === 'synced' && !wheel && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <CreateWheelDialog onCreate={handleCreateWheel} lang={lang} />
-                <JoinWheelDialog onJoin={handleJoinWheel} lang={lang} />
-              </div>
-            )}
-
-            {/* Spinning Wheel */}
-            <div className="mb-8">
-              <TraditionWheel
-                traditions={wheelTraditions}
-                selectedTradition={pendingSelection || selectedTradition}
-                spinning={spinning}
-                lang={lang}
-                onSpinComplete={handleSpinComplete}
-              />
-            </div>
-
-            {/* Selected tradition */}
-            {selectedTradition && !spinning && (
-              <div className="rounded-2xl border border-christmas-gold/40 bg-christmas-gold/10 p-6 mb-6 text-center animate-scale-in">
-                <p className="text-sm text-white/70 mb-2">{t('traditions.todaysTradition', lang)}</p>
-                <p className="text-2xl font-bold text-christmas-gold">{selectedTradition[lang]}</p>
-              </div>
-            )}
-
-            {/* Spin button */}
-            <div className="text-center mb-6">
-              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-                <button
-                  onClick={handleSpin}
-                  disabled={spinning || availableTraditions.length === 0}
-                  className="btn-primary text-2xl px-8 py-4 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-transform"
-                >
-                  {spinning ? (
-                    <span className="flex items-center gap-2">
-                      <span className="animate-spin">🎡</span>
-                      {t('traditions.spinning', lang)}
-                    </span>
-                  ) : (
-                    `🎡 ${t('traditions.spin', lang)}`
-                  )}
-                </button>
-
-                <button
-                  onClick={handleAISpin}
-                  disabled={spinning || aiBusy}
-                  className="btn-secondary text-lg px-6 py-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={lang === 'cs' ? 'AI vymyslí novou tradici mimo seznam 20' : 'AI generates a new tradition outside the 20-list'}
-                >
-                  {aiBusy ? (lang === 'cs' ? '✨ AI…' : '✨ AI…') : lang === 'cs' ? '✨ AI překvapení' : '✨ AI Surprise'}
-                </button>
-              </div>
-            </div>
-
-            {/* Share link for synced mode */}
-            {mode === 'synced' && wheel && userUid === wheel.controllerUid && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 mb-6">
-                <p className="text-sm font-semibold mb-2">{t('traditions.shareLink', lang)}</p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={`${typeof window !== 'undefined' ? window.location.origin : ''}/traditions?wheel=${wheel.id}`}
-                    className="input-field flex-1 text-sm"
-                  />
+                {/* Mode selector */}
+                <div className="flex gap-2 mb-4 md:mb-6 justify-center">
+                  <button
+                    onClick={handleSwitchToLocal}
+                    className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm transition ${
+                      mode === 'local'
+                        ? 'bg-christmas-gold/25 border border-christmas-gold/40 text-white'
+                        : 'bg-white/10 border border-white/20 text-white/80 hover:bg-white/20'
+                    }`}
+                  >
+                    {t('traditions.localMode', lang)}
+                  </button>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/traditions?wheel=${wheel.id}`);
-                      toast.success(t('common.copied', lang));
+                      if (mode === 'synced' && !wheelId) {
+                        // Show join/create dialog
+                      } else {
+                        setMode('synced');
+                        localStorage.setItem(STORAGE_KEY_MODE, 'synced');
+                      }
                     }}
-                    className="btn-secondary text-sm"
+                    className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm transition ${
+                      mode === 'synced'
+                        ? 'bg-christmas-gold/25 border border-christmas-gold/40 text-white'
+                        : 'bg-white/10 border border-white/20 text-white/80 hover:bg-white/20'
+                    }`}
                   >
-                    {t('common.copy', lang)}
+                    {t('traditions.syncedMode', lang)}
                   </button>
                 </div>
-              </div>
-            )}
 
-            {/* Available traditions count */}
-            <div className="text-center text-white/70 mb-4">
-              {availableTraditions.length} {t('traditions.availableTraditions', lang).toLowerCase()}
+                {/* Create/Join for synced mode */}
+                {mode === 'synced' && !wheel && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
+                    <CreateWheelDialog onCreate={handleCreateWheel} lang={lang} />
+                    <JoinWheelDialog onJoin={handleJoinWheel} lang={lang} />
+                  </div>
+                )}
+
+                {/* Spinning Wheel */}
+                <div className="mb-4 md:mb-6 lg:mb-8">
+                  <TraditionWheel
+                    traditions={wheelTraditions}
+                    selectedTradition={pendingSelection || selectedTradition}
+                    spinning={spinning}
+                    lang={lang}
+                    onSpinComplete={handleSpinComplete}
+                  />
+                </div>
+
+                {/* Selected tradition */}
+                {selectedTradition && !spinning && (
+                  <div className="rounded-xl md:rounded-2xl border border-christmas-gold/40 bg-christmas-gold/10 p-4 md:p-6 mb-4 md:mb-6 text-center animate-scale-in">
+                    <p className="text-xs md:text-sm text-white/70 mb-1.5 md:mb-2">{t('traditions.todaysTradition', lang)}</p>
+                    <p className="text-lg md:text-xl lg:text-2xl font-bold text-christmas-gold">{selectedTradition[lang]}</p>
+                  </div>
+                )}
+
+                {/* Spin button */}
+                <div className="text-center mb-4 md:mb-6">
+                  <div className="flex flex-col sm:flex-row gap-2 md:gap-3 justify-center items-center">
+                    <button
+                      onClick={handleSpin}
+                      disabled={spinning || availableTraditions.length === 0}
+                      className="btn-primary text-lg md:text-xl lg:text-2xl px-6 md:px-8 py-3 md:py-4 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-transform"
+                    >
+                      {spinning ? (
+                        <span className="flex items-center gap-2">
+                          <span className="animate-spin">🎡</span>
+                          {t('traditions.spinning', lang)}
+                        </span>
+                      ) : (
+                        `🎡 ${t('traditions.spin', lang)}`
+                      )}
+                    </button>
+
+                    <button
+                      onClick={handleAISpin}
+                      disabled={spinning || aiBusy}
+                      className="btn-secondary text-sm md:text-base lg:text-lg px-4 md:px-6 py-2.5 md:py-3 lg:py-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={lang === 'cs' ? 'AI vymyslí novou tradici mimo seznam 20' : 'AI generates a new tradition outside the 20-list'}
+                    >
+                      {aiBusy ? (lang === 'cs' ? '✨ AI…' : '✨ AI…') : lang === 'cs' ? '✨ AI překvapení' : '✨ AI Surprise'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Share link for synced mode */}
+                {mode === 'synced' && wheel && userUid === wheel.controllerUid && (
+                  <div className="rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4 mb-4 md:mb-6">
+                    <p className="text-xs md:text-sm font-semibold mb-1.5 md:mb-2">{t('traditions.shareLink', lang)}</p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/traditions?wheel=${wheel.id}`}
+                        className="input-field flex-1 text-xs md:text-sm"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/traditions?wheel=${wheel.id}`);
+                          toast.success(t('common.copied', lang));
+                        }}
+                        className="btn-secondary text-xs md:text-sm"
+                      >
+                        {t('common.copy', lang)}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Available traditions count */}
+                <div className="text-center text-white/70 mb-3 md:mb-4 text-xs md:text-sm">
+                  {availableTraditions.length} {t('traditions.availableTraditions', lang).toLowerCase()}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Used traditions (right column on desktop) */}
+          <div className="xl:col-span-4">
+            <div className="card h-full">
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <h2 className="text-lg md:text-xl lg:text-2xl font-bold">{t('traditions.usedTraditions', lang)}</h2>
+                {(mode === 'local' || (wheel && userUid === wheel.controllerUid)) && usedTraditions.length > 0 && (
+                  <button onClick={handleRestoreAll} className="btn-secondary text-xs md:text-sm">
+                    {t('traditions.restoreAll', lang)}
+                  </button>
+                )}
+              </div>
+
+              {usedTraditions.length === 0 ? (
+                <div className="text-xs md:text-sm text-white/60">
+                  {lang === 'cs' ? 'Zatím žádné použité tradice.' : 'No used traditions yet.'}
+                </div>
+              ) : (
+                <div className="space-y-2 md:space-y-3">
+                  {usedTraditions.map((tradition) => (
+                    <div
+                      key={tradition.id}
+                      className="rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4 flex items-center justify-between gap-2 md:gap-3"
+                    >
+                      <span className="text-xs md:text-sm text-white/80">{tradition[lang]}</span>
+                      {(mode === 'local' || (wheel && userUid === wheel.controllerUid)) && (
+                        <button
+                          onClick={() => handleRestoreTradition(tradition.id)}
+                          className="btn-secondary text-xs px-2 md:px-3 py-1 shrink-0"
+                        >
+                          {t('traditions.restoreTradition', lang)}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
-
-        {/* Used traditions */}
-        {usedTraditions.length > 0 && (
-          <div className="card mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold">{t('traditions.usedTraditions', lang)}</h2>
-              {(mode === 'local' || (wheel && userUid === wheel.controllerUid)) && (
-                <button onClick={handleRestoreAll} className="btn-secondary text-sm">
-                  {t('traditions.restoreAll', lang)}
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {usedTraditions.map((tradition) => (
-                <div
-                  key={tradition.id}
-                  className="rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center justify-between"
-                >
-                  <span className="text-white/80">{tradition[lang]}</span>
-                  {(mode === 'local' || (wheel && userUid === wheel.controllerUid)) && (
-                    <button
-                      onClick={() => handleRestoreTradition(tradition.id)}
-                      className="btn-secondary text-xs px-3 py-1"
-                    >
-                      {t('traditions.restoreTradition', lang)}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </main>
   );

@@ -164,8 +164,8 @@ export default function ActiveRoomsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-dvh px-4 py-10 md:py-16">
-        <div className="mx-auto max-w-4xl">
+      <main className="h-dvh px-4 py-6 md:py-8 flex flex-col overflow-hidden">
+        <div className="mx-auto max-w-4xl w-full flex-1 min-h-0 flex flex-col">
           <div className="card text-center">
             <p className="text-white/70">{t('common.loading', lang)}</p>
           </div>
@@ -175,27 +175,27 @@ export default function ActiveRoomsPage() {
   }
 
   return (
-    <main className="min-h-dvh px-4 py-10 md:py-16">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-6 flex items-center justify-between gap-4">
+    <main className="h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col overflow-hidden">
+      <div className="mx-auto max-w-4xl w-full flex-1 min-h-0 flex flex-col">
+        <div className="mb-3 md:mb-4 flex items-center justify-between gap-3 md:gap-4 shrink-0">
           <Link 
             href="/game-night" 
-            className="inline-flex items-center gap-3 rounded-full bg-white/10 border border-white/15 px-4 py-2 backdrop-blur-md hover:bg-white/20 transition"
+            className="inline-flex items-center gap-2 md:gap-3 rounded-full bg-white/10 border border-white/15 px-3 md:px-4 py-1.5 md:py-2 backdrop-blur-md hover:bg-white/20 transition text-xs md:text-sm"
           >
             <span>←</span>
             <span className="font-semibold">Back to Game Night</span>
           </Link>
         </div>
 
-        <div className="card relative overflow-hidden">
+        <div className="card relative overflow-hidden flex-1 min-h-0 flex flex-col">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
           <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
 
-          <div className="relative">
-            <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="relative flex-1 min-h-0 flex flex-col">
+            <div className="mb-3 md:mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-4 shrink-0">
               <div>
-                <h1 className="game-show-title mb-2">Active Rooms</h1>
-                <p className="text-white/70">
+                <h1 className="game-show-title mb-1.5 md:mb-2 text-2xl md:text-3xl">Active Rooms</h1>
+                <p className="text-sm md:text-base text-white/70">
                   {rooms.length} active room{rooms.length !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -203,7 +203,7 @@ export default function ActiveRoomsPage() {
                 <button
                   onClick={handleCloseAll}
                   disabled={closingAll}
-                  className="px-5 py-2 rounded-full bg-red-500/20 border border-red-500/40 text-red-300 font-semibold hover:bg-red-500/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 md:px-5 py-1.5 md:py-2 rounded-full bg-red-500/20 border border-red-500/40 text-red-300 font-semibold hover:bg-red-500/30 transition disabled:opacity-50 disabled:cursor-not-allowed text-xs md:text-sm"
                 >
                   {closingAll ? 'Closing...' : 'Close All Active Rooms'}
                 </button>
@@ -211,29 +211,29 @@ export default function ActiveRoomsPage() {
             </div>
 
             {rooms.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">🏠</div>
-                <p className="text-xl text-white/70 mb-2">No Active Rooms</p>
-                <p className="text-white/50">All rooms are finished or closed</p>
+              <div className="text-center py-8 md:py-12 flex-1 flex flex-col items-center justify-center">
+                <div className="text-5xl md:text-6xl mb-3 md:mb-4">🏠</div>
+                <p className="text-lg md:text-xl text-white/70 mb-1.5 md:mb-2">No Active Rooms</p>
+                <p className="text-sm md:text-base text-white/50">All rooms are finished or closed</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 md:space-y-3 overflow-auto pr-1 flex-1 min-h-0">
                 {rooms.map((room) => (
                   <div
                     key={room.id}
-                    className="rounded-2xl border border-white/10 bg-white/5 p-5 hover:bg-white/10 transition"
+                    className="rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4 lg:p-5 hover:bg-white/10 transition"
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-xl font-bold text-white">{room.name}</h3>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-1.5 md:mb-2">
+                          <h3 className="text-lg md:text-xl font-bold text-white truncate">{room.name}</h3>
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(room.status)}`}
+                            className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs font-semibold border ${getStatusColor(room.status)}`}
                           >
                             {room.status.toUpperCase()}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-white/70 mb-3">
+                        <div className="flex flex-wrap items-center gap-2 md:gap-3 lg:gap-4 text-xs md:text-sm text-white/70 mb-2 md:mb-3">
                           <span className="flex items-center gap-1">
                             <span>🔑</span>
                             <span className="font-mono font-bold">{room.code}</span>
@@ -257,10 +257,10 @@ export default function ActiveRoomsPage() {
                           Created {formatDate(room.createdAt)}
                         </p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 w-full sm:w-auto">
                         <Link
                           href={`/room/${room.id}/tv`}
-                          className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition text-sm font-semibold"
+                          className="flex-1 sm:flex-none px-3 md:px-4 py-1.5 md:py-2 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition text-xs md:text-sm font-semibold text-center"
                         >
                           📺 TV View
                         </Link>
@@ -268,7 +268,7 @@ export default function ActiveRoomsPage() {
                           <button
                             onClick={() => handleCloseRoom(room)}
                             disabled={closingRoomId === room.id}
-                            className="px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30 transition text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 sm:flex-none px-3 md:px-4 py-1.5 md:py-2 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30 transition text-xs md:text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {closingRoomId === room.id ? 'Closing...' : '✕ Close'}
                           </button>

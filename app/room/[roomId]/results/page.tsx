@@ -88,7 +88,7 @@ export default function ResultsPage() {
 
   if (roomLoading || playersLoading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="h-dvh flex items-center justify-center">
         <div className="text-4xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -96,7 +96,7 @@ export default function ResultsPage() {
 
   if (!room || !track) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="h-dvh flex items-center justify-center">
         <div className="text-4xl">{t('common.error', lang)}</div>
       </div>
     );
@@ -143,11 +143,11 @@ export default function ResultsPage() {
   };
 
   return (
-    <main className="min-h-dvh px-4 py-10 md:py-12">
-      <div className="max-w-6xl mx-auto">
+    <main className="h-dvh px-4 py-6 md:py-8 flex flex-col overflow-hidden">
+      <div className="max-w-6xl mx-auto w-full flex-1 min-h-0 flex flex-col">
         {/* Overall Scoring Info */}
         {overallScoring && overallScoring.length > 0 && (
-          <div className="card mb-6">
+          <div className="card mb-6 shrink-0">
             <h2 className="text-2xl font-bold mb-4 text-center">{t('results.overallScoring', lang)}</h2>
             <p className="text-center text-white/70 mb-4">
               {room?.overallScoringMode === 'placements' && t('scoring.placements', lang)}
@@ -158,7 +158,7 @@ export default function ResultsPage() {
         )}
 
         {/* Game Finale Component */}
-        <div style={{ minHeight: '600px' }}>
+        <div className="flex-1 min-h-0 overflow-hidden">
           <GameFinale
             ranked={sortedPlayers}
             gameTitle={lang === 'cs' ? '🏁 Amazing Race' : '🏁 Amazing Race'}
@@ -170,7 +170,7 @@ export default function ResultsPage() {
         </div>
 
         {/* Actions */}
-        <div className="flex justify-center gap-4 mt-6">
+        <div className="flex justify-center gap-4 mt-6 shrink-0">
           {isController ? (
             <button type="button" className="btn-primary" onClick={nextGame}>
               {lang === 'cs' ? 'Další hra' : 'Next game'}
