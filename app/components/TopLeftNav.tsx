@@ -196,21 +196,19 @@ export default function TopLeftNav() {
 
         <div className="h-6 w-px bg-white/20 mx-1" />
 
-        {activeRoomId && (
-          <>
-            <Link
-              href={`/room/${activeRoomId}/leaderboard`}
-              onClick={() => playSound('click')}
-              className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
-              aria-label={lang === 'cs' ? 'Žebříček' : 'Leaderboard'}
-              title={lang === 'cs' ? 'Žebříček' : 'Leaderboard'}
-            >
-              🏆
-              <span className="hidden sm:inline">{lang === 'cs' ? 'Žebříček' : 'Leaderboard'}</span>
-            </Link>
-            <div className="h-6 w-px bg-white/20 mx-1" />
-          </>
-        )}
+        <>
+          <Link
+            href="/leaderboard"
+            onClick={() => playSound('click')}
+            className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
+            aria-label={lang === 'cs' ? 'Žebříček' : 'Leaderboard'}
+            title={lang === 'cs' ? 'Žebříček' : 'Leaderboard'}
+          >
+            🏆
+            <span className="hidden sm:inline">{lang === 'cs' ? 'Žebříček' : 'Leaderboard'}</span>
+          </Link>
+          <div className="h-6 w-px bg-white/20 mx-1" />
+        </>
 
         <Link
           href="/traditions"
