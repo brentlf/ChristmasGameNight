@@ -9,8 +9,9 @@ import { guessTheSongChristmasPool } from '@/content/guess_the_song_christmas';
 import { familyFeudChristmasPool } from '@/content/family_feud_christmas';
 import { generateSeed, shuffleSeeded } from '@/lib/utils/seededRandom';
 
-function normalizeForGuessing(input: string): string {
-  return input
+function normalizeForGuessing(input: unknown): string {
+  const s = String(input ?? '');
+  return s
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // strip diacritics
@@ -91,7 +92,7 @@ function levenshteinDistance(a: string, b: string): number {
   return prev[b.length];
 }
 
-function fuzzyMatchGuess(guessRaw: string, answerRaw: string): boolean {
+function fuzzyMatchGuess(guessRaw: unknown, answerRaw: unknown): boolean {
   const guess = canonicalizeChristmasSynonyms(normalizeForGuessing(guessRaw));
   const answer = canonicalizeChristmasSynonyms(normalizeForGuessing(answerRaw));
 
@@ -573,7 +574,8 @@ export async function submitEmojiAnswer(params: {
   // Check if answer matches correct or accepted aliases
   const normalizedAnswer = answerText.toLowerCase().trim();
   const correctNormalized = item.correct[lang].toLowerCase().trim();
-  const aliases = item.acceptedAliases[lang].map((a) => a.toLowerCase().trim());
+  const rawAliases = Array.isArray((item as any).acceptedAliases?.[lang]) ? (item as any).acceptedAliases[lang] : [];
+  const aliases = rawAliases.map((a: any) => String(a ?? '').toLowerCase().trim()).filter(Boolean);
   
   const correct = normalizedAnswer === correctNormalized || aliases.includes(normalizedAnswer);
   
@@ -593,7 +595,8 @@ export async function submitEmojiAnswer(params: {
     if (!qItem) return false;
     const normalized = a.toLowerCase().trim();
     const correctNorm = qItem.correct[lang].toLowerCase().trim();
-    const qAliases = qItem.acceptedAliases[lang].map((al) => al.toLowerCase().trim());
+    const qRawAliases = Array.isArray((qItem as any).acceptedAliases?.[lang]) ? (qItem as any).acceptedAliases[lang] : [];
+    const qAliases = qRawAliases.map((al: any) => String(al ?? '').toLowerCase().trim()).filter(Boolean);
     return normalized === correctNorm || qAliases.includes(normalized);
   });
   

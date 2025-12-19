@@ -68,17 +68,90 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   // Default to off on phone views, on for TV/desktop
   const isPhoneView = pathname?.includes('/play') && !pathname?.includes('/tv');
-  const [backgroundMusicEnabled, setBackgroundMusicEnabled] = useState(!isPhoneView);
-  const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(0.12); // Very subtle, 12%
-  // Default to off unless audio files exist (prevents noisy 404s in dev).
-  const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(false);
-  const [soundEffectsVolume, setSoundEffectsVolume] = useState(0.25); // Subtle, 25%
   
-  // Update music state when route changes
+  // Initialize from localStorage if available, otherwise use route-based defaults
+  const [backgroundMusicEnabled, setBackgroundMusicEnabled] = useState(() => {
+    if (typeof window === 'undefined') return !isPhoneView;
+    try {
+      const raw = localStorage.getItem('cgn_audio_settings');
+      if (raw) {
+        const parsed = JSON.parse(raw) as { musicEnabled?: boolean };
+        if (typeof parsed.musicEnabled === 'boolean') {
+          return parsed.musicEnabled;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return !isPhoneView;
+  });
+  
+  const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(() => {
+    if (typeof window === 'undefined') return 0.12;
+    try {
+      const raw = localStorage.getItem('cgn_audio_settings');
+      if (raw) {
+        const parsed = JSON.parse(raw) as { musicVolume?: number };
+        if (typeof parsed.musicVolume === 'number' && Number.isFinite(parsed.musicVolume)) {
+          return Math.min(1, Math.max(0, parsed.musicVolume));
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return 0.12; // Very subtle, 12%
+  });
+  
+  // Default to off unless audio files exist (prevents noisy 404s in dev).
+  const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const raw = localStorage.getItem('cgn_audio_settings');
+      if (raw) {
+        const parsed = JSON.parse(raw) as { sfxEnabled?: boolean };
+        if (typeof parsed.sfxEnabled === 'boolean') {
+          return parsed.sfxEnabled;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  });
+  
+  const [soundEffectsVolume, setSoundEffectsVolume] = useState(() => {
+    if (typeof window === 'undefined') return 0.25;
+    try {
+      const raw = localStorage.getItem('cgn_audio_settings');
+      if (raw) {
+        const parsed = JSON.parse(raw) as { sfxVolume?: number };
+        if (typeof parsed.sfxVolume === 'number' && Number.isFinite(parsed.sfxVolume)) {
+          return Math.min(1, Math.max(0, parsed.sfxVolume));
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return 0.25; // Subtle, 25%
+  });
+  
+  // Persist audio settings to localStorage whenever they change
   useEffect(() => {
-    const currentIsPhoneView = pathname?.includes('/play') && !pathname?.includes('/tv');
-    setBackgroundMusicEnabled(!currentIsPhoneView);
-  }, [pathname]);
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(
+        'cgn_audio_settings',
+        JSON.stringify({
+          musicEnabled: backgroundMusicEnabled,
+          musicVolume: backgroundMusicVolume,
+          sfxEnabled: soundEffectsEnabled,
+          sfxVolume: soundEffectsVolume,
+        }),
+      );
+    } catch {
+      // ignore
+    }
+  }, [backgroundMusicEnabled, backgroundMusicVolume, soundEffectsEnabled, soundEffectsVolume]);
   
   const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
   const soundEffectsCache = useRef<Map<string, HTMLAudioElement>>(new Map());

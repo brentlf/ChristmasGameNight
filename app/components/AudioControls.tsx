@@ -42,51 +42,17 @@ export default function AudioControls() {
   } = useAudio()
 
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const lang = getLanguage()
 
-  // Persist audio settings so it feels consistent across the night.
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('cgn_audio_settings')
-      if (!raw) return
-      const parsed = JSON.parse(raw) as {
-        musicEnabled?: boolean
-        musicVolume?: number
-        sfxEnabled?: boolean
-        sfxVolume?: number
-      }
-      if (typeof parsed.musicEnabled === 'boolean') setBackgroundMusicEnabled(parsed.musicEnabled)
-      if (typeof parsed.musicVolume === 'number' && Number.isFinite(parsed.musicVolume)) {
-        setBackgroundMusicVolume(Math.min(1, Math.max(0, parsed.musicVolume)))
-      }
-      if (typeof parsed.sfxEnabled === 'boolean') setSoundEffectsEnabled(parsed.sfxEnabled)
-      if (typeof parsed.sfxVolume === 'number' && Number.isFinite(parsed.sfxVolume)) {
-        setSoundEffectsVolume(Math.min(1, Math.max(0, parsed.sfxVolume)))
-      }
-    } catch {
-      // ignore
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        'cgn_audio_settings',
-        JSON.stringify({
-          musicEnabled: backgroundMusicEnabled,
-          musicVolume: backgroundMusicVolume,
-          sfxEnabled: soundEffectsEnabled,
-          sfxVolume: soundEffectsVolume,
-        }),
-      )
-    } catch {
-      // ignore
-    }
-  }, [backgroundMusicEnabled, backgroundMusicVolume, soundEffectsEnabled, soundEffectsVolume])
+  // Note: Audio settings persistence is now handled in AudioContext
 
   const volumePct = useMemo(() => Math.round(backgroundMusicVolume * 100), [backgroundMusicVolume])
   const sfxPct = useMemo(() => Math.round(soundEffectsVolume * 100), [soundEffectsVolume])
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <div className="fixed right-4 top-4 z-50">
@@ -101,7 +67,9 @@ export default function AudioControls() {
           aria-label={t('audio.settings', lang)}
         >
           <IconMusic className="h-5 w-5" />
-          <span className="hidden sm:inline">{backgroundMusicEnabled ? `${volumePct}%` : 'Off'}</span>
+          <span className="hidden sm:inline" suppressHydrationWarning>
+            {mounted ? (backgroundMusicEnabled ? `${volumePct}%` : 'Off') : ''}
+          </span>
         </button>
 
         {open && (

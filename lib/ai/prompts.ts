@@ -3,12 +3,25 @@
  * All prompts are designed for themed, easy, well-known content
  */
 
+const getDifficultyDescription = (difficulty: 'easy' | 'medium' | 'hard'): string => {
+  switch (difficulty) {
+    case 'easy':
+      return 'Easy difficulty - appropriate for children and casual players. Well-known facts that most people would recognize.';
+    case 'medium':
+      return 'Medium difficulty - appropriate for mixed ages. Some knowledge required, but still accessible to most players.';
+    case 'hard':
+      return 'Hard difficulty - challenging questions that require deeper knowledge. Suitable for experienced players.';
+    default:
+      return 'Easy to moderate difficulty (appropriate for mixed ages, including children)';
+  }
+};
+
 export const AI_PROMPTS = {
-  trivia: (count: number, theme: string = 'Christmas') => `You are generating ${theme} trivia questions for a family game night. The questions should be:
+  trivia: (count: number, theme: string = 'Christmas', difficulty: 'easy' | 'medium' | 'hard' = 'easy') => `You are generating ${theme} trivia questions for a family game night. The questions should be:
 
 REQUIREMENTS:
 - ${theme} themed
-- Easy to moderate difficulty (appropriate for mixed ages, including children)
+- ${getDifficultyDescription(difficulty)}
 - Well-known facts that most people would recognize
 - Family-friendly content
 - Exactly ${count} questions
@@ -28,10 +41,10 @@ Return a JSON array of exactly ${count} objects, each matching this structure:
   "correctIndex": 0
 }
 
-EXAMPLES OF GOOD QUESTIONS:
-- "What color is Santa's suit?" (Red)
-- "What do people traditionally put on top of a Christmas tree?" (Star or Angel)
-- "How many reindeer pull Santa's sleigh?" (Nine)
+EXAMPLES OF GOOD QUESTIONS (for ${theme} theme):
+- For Christmas: "What color is Santa's suit?" (Red)
+- For Halloween: "What do people traditionally carve for Halloween?" (Pumpkin)
+- For any theme: Create questions that are well-known facts related to ${theme}
 
 EXAMPLES OF TOPICS TO AVOID:
 - Obscure historical dates
@@ -39,7 +52,7 @@ EXAMPLES OF TOPICS TO AVOID:
 - Difficult religious history
 - Regional customs most people wouldn't know
 
-Generate ${count} ${theme} trivia questions now. 
+Generate ${count} ${theme} trivia questions now. Make sure all questions are specifically about ${theme} and not about other themes. 
 
 Return a JSON object with this structure:
 {
@@ -48,12 +61,12 @@ Return a JSON object with this structure:
 
 Return ONLY valid JSON, no other text.`,
 
-  familyFeud: (theme: string = 'Christmas') => `You are generating a Family Feud style question for a ${theme}-themed family game. The question should be:
+  familyFeud: (theme: string = 'Christmas', difficulty: 'easy' | 'medium' | 'hard' = 'easy') => `You are generating a Family Feud style question for a ${theme}-themed family game. The question should be:
 
 REQUIREMENTS:
 - ${theme} themed
 - Survey-style question (e.g., "Name something people...")
-- Easy to answer (things most people would think of)
+- ${getDifficultyDescription(difficulty)}
 - 5 answers ranked by popularity
 - Family-friendly content
 
@@ -114,21 +127,20 @@ Return a JSON object matching this structure:
   ]
 }
 
-EXAMPLES OF GOOD QUESTIONS:
-- "Name something people put on their Christmas tree"
-- "Name a popular Christmas movie"
-- "Name something people leave out for Santa"
-- "Name a Christmas song that everyone knows"
+EXAMPLES OF GOOD QUESTIONS (for ${theme} theme):
+- For Christmas: "Name something people put on their Christmas tree"
+- For Halloween: "Name something people use to decorate for Halloween"
+- For any theme: Create survey-style questions that relate to ${theme}
 
 Points should decrease: 30, 25, 20, 15, 10 (most common to least common).
 
-Generate one Family Feud question now. Return ONLY valid JSON, no other text.`,
+Generate one Family Feud question about ${theme} now. Return ONLY valid JSON, no other text.`,
 
-  pictionary: (count: number, theme: string = 'Christmas') => `You are generating Pictionary prompts for a ${theme}-themed family game. The prompts should be:
+  pictionary: (count: number, theme: string = 'Christmas', difficulty: 'easy' | 'medium' | 'hard' = 'easy') => `You are generating Pictionary prompts for a ${theme}-themed family game. The prompts should be:
 
 REQUIREMENTS:
 - ${theme} themed
-- Simple, easy to draw (single objects or concepts)
+- ${difficulty === 'easy' ? 'Simple, easy to draw (single objects or concepts)' : difficulty === 'medium' ? 'Moderately complex (can include actions or scenes)' : 'Complex concepts, abstract ideas, or detailed scenes'}
 - Well-known items/people/things
 - Appropriate for all ages
 - Exactly ${count} prompts
@@ -144,14 +156,10 @@ Return a JSON array of exactly ${count} objects, each matching this structure:
   }
 }
 
-EXAMPLES OF GOOD PROMPTS:
-- "Santa Claus"
-- "Christmas tree"
-- "Snowman"
-- "Gift"
-- "Reindeer"
-- "Candy cane"
-- "Wreath"
+EXAMPLES OF GOOD PROMPTS (for ${theme} theme):
+- For Christmas: "Santa Claus", "Christmas tree", "Snowman"
+- For Halloween: "Pumpkin", "Witch", "Ghost"
+- For any theme: Create simple, well-known items/concepts related to ${theme}
 
 EXAMPLES TO AVOID:
 - Complex scenes or actions
@@ -159,7 +167,7 @@ EXAMPLES TO AVOID:
 - Very specific details
 - Multi-word phrases longer than 3 words
 
-Generate ${count} simple, drawable ${theme} prompts now.
+Generate ${count} simple, drawable ${theme} prompts now. Make sure all prompts are specifically about ${theme}.
 
 Return a JSON object with this structure:
 {
@@ -168,12 +176,12 @@ Return a JSON object with this structure:
 
 Return ONLY valid JSON, no other text.`,
 
-  wouldYouRather: (count: number, theme: string = 'Christmas') => `You are generating "Would You Rather" questions for a ${theme}-themed family game. The questions should be:
+  wouldYouRather: (count: number, theme: string = 'Christmas', difficulty: 'easy' | 'medium' | 'hard' = 'easy') => `You are generating "Would You Rather" questions for a ${theme}-themed family game. The questions should be:
 
 REQUIREMENTS:
 - ${theme} themed
 - Two equally appealing or interesting options
-- Easy to understand and answer
+- ${difficulty === 'easy' ? 'Simple, easy to understand choices' : difficulty === 'medium' ? 'Moderately complex choices that require some thought' : 'Complex or thought-provoking choices that challenge players'}
 - Fun and engaging for all ages
 - Family-friendly content
 - Exactly ${count} questions
@@ -196,15 +204,14 @@ Return a JSON array of exactly ${count} objects, each matching this structure:
   }
 }
 
-EXAMPLES OF GOOD QUESTIONS:
-- "White Christmas ❄️ or Beach Christmas 🏖️?"
-- "Open all gifts on Christmas Eve 🎁 or Christmas morning 🎄?"
-- "Real Christmas tree 🌲 or Fake Christmas tree 🎄?"
-- "Christmas cookies 🍪 or Christmas dinner 🍗?"
+EXAMPLES OF GOOD QUESTIONS (for ${theme} theme):
+- For Christmas: "White Christmas ❄️ or Beach Christmas 🏖️?"
+- For Halloween: "Trick 🎃 or Treat 🍬?"
+- For any theme: Create balanced choices related to ${theme}
 
 The options should be balanced - neither should be obviously better. Use emojis in the prompt to make it visually appealing.
 
-Generate ${count} "Would You Rather" questions now.
+Generate ${count} "Would You Rather" questions about ${theme} now. Make sure all questions are specifically about ${theme}.
 
 Return a JSON object with this structure:
 {
@@ -213,13 +220,13 @@ Return a JSON object with this structure:
 
 Return ONLY valid JSON, no other text.`,
 
-  emojiMovies: (count: number, theme: string = 'Christmas') => `You are generating emoji movie puzzles for a ${theme}-themed family game. Each puzzle should:
+  emojiMovies: (count: number, theme: string = 'Christmas', difficulty: 'easy' | 'medium' | 'hard' = 'easy') => `You are generating emoji movie puzzles for a ${theme}-themed family game. Each puzzle should:
 
 REQUIREMENTS:
 - Represent a well-known ${theme} movie
 - Use 2-4 emojis that clearly represent the movie
-- Be easily recognizable by most people
-- Use popular, well-known Christmas movies
+- ${difficulty === 'easy' ? 'Be easily recognizable by most people - very popular movies' : difficulty === 'medium' ? 'Be recognizable by most people - popular movies with some variety' : 'Can include less well-known or more obscure movies - challenging for experienced players'}
+- Use popular, well-known ${theme} movies
 - Exactly ${count} puzzles
 
 OUTPUT FORMAT:
@@ -241,15 +248,14 @@ Return a JSON array of exactly ${count} objects, each matching this structure:
   }
 }
 
-EXAMPLES OF GOOD PUZZLES:
-- 🏠👦 = "Home Alone"
-- 🎄👹 = "How the Grinch Stole Christmas" (aliases: "The Grinch")
-- ❄️👸 = "Frozen" (Christmas connection: winter/snow theme)
-- 🎄🎁 = "A Christmas Story"
+EXAMPLES OF GOOD PUZZLES (for ${theme} theme):
+- For Christmas: 🏠👦 = "Home Alone", 🎄👹 = "How the Grinch Stole Christmas"
+- For Halloween: 🎃👻 = "Halloween", 🧙🕷️ = "Hocus Pocus"
+- For any theme: Create emoji puzzles representing well-known ${theme} movies/shows
 
-Decoy options should be other well-known ${theme} movies, not completely random movies.
+Decoy options should be other well-known ${theme} movies/shows, not completely random movies.
 
-Generate ${count} emoji movie puzzles now.
+Generate ${count} emoji movie puzzles about ${theme} now. Make sure all puzzles are specifically about ${theme} movies/shows.
 
 Return a JSON object with this structure:
 {

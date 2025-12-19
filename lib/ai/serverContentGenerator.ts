@@ -13,7 +13,7 @@ import { AI_PROMPTS } from './prompts';
 /**
  * Calls OpenAI API to generate content (server-side version)
  */
-async function callOpenAIServer(prompt: string, model: string = 'gpt-4o-mini'): Promise<string> {
+async function callOpenAIServer(prompt: string, theme: string = 'Christmas', model: string = 'gpt-4o-mini'): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY is not configured');
@@ -30,7 +30,7 @@ async function callOpenAIServer(prompt: string, model: string = 'gpt-4o-mini'): 
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful assistant that generates content for family Christmas games. Always return valid JSON matching the exact format specified. Never add explanatory text outside the JSON.',
+          content: `You are a helpful assistant that generates content for family games. The theme for this game is: ${theme}. Always return valid JSON matching the exact format specified. Never add explanatory text outside the JSON.`,
         },
         {
           role: 'user',
@@ -79,10 +79,10 @@ function parseJSONResponse(text: string): any {
 /**
  * Generate trivia questions using AI (server-side)
  */
-export async function generateAITriviaQuestionsServer(count: number = 10, theme: string = 'Christmas'): Promise<TriviaItem[]> {
+export async function generateAITriviaQuestionsServer(count: number = 10, theme: string = 'Christmas', difficulty: 'easy' | 'medium' | 'hard' = 'easy'): Promise<TriviaItem[]> {
   try {
-    const prompt = AI_PROMPTS.trivia(count, theme);
-    const response = await callOpenAIServer(prompt);
+    const prompt = AI_PROMPTS.trivia(count, theme, difficulty);
+    const response = await callOpenAIServer(prompt, theme);
     const parsed = parseJSONResponse(response);
     
     // Handle both array and object with array property (JSON mode returns objects)
@@ -110,10 +110,10 @@ export async function generateAITriviaQuestionsServer(count: number = 10, theme:
 /**
  * Generate Family Feud question using AI (server-side)
  */
-export async function generateAIFamilyFeudQuestionServer(theme: string = 'Christmas'): Promise<FamilyFeudQuestion> {
+export async function generateAIFamilyFeudQuestionServer(theme: string = 'Christmas', difficulty: 'easy' | 'medium' | 'hard' = 'easy'): Promise<FamilyFeudQuestion> {
   try {
-    const prompt = AI_PROMPTS.familyFeud(theme);
-    const response = await callOpenAIServer(prompt);
+    const prompt = AI_PROMPTS.familyFeud(theme, difficulty);
+    const response = await callOpenAIServer(prompt, theme);
     const parsed = parseJSONResponse(response);
     
     // Ensure it has the correct structure
@@ -144,10 +144,10 @@ export async function generateAIFamilyFeudQuestionServer(theme: string = 'Christ
 /**
  * Generate Pictionary prompts using AI (server-side)
  */
-export async function generateAIPictionaryPromptsServer(count: number = 20, theme: string = 'Christmas'): Promise<PictionaryItem[]> {
+export async function generateAIPictionaryPromptsServer(count: number = 20, theme: string = 'Christmas', difficulty: 'easy' | 'medium' | 'hard' = 'easy'): Promise<PictionaryItem[]> {
   try {
-    const prompt = AI_PROMPTS.pictionary(count, theme);
-    const response = await callOpenAIServer(prompt);
+    const prompt = AI_PROMPTS.pictionary(count, theme, difficulty);
+    const response = await callOpenAIServer(prompt, theme);
     const parsed = parseJSONResponse(response);
     
     // Handle both array and object with array property (JSON mode returns objects)
@@ -169,10 +169,10 @@ export async function generateAIPictionaryPromptsServer(count: number = 20, them
 /**
  * Generate Would You Rather questions using AI (server-side)
  */
-export async function generateAIWouldYouRatherServer(count: number = 10, theme: string = 'Christmas'): Promise<WouldYouRatherItem[]> {
+export async function generateAIWouldYouRatherServer(count: number = 10, theme: string = 'Christmas', difficulty: 'easy' | 'medium' | 'hard' = 'easy'): Promise<WouldYouRatherItem[]> {
   try {
-    const prompt = AI_PROMPTS.wouldYouRather(count, theme);
-    const response = await callOpenAIServer(prompt);
+    const prompt = AI_PROMPTS.wouldYouRather(count, theme, difficulty);
+    const response = await callOpenAIServer(prompt, theme);
     const parsed = parseJSONResponse(response);
     
     // Handle both array and object with array property (JSON mode returns objects)
@@ -202,10 +202,10 @@ export async function generateAIWouldYouRatherServer(count: number = 10, theme: 
 /**
  * Generate Emoji Movies using AI (server-side)
  */
-export async function generateAIEmojiMoviesServer(count: number = 15, theme: string = 'Christmas'): Promise<EmojiItem[]> {
+export async function generateAIEmojiMoviesServer(count: number = 15, theme: string = 'Christmas', difficulty: 'easy' | 'medium' | 'hard' = 'easy'): Promise<EmojiItem[]> {
   try {
-    const prompt = AI_PROMPTS.emojiMovies(count, theme);
-    const response = await callOpenAIServer(prompt);
+    const prompt = AI_PROMPTS.emojiMovies(count, theme, difficulty);
+    const response = await callOpenAIServer(prompt, theme);
     const parsed = parseJSONResponse(response);
     
     // Handle both array and object with array property (JSON mode returns objects)

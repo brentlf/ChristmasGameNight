@@ -15,8 +15,16 @@ export type RaceLang = 'en' | 'cs';
  */
 export function getRiddleGateRiddleById(id: string, room?: Room, stageId?: string): Riddle | undefined {
   // Check AI-generated content first if room and stage provided
-  if (room && stageId && room.raceAiEnhanced && room.raceStageQuestions?.[stageId]?.riddle) {
-    return room.raceStageQuestions[stageId].riddle as Riddle;
+  if (room && stageId && room.raceAiEnhanced) {
+    // Check for multiple riddles first
+    if (room.raceStageQuestions?.[stageId]?.riddles) {
+      const riddle = room.raceStageQuestions[stageId].riddles?.find((r: any) => r.id === id);
+      if (riddle) return riddle as Riddle;
+    }
+    // Fallback to single riddle (backward compatibility)
+    if (room.raceStageQuestions?.[stageId]?.riddle) {
+      return room.raceStageQuestions[stageId].riddle as Riddle;
+    }
   }
   // Fallback to static pool
   return riddleGatePool.find((r) => r.id === id);
@@ -41,10 +49,55 @@ export function getEmojiClueById(id: string, room?: Room, stageId?: string): Emo
   // Check AI-generated content first if room and stage provided
   if (room && stageId && room.raceAiEnhanced && room.raceStageQuestions?.[stageId]?.clues) {
     const aiClue = room.raceStageQuestions[stageId].clues?.find((c: any) => c.id === id);
-    if (aiClue) return aiClue as EmojiClue;
+    if (aiClue) return ensureEmojiOptionsContainCorrect(aiClue as EmojiClue);
   }
   // Fallback to static pool
-  return emojiClues.find((c) => c.id === id);
+  const clue = emojiClues.find((c) => c.id === id);
+  return clue ? ensureEmojiOptionsContainCorrect(clue) : undefined;
+}
+
+function normalizeTitle(s: string): string {
+  return String(s ?? '')
+    .trim()
+    // normalize smart quotes/apostrophes to plain
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+function ensureEmojiOptionsContainCorrect(clue: EmojiClue): EmojiClue {
+  const fixFor = (lang: 'en' | 'cs') => {
+    const correct = (clue.correct?.[lang] ?? '').toString();
+    const raw = Array.isArray(clue.options?.[lang]) ? clue.options[lang] : [];
+    const normalizedCorrect = normalizeTitle(correct);
+
+    // If correct is already present (ignoring punctuation/quotes), keep as-is.
+    const hasCorrect = raw.some((o) => normalizeTitle(o) === normalizedCorrect);
+    if (hasCorrect) return raw;
+
+    // Otherwise, inject the correct answer and keep 4 unique options.
+    const uniq: string[] = [];
+    const pushUniq = (v: string) => {
+      const n = normalizeTitle(v);
+      if (!n) return;
+      if (uniq.some((x) => normalizeTitle(x) === n)) return;
+      uniq.push(v);
+    };
+
+    pushUniq(correct);
+    raw.forEach(pushUniq);
+    return uniq.slice(0, 4);
+  };
+
+  return {
+    ...clue,
+    options: {
+      ...(clue.options as any),
+      en: fixFor('en'),
+      cs: fixFor('cs'),
+    },
+  } as EmojiClue;
 }
 
 /**

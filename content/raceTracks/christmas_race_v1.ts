@@ -512,20 +512,21 @@ export const christmasRaceV1: RaceTrack = {
       type: 'riddle_gate',
       title: { en: 'Riddle Gate', cs: 'Hádanková brána' },
       description: {
-        en: 'Solve a quick riddle to unlock the race.',
-        cs: 'Vyřeš rychlou hádanku a odemkni závod.',
+        en: 'Solve 2 riddles to unlock the race.',
+        cs: 'Vyřeš 2 hádanky a odemkni závod.',
       },
       rules: {
-        en: 'Type the answer. Spelling is flexible.',
-        cs: 'Napiš odpověď. Na pravopisu tolik nezáleží.',
+        en: 'Type the answer. Spelling is flexible. Solve both riddles to advance.',
+        cs: 'Napiš odpověď. Na pravopisu tolik nezáleží. Vyřeš obě hádanky pro postup.',
       },
       scoring: {
-        en: '+10 points, plus up to +5 speed bonus.',
-        cs: '+10 bodů, plus až +5 rychlostní bonus.',
+        en: '+10 points per riddle (up to +20), plus up to +5 speed bonus.',
+        cs: '+10 bodů za hádanku (max +20), plus až +5 rychlostní bonus.',
       },
       content: {
         poolId: 'riddle_gate_pool',
-        pick: 1,
+        pick: 2,
+        needCorrect: 2,
       },
     },
     {
@@ -533,8 +534,8 @@ export const christmasRaceV1: RaceTrack = {
       type: 'emoji_guess',
       title: { en: 'Emoji Movie / Song Guess', cs: 'Hádej film/píseň z emoji' },
       description: {
-        en: 'Solve 3 out of 5 emoji clues.',
-        cs: 'Uhodni 3 z 5 emoji hádanek.',
+        en: 'Solve 6 out of 8 emoji clues.',
+        cs: 'Uhodni 6 z 8 emoji hádanek.',
       },
       rules: {
         en: 'Pick the right answer. Wrong answers cause a short lockout.',
@@ -546,8 +547,8 @@ export const christmasRaceV1: RaceTrack = {
       },
       content: {
         poolId: 'emoji_clues',
-        pick: 5,
-        needCorrect: 3,
+        pick: 8,
+        needCorrect: 6,
         lockoutMs: 10_000,
       },
     },
@@ -564,12 +565,12 @@ export const christmasRaceV1: RaceTrack = {
         cs: '20 sekund na otázku. Po vypršení se bere jako špatně a jde se dál.',
       },
       scoring: {
-        en: '+4 per correct (up to +20), plus up to +5 speed bonus.',
-        cs: '+4 za správně (max +20), plus až +5 rychlostní bonus.',
+        en: '+4 per correct (up to +40), plus up to +5 speed bonus.',
+        cs: '+4 za správně (max +40), plus až +5 rychlostní bonus.',
       },
       content: {
         poolId: 'trivia_pool',
-        pick: 5,
+        pick: 10,
         secondsPerQuestion: 20,
       },
     },
@@ -578,20 +579,21 @@ export const christmasRaceV1: RaceTrack = {
       type: 'code_lock',
       title: { en: 'Code Lock', cs: 'Kódový zámek' },
       description: {
-        en: 'Solve the puzzle to discover a 4-digit code.',
-        cs: 'Vyřeš hádanku a získej čtyřmístný kód.',
+        en: 'Solve 2 puzzles to discover two 4-digit codes.',
+        cs: 'Vyřeš 2 hádanky a získej dva čtyřmístné kódy.',
       },
       rules: {
-        en: 'Enter the 4-digit code. Wrong codes cause a short lockout.',
-        cs: 'Zadej 4místný kód. Špatně = krátká pauza.',
+        en: 'Enter the 4-digit code. Wrong codes cause a short lockout. Solve both codes to advance.',
+        cs: 'Zadej 4místný kód. Špatně = krátká pauza. Vyřeš oba kódy pro postup.',
       },
       scoring: {
-        en: '+15 points, plus up to +5 speed bonus.',
-        cs: '+15 bodů, plus až +5 rychlostní bonus.',
+        en: '+15 points per code (up to +30), plus up to +5 speed bonus.',
+        cs: '+15 bodů za kód (max +30), plus až +5 rychlostní bonus.',
       },
       content: {
         poolId: 'code_puzzles',
-        pick: 1,
+        pick: 2,
+        needCorrect: 2,
         lockoutMs: 10_000,
       },
     },

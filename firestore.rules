@@ -19,7 +19,7 @@ service cloud.firestore {
 
       // For family use we allow authenticated reads so join-by-code works.
       // This allows both get (single document) and list (collection queries) operations
-      allow read, list: if isAuthed();
+      allow read: if isAuthed();
 
       // Room creator becomes controller.
       allow create: if isAuthed()

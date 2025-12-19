@@ -10,17 +10,30 @@ import { generateAITriviaQuestionsServer, generateAIEmojiMoviesServer } from './
 /**
  * Generate a single riddle using AI
  */
-async function generateAIRiddle(theme: string = 'Christmas', model: string = 'gpt-4o-mini'): Promise<Riddle> {
+async function generateAIRiddle(theme: string = 'Christmas', difficulty: 'easy' | 'medium' | 'hard' = 'easy', model: string = 'gpt-4o-mini'): Promise<Riddle> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
+  const getDifficultyDescription = (difficulty: 'easy' | 'medium' | 'hard'): string => {
+    switch (difficulty) {
+      case 'easy':
+        return 'Easy difficulty - appropriate for children and casual players. Well-known concepts that most people would recognize.';
+      case 'medium':
+        return 'Medium difficulty - appropriate for mixed ages. Some knowledge required, but still accessible to most players.';
+      case 'hard':
+        return 'Hard difficulty - challenging riddles that require deeper knowledge. Suitable for experienced players.';
+      default:
+        return 'Easy to moderate difficulty (appropriate for mixed ages, including children)';
+    }
+  };
+
   const prompt = `You are generating a ${theme} riddle for a family game. The riddle should be:
 
 REQUIREMENTS:
 - ${theme} themed
-- Easy to moderate difficulty (appropriate for mixed ages, including children)
+- ${getDifficultyDescription(difficulty)}
 - Well-known concepts that most people would recognize
 - Family-friendly content
 - Have a clear, fun answer
@@ -68,7 +81,7 @@ Generate one ${theme} riddle now. Return ONLY valid JSON, no other text.`;
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful assistant that generates content for family Christmas games. Always return valid JSON matching the exact format specified. Never add explanatory text outside the JSON.',
+          content: `You are a helpful assistant that generates content for family games. The theme for this game is: ${theme}. Always return valid JSON matching the exact format specified. Never add explanatory text outside the JSON.`,
         },
         {
           role: 'user',
@@ -131,8 +144,9 @@ Generate one ${theme} riddle now. Return ONLY valid JSON, no other text.`;
 export async function generateAIRaceContent(
   roomId: string,
   trackId: string,
-  stages: Array<{ id: string; type: string }>,
-  theme: string = 'Christmas'
+  stages: Array<{ id: string; type: string; content?: any }>,
+  theme: string = 'Christmas',
+  difficulty: 'easy' | 'medium' | 'hard' = 'easy'
 ): Promise<Record<string, any>> {
   const raceContent: Record<string, any> = {};
   
@@ -151,13 +165,30 @@ export async function generateAIRaceContent(
       switch (stage.type) {
         case 'riddle_gate':
         case 'final_riddle': {
-          const riddle = await generateAIRiddle(theme);
-          riddle.id = `ai_riddle_${roomId}_${stage.id}`;
-          raceContent[stage.id] = { riddleId: riddle.id, riddle };
+          const pickCount = stage.content?.pick ?? 1;
+          if (pickCount > 1 && stage.type === 'riddle_gate') {
+            // Generate multiple riddles
+            const riddles: Riddle[] = [];
+            for (let i = 0; i < pickCount; i++) {
+              const riddle = await generateAIRiddle(theme, difficulty);
+              riddle.id = `ai_riddle_${roomId}_${stage.id}_${i}`;
+              riddles.push(riddle);
+            }
+            raceContent[stage.id] = {
+              riddleIds: riddles.map(r => r.id),
+              riddles: riddles,
+            };
+          } else {
+            // Single riddle
+            const riddle = await generateAIRiddle(theme, difficulty);
+            riddle.id = `ai_riddle_${roomId}_${stage.id}`;
+            raceContent[stage.id] = { riddleId: riddle.id, riddle };
+          }
           break;
         }
         case 'trivia_solo': {
-          const triviaQuestions = await generateAITriviaQuestionsServer(5, theme);
+          const pickCount = stage.content?.pick ?? 5;
+          const triviaQuestions = await generateAITriviaQuestionsServer(pickCount, theme, difficulty);
           // Map to race trivia format (race uses different format - single prompt string, not bilingual)
           const raceTrivia = triviaQuestions.map((q, idx) => ({
             id: `ai_race_trivia_${roomId}_${stage.id}_${idx}`,
@@ -173,7 +204,8 @@ export async function generateAIRaceContent(
           break;
         }
         case 'emoji_guess': {
-          const emojiItems = await generateAIEmojiMoviesServer(5, theme);
+          const pickCount = stage.content?.pick ?? 5;
+          const emojiItems = await generateAIEmojiMoviesServer(pickCount, theme, difficulty);
           // Map to race emoji clue format
           const raceEmoji = emojiItems.map((item, idx) => ({
             id: `ai_race_emoji_${roomId}_${stage.id}_${idx}`,

@@ -179,9 +179,11 @@ export default function MiniGamesTVHub(props: {
   const answeredCount = answersForQuestion.length;
 
   const [busy, setBusy] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiGeneratingLabel, setAiGeneratingLabel] = useState<string>('');
   const lastRevealKey = useRef<string>('');
   const lastAutoAdvanceKey = useRef<string>('');
-  const [confirmStart, setConfirmStart] = useState<null | { kind: 'game'; gameId: MiniGameType; aiEnhanced?: boolean; aiTheme?: string } | { kind: 'race'; aiEnhanced?: boolean; aiTheme?: string }>(
+  const [confirmStart, setConfirmStart] = useState<null | { kind: 'game'; gameId: MiniGameType; aiEnhanced?: boolean; aiTheme?: string; aiDifficulty?: 'easy' | 'medium' | 'hard' } | { kind: 'race'; aiEnhanced?: boolean; aiTheme?: string; aiDifficulty?: 'easy' | 'medium' | 'hard' }>(
     null
   );
 
@@ -300,17 +302,19 @@ export default function MiniGamesTVHub(props: {
     return () => clearTimeout(id);
   }, [gameId, isController, playSound, questionIndex, roomId, selectedIds, sessionId, sessionStatus]);
 
-  const startGame = async (g: MiniGameType, aiEnhanced: boolean = false, aiTheme?: string) => {
+  const startGame = async (g: MiniGameType, aiEnhanced: boolean = false, aiTheme?: string, aiDifficulty?: 'easy' | 'medium' | 'hard') => {
     if (!isController) return;
     setBusy(true);
     try {
+      const theme = aiTheme?.trim() || 'Christmas';
       const sid = await startMiniGameSession({
         roomId,
         gameId: g,
         secondsPerQuestion: g === 'pictionary' ? 60 : 45,
         questionCount: 10,
         aiEnhanced,
-        aiTheme: aiTheme || 'Christmas',
+        aiTheme: theme,
+        aiDifficulty: aiDifficulty || 'easy',
       });
       // Stay in intro; controller can skip or let it play.
       playSound('jingle', 0.18);
@@ -320,14 +324,15 @@ export default function MiniGamesTVHub(props: {
     }
   };
 
-  const startRace = async (aiEnhanced: boolean = false, aiTheme?: string) => {
+  const startRace = async (aiEnhanced: boolean = false, aiTheme?: string, aiDifficulty?: 'easy' | 'medium' | 'hard') => {
     if (!isController) return;
+    const theme = aiTheme?.trim() || 'Christmas';
     await updateDoc(doc(db, 'rooms', roomId), {
       roomMode: 'amazing_race',
       status: 'running',
       raceStartedAt: Date.now(),
       currentSession: null,
-      ...(aiEnhanced ? { raceAiEnhanced: true, raceAiTheme: aiTheme || 'Christmas' } : {}),
+      ...(aiEnhanced ? { raceAiEnhanced: true, raceAiTheme: theme, raceAiDifficulty: aiDifficulty || 'easy' } : {}),
     } as any);
     
     // If AI-enhanced, generate content for all stages via API route
@@ -336,7 +341,7 @@ export default function MiniGamesTVHub(props: {
         const response = await fetch('/api/generate-race-content', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomId, trackId: 'christmas_race_v1', theme: aiTheme || 'Christmas' }),
+          body: JSON.stringify({ roomId, trackId: 'christmas_race_v1', theme: theme, difficulty: aiDifficulty || 'easy' }),
         });
 
         if (response.ok) {
@@ -358,12 +363,12 @@ export default function MiniGamesTVHub(props: {
 
   const requestStartGame = (g: MiniGameType) => {
     if (!isController || busy) return;
-    setConfirmStart({ kind: 'game', gameId: g, aiEnhanced: false, aiTheme: '' });
+    setConfirmStart({ kind: 'game', gameId: g, aiEnhanced: false, aiTheme: '', aiDifficulty: 'easy' });
   };
 
   const requestStartRace = () => {
     if (!isController || busy) return;
-    setConfirmStart({ kind: 'race', aiEnhanced: false, aiTheme: '' });
+    setConfirmStart({ kind: 'race', aiEnhanced: false, aiTheme: '', aiDifficulty: 'easy' });
   };
 
   const confirmModal =
@@ -394,10 +399,34 @@ export default function MiniGamesTVHub(props: {
           const proceed = async () => {
             if (busy) return;
             const action = confirmStart;
+            // If AI is enabled, keep user informed while generating.
+            const willGenerateAi = Boolean(action?.aiEnhanced);
+            if (willGenerateAi) {
+              const label =
+                action?.kind === 'race'
+                  ? lang === 'cs'
+                    ? 'Generuji AI obsah…'
+                    : 'Generating AI content…'
+                  : lang === 'cs'
+                  ? 'Generuji AI otázky…'
+                  : 'Generating AI questions…';
+              setAiGeneratingLabel(label);
+              setAiGenerating(true);
+            }
             setConfirmStart(null);
             if (!action) return;
-            if (action.kind === 'race') await startRace(action.aiEnhanced ?? false, action.aiTheme);
-            else await startGame(action.gameId, action.aiEnhanced ?? false, action.aiTheme);
+            // Ensure theme is properly trimmed and defaults to Christmas if empty
+            const theme = action.aiTheme?.trim() || 'Christmas';
+            try {
+              if (action.kind === 'race') {
+                await startRace(action.aiEnhanced ?? false, theme, action.aiDifficulty);
+              } else {
+                await startGame(action.gameId, action.aiEnhanced ?? false, theme, action.aiDifficulty);
+              }
+            } finally {
+              setAiGenerating(false);
+              setAiGeneratingLabel('');
+            }
           };
 
           return createPortal(
@@ -461,56 +490,78 @@ export default function MiniGamesTVHub(props: {
                 </div>
 
                 {((confirmStart.kind === 'game' && confirmStart.gameId !== 'guess_the_song') || confirmStart.kind === 'race') && (
-                  <div className="mt-5 space-y-4">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <label className="flex items-center justify-between gap-3 cursor-pointer">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">🤖</span>
-                            <span className="text-sm font-semibold text-white/80">
-                              {lang === 'cs' ? 'AI vylepšené otázky' : 'AI-Enhanced Questions'}
-                            </span>
-                          </div>
-                          <p className="text-xs text-white/60 mt-1">
-                            {lang === 'cs'
-                              ? 'Generujte jedinečné otázky dynamicky pomocí AI pro nekonečnou rozmanitost'
-                              : 'Generate unique questions dynamically using AI for endless variety'}
-                          </p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={confirmStart.aiEnhanced ?? false}
-                          onChange={(e) => {
-                            setConfirmStart(confirmStart ? { ...confirmStart, aiEnhanced: e.target.checked, aiTheme: e.target.checked ? (confirmStart.aiTheme || 'Christmas') : '' } : null);
-                          }}
-                          className="w-5 h-5"
-                        />
-                      </label>
-                    </div>
+                  <div className="mt-4 space-y-2">
+                    {/* AI Toggle - Compact */}
+                    <label 
+                      className="flex items-center justify-between gap-2 cursor-pointer rounded-lg border border-white/10 bg-white/5 p-2 hover:bg-white/10 transition-colors"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const newAiEnhanced = !confirmStart.aiEnhanced;
+                        setConfirmStart(confirmStart ? { 
+                          ...confirmStart, 
+                          aiEnhanced: newAiEnhanced, 
+                          // Only set default theme if enabling AI and theme is empty/whitespace
+                          aiTheme: newAiEnhanced && (!confirmStart.aiTheme || !confirmStart.aiTheme.trim()) 
+                            ? 'Christmas' 
+                            : confirmStart.aiTheme,
+                          aiDifficulty: confirmStart.aiDifficulty || 'easy' 
+                        } : null);
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🤖</span>
+                        <span className="text-xs font-medium text-white/90">
+                          {lang === 'cs' ? 'AI' : 'AI'}
+                        </span>
+                      </div>
+                      <div className={`relative w-10 h-5 rounded-full transition-colors ${confirmStart.aiEnhanced ? 'bg-fire-gold' : 'bg-white/20'}`}>
+                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-200 ${confirmStart.aiEnhanced ? 'translate-x-5' : ''}`} />
+                      </div>
+                    </label>
                     
                     {confirmStart.aiEnhanced && (
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                        <label className="block">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-sm font-semibold text-white/80">
-                              {lang === 'cs' ? 'Téma (volitelné)' : 'Theme (optional)'}
-                            </span>
+                      <div className="rounded-lg border border-white/10 bg-white/5 p-2 space-y-2">
+                        {/* Difficulty - Icon-based buttons */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm shrink-0">⚡</span>
+                          <div className="flex gap-0.5 flex-1">
+                            {(['easy', 'medium', 'hard'] as const).map((level) => {
+                              const icons = { easy: '⭐', medium: '⭐⭐', hard: '⭐⭐⭐' };
+                              const isActive = (confirmStart.aiDifficulty || 'easy') === level;
+                              return (
+                                <button
+                                  key={level}
+                                  type="button"
+                                  onClick={() => {
+                                    setConfirmStart(confirmStart ? { ...confirmStart, aiDifficulty: level } : null);
+                                  }}
+                                  className={`flex-1 py-1.5 px-1.5 rounded text-[11px] transition-all ${
+                                    isActive
+                                      ? 'bg-fire-gold/40 text-white'
+                                      : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70'
+                                  }`}
+                                  title={level === 'easy' ? (lang === 'cs' ? 'Snadná' : 'Easy') : level === 'medium' ? (lang === 'cs' ? 'Střední' : 'Medium') : (lang === 'cs' ? 'Těžká' : 'Hard')}
+                                >
+                                  {icons[level]}
+                                </button>
+                              );
+                            })}
                           </div>
-                          <p className="text-xs text-white/60 mb-2">
-                            {lang === 'cs'
-                              ? 'Zadejte vlastní téma pro AI generování. Pokud je prázdné, použije se "Christmas".'
-                              : 'Enter a custom theme for AI generation. If empty, "Christmas" will be used.'}
-                          </p>
+                        </div>
+                        
+                        {/* Theme - Compact input */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm shrink-0">🎨</span>
                           <input
                             type="text"
                             value={confirmStart.aiTheme || ''}
                             onChange={(e) => {
                               setConfirmStart(confirmStart ? { ...confirmStart, aiTheme: e.target.value } : null);
                             }}
-                            placeholder={lang === 'cs' ? 'Např. Halloween, Star Wars, Superheroes...' : 'E.g. Halloween, Star Wars, Superheroes...'}
-                            className="w-full input-field"
+                            placeholder={lang === 'cs' ? 'Téma...' : 'Theme...'}
+                            className="flex-1 input-field text-xs py-1.5 px-2.5"
                           />
-                        </label>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -529,6 +580,26 @@ export default function MiniGamesTVHub(props: {
             document.body
           );
         })()
+      : null;
+
+  const generatingModal =
+    aiGenerating && typeof document !== 'undefined'
+      ? createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-6" role="dialog" aria-modal="true">
+            <div className="w-full max-w-sm rounded-2xl border border-white/15 bg-black/60 backdrop-blur-md p-5">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full bg-white/10 border border-white/10 flex items-center justify-center">
+                  <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-white/90">{aiGeneratingLabel || (lang === 'cs' ? 'Generuji…' : 'Generating…')}</div>
+                  <div className="text-xs text-white/55">{lang === 'cs' ? 'Chvilku prosím.' : 'Just a moment.'}</div>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
       : null;
 
   const renderQuestion = () => {
@@ -648,10 +719,20 @@ export default function MiniGamesTVHub(props: {
     }
 
     if (gameId === 'trivia' && r) {
+      const correctIndex = Number((r as any)?.correctIndex ?? -1);
+      const correctText =
+        content?.type === 'trivia' && content.item && Array.isArray(content.item.options?.[lang])
+          ? (content.item.options[lang][correctIndex] ?? null)
+          : null;
       return (
         <div className="text-center">
           <div className="text-6xl mb-3">✅</div>
           <div className="text-3xl font-black">{lang === 'cs' ? 'Správná odpověď' : 'Correct answer'}</div>
+          {typeof correctText === 'string' && correctText.trim() && correctIndex >= 0 && (
+            <div className="mt-3 text-3xl font-black text-christmas-gold">
+              {String.fromCharCode(65 + correctIndex)}. {correctText}
+            </div>
+          )}
           <div className="text-white/70 mt-2">
             {lang === 'cs' ? 'Správně:' : 'Correct:'} {Number(r.correctCount ?? 0)}/{Number(r.total ?? activeCount)}
           </div>
@@ -1026,6 +1107,7 @@ export default function MiniGamesTVHub(props: {
     <div className="h-full flex flex-col">
       <div className="flex-1 min-h-0 flex flex-col">{view()}</div>
       {confirmModal}
+      {generatingModal}
     </div>
   );
 }
@@ -1114,7 +1196,7 @@ function PictionaryTVRound(props: {
       const text = String(g.guess ?? '');
       if (!text.trim()) continue;
 
-      isPictionaryGuessCorrect({ promptId, guess: text })
+      isPictionaryGuessCorrect({ promptId, guess: text, roomId, sessionId })
         .then((ok) => {
           if (!ok) return;
           // Guard: if we already revealed, ignore.

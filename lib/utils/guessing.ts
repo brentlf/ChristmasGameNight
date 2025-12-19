@@ -1,5 +1,6 @@
-function normalizeForGuessing(input: string): string {
-  return input
+function normalizeForGuessing(input: unknown): string {
+  const s = String(input ?? '');
+  return s
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // strip diacritics
@@ -78,7 +79,7 @@ function levenshteinDistance(a: string, b: string): number {
   return prev[b.length];
 }
 
-export function fuzzyMatchGuess(guessRaw: string, answerRaw: string): boolean {
+export function fuzzyMatchGuess(guessRaw: unknown, answerRaw: unknown): boolean {
   const guess = canonicalizeChristmasSynonyms(normalizeForGuessing(guessRaw));
   const answer = canonicalizeChristmasSynonyms(normalizeForGuessing(answerRaw));
 

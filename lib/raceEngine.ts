@@ -11,6 +11,7 @@ import {
   riddleGatePool,
 } from '@/content/raceTracks/christmas_race_v1';
 import { generateSeed, pickRandomIdsSeeded } from '@/lib/utils/seededRandom';
+import { fuzzyMatchGuess } from '@/lib/utils/guessing';
 
 export type RaceLang = 'en' | 'cs';
 
@@ -122,8 +123,19 @@ export async function ensureStageInitialized(params: {
     const hasRequiredPlayerFields = (() => {
       if (!existing?.startedAt) return false;
       if (stage.type === 'riddle_gate') {
-        const rid = existing.riddleId;
-        return typeof rid === 'string' && (riddleGateIdSet.has(rid) || (isAIEnhanced && rid.startsWith('ai_')));
+        const needCorrect = stage.content?.needCorrect ?? 1;
+        if (needCorrect > 1) {
+          const rids = existing.riddleIds;
+          const solved = existing.solvedRiddles ?? [];
+          if (!Array.isArray(rids) || rids.length < needCorrect) return false;
+          if (isAIEnhanced) {
+            return rids.every((id) => typeof id === 'string' && id.startsWith('ai_')) && solved.length >= needCorrect;
+          }
+          return allValidIds(rids, riddleGateIdSet) && solved.length >= needCorrect;
+        } else {
+          const rid = existing.riddleId;
+          return typeof rid === 'string' && (riddleGateIdSet.has(rid) || (isAIEnhanced && rid.startsWith('ai_')));
+        }
       }
       if (stage.type === 'final_riddle') {
         const rid = existing.riddleId;
@@ -141,7 +153,17 @@ export async function ensureStageInitialized(params: {
         if (isAIEnhanced) return ids.every((id) => typeof id === 'string' && id.startsWith('ai_'));
         return allValidIds(ids, triviaIdSet);
       }
-      if (stage.type === 'code_lock') return typeof existing.puzzleId === 'string' && codePuzzleIdSet.has(existing.puzzleId);
+      if (stage.type === 'code_lock') {
+        const needCorrect = stage.content?.needCorrect ?? 1;
+        if (needCorrect > 1) {
+          const pids = existing.puzzleIds;
+          const solved = existing.solvedCodes ?? [];
+          if (!Array.isArray(pids) || pids.length < needCorrect) return false;
+          return allValidIds(pids, codePuzzleIdSet) && solved.length >= needCorrect;
+        } else {
+          return typeof existing.puzzleId === 'string' && codePuzzleIdSet.has(existing.puzzleId);
+        }
+      }
       if (stage.type === 'photo_scavenger') return typeof existing.promptId === 'string' && photoPromptIdSet.has(existing.promptId);
       return true;
     })();
@@ -156,8 +178,14 @@ export async function ensureStageInitialized(params: {
     if (aiStageContent) {
       // Use AI-generated content if available
       if (stage.type === 'riddle_gate' || stage.type === 'final_riddle') {
-        stageQuestions.riddleId = aiStageContent.riddleId;
-        stageQuestions.riddle = aiStageContent.riddle; // Store full riddle object for later retrieval
+        const pickCount = stage.content?.pick ?? 1;
+        if (pickCount > 1 && stage.type === 'riddle_gate') {
+          stageQuestions.riddleIds = aiStageContent.riddleIds;
+          stageQuestions.riddles = aiStageContent.riddles; // Store full riddle objects
+        } else {
+          stageQuestions.riddleId = aiStageContent.riddleId;
+          stageQuestions.riddle = aiStageContent.riddle; // Store full riddle object for later retrieval
+        }
       }
       if (stage.type === 'emoji_guess') {
         stageQuestions.clueIds = aiStageContent.clueIds;
@@ -179,10 +207,27 @@ export async function ensureStageInitialized(params: {
     } else {
       // Use static content with seeded random
       const seed = generateSeed(roomId, stageIndex);
-      if (stage.type === 'riddle_gate') stageQuestions.riddleId = pickRandomIdsSeeded(riddleGatePool, 1, seed)[0];
-      if (stage.type === 'emoji_guess') stageQuestions.clueIds = pickRandomIdsSeeded(emojiClues, 5, seed);
-      if (stage.type === 'trivia_solo') stageQuestions.questionIds = pickRandomIdsSeeded(getTriviaPool('en'), 5, seed);
-      if (stage.type === 'code_lock') stageQuestions.puzzleId = pickRandomIdsSeeded(codePuzzles, 1, seed)[0];
+      if (stage.type === 'riddle_gate') {
+        const pickCount = stage.content?.pick ?? 1;
+        if (pickCount > 1) {
+          stageQuestions.riddleIds = pickRandomIdsSeeded(riddleGatePool, pickCount, seed);
+        } else {
+          stageQuestions.riddleId = pickRandomIdsSeeded(riddleGatePool, 1, seed)[0];
+        }
+      }
+      if (stage.type === 'final_riddle') {
+        stageQuestions.riddleId = pickRandomIdsSeeded(finalRiddlePool, 1, seed)[0];
+      }
+      if (stage.type === 'emoji_guess') stageQuestions.clueIds = pickRandomIdsSeeded(emojiClues, 8, seed);
+      if (stage.type === 'trivia_solo') stageQuestions.questionIds = pickRandomIdsSeeded(getTriviaPool('en'), 10, seed);
+      if (stage.type === 'code_lock') {
+        const pickCount = stage.content?.pick ?? 1;
+        if (pickCount > 1) {
+          stageQuestions.puzzleIds = pickRandomIdsSeeded(codePuzzles, pickCount, seed);
+        } else {
+          stageQuestions.puzzleId = pickRandomIdsSeeded(codePuzzles, 1, seed)[0];
+        }
+      }
       if (stage.type === 'photo_scavenger') stageQuestions.promptId = pickRandomIdsSeeded(photoPrompts, 1, seed)[0];
       if (stage.type === 'final_riddle') stageQuestions.riddleId = pickRandomIdsSeeded(finalRiddlePool, 1, seed)[0];
     }
@@ -200,13 +245,28 @@ export async function ensureStageInitialized(params: {
     };
 
     if (stage.type === 'riddle_gate') {
-      const rid = existing.riddleId;
-      if (isAIEnhanced && typeof rid === 'string' && rid.startsWith('ai_')) {
-        base.riddleId = rid; // Keep existing AI ID
-      } else if (typeof rid === 'string' && riddleGateIdSet.has(rid)) {
-        base.riddleId = rid; // Keep existing static ID
+      const needCorrect = stage.content?.needCorrect ?? 1;
+      if (needCorrect > 1) {
+        const existingIds = existing.riddleIds;
+        const solved = existing.solvedRiddles ?? [];
+        if (isAIEnhanced && Array.isArray(existingIds) && existingIds.length > 0 && existingIds.every(id => typeof id === 'string' && id.startsWith('ai_'))) {
+          base.riddleIds = existingIds;
+        } else if (allValidIds(existingIds, riddleGateIdSet)) {
+          base.riddleIds = existingIds;
+        } else {
+          base.riddleIds = (stageQuestions as any).riddleIds;
+        }
+        base.solvedRiddles = solved;
+        base.currentRiddleIndex = existing.currentRiddleIndex ?? 0;
       } else {
-        base.riddleId = (stageQuestions as any).riddleId; // Use generated ID
+        const rid = existing.riddleId;
+        if (isAIEnhanced && typeof rid === 'string' && rid.startsWith('ai_')) {
+          base.riddleId = rid;
+        } else if (typeof rid === 'string' && riddleGateIdSet.has(rid)) {
+          base.riddleId = rid;
+        } else {
+          base.riddleId = (stageQuestions as any).riddleId;
+        }
       }
     }
     if (stage.type === 'emoji_guess') {
@@ -237,9 +297,23 @@ export async function ensureStageInitialized(params: {
       base.questionStartedAt = existing.questionStartedAt ?? now;
     }
     if (stage.type === 'code_lock') {
-      const pid = existing.puzzleId;
-      base.puzzleId = (typeof pid === 'string' && codePuzzleIdSet.has(pid)) ? pid : (stageQuestions as any).puzzleId;
-      base.lockoutUntil = existing.lockoutUntil ?? 0;
+      const needCorrect = stage.content?.needCorrect ?? 1;
+      if (needCorrect > 1) {
+        const existingIds = existing.puzzleIds;
+        const solved = existing.solvedCodes ?? [];
+        if (allValidIds(existingIds, codePuzzleIdSet)) {
+          base.puzzleIds = existingIds;
+        } else {
+          base.puzzleIds = (stageQuestions as any).puzzleIds;
+        }
+        base.solvedCodes = solved;
+        base.currentPuzzleIndex = existing.currentPuzzleIndex ?? 0;
+        base.lockoutUntil = existing.lockoutUntil ?? 0;
+      } else {
+        const pid = existing.puzzleId;
+        base.puzzleId = (typeof pid === 'string' && codePuzzleIdSet.has(pid)) ? pid : (stageQuestions as any).puzzleId;
+        base.lockoutUntil = existing.lockoutUntil ?? 0;
+      }
     }
     if (stage.type === 'photo_scavenger') {
       const pr = existing.promptId;
@@ -291,14 +365,138 @@ export async function submitRiddleAnswer(params: {
     if (p.stageIndex !== stageIndex) return { correct: false };
 
     const state = (p.stageState?.[stage.id] ?? {}) as any;
-    const riddleId = state.riddleId as string | undefined;
+    const needCorrect = stage.content?.needCorrect ?? 1;
     
     // Get room to check for AI content
     const roomRef = doc(db, 'rooms', roomId);
     const roomSnap = await tx.get(roomRef);
     const room = roomSnap.exists() ? { id: roomSnap.id, ...roomSnap.data() } as Room : null;
     
-    // Try to get AI riddle first, then fallback to static pool
+    // Handle multiple riddles
+    if (needCorrect > 1 && stage.type === 'riddle_gate') {
+      const riddleIds = state.riddleIds as string[] | undefined;
+      const solvedRiddles = (state.solvedRiddles ?? []) as string[];
+      const currentIndex = state.currentRiddleIndex ?? 0;
+      
+      if (!riddleIds || currentIndex >= riddleIds.length) {
+        return { correct: false };
+      }
+      
+      const currentRiddleId = riddleIds[currentIndex];
+      if (solvedRiddles.includes(currentRiddleId)) {
+        // Already solved, move to next
+        const nextIndex = currentIndex + 1;
+        const allSolved = solvedRiddles.length >= needCorrect;
+        
+        if (allSolved) {
+          const basePoints = 10 * needCorrect;
+          const speedBonus = computeSpeedBonusMs(state.startedAt, now, 5);
+          const nextStageIndex = stageIndex + 1;
+          const finished = nextStageIndex >= totalStages;
+          
+          tx.update(playerRef, {
+            score: (p.score ?? 0) + basePoints + speedBonus,
+            stageIndex: finished ? totalStages : nextStageIndex,
+            finishedAt: finished ? now : p.finishedAt ?? null,
+            lastActiveAt: now,
+            stageState: {
+              ...(p.stageState ?? {}),
+              [stage.id]: {
+                ...state,
+                completedAt: now,
+              },
+            },
+          } as any);
+          return { correct: true, finished, playerName: p.name };
+        }
+        
+        tx.update(playerRef, {
+          lastActiveAt: now,
+          stageState: {
+            ...(p.stageState ?? {}),
+            [stage.id]: {
+              ...state,
+              currentRiddleIndex: nextIndex,
+            },
+          },
+        } as any);
+        return { correct: true, finished: false, playerName: p.name };
+      }
+      
+      // Try to get AI riddle first, then fallback to static pool
+      let riddle: any = null;
+      if (room && room.raceAiEnhanced && room.raceStageQuestions?.[stage.id]?.riddles) {
+        riddle = room.raceStageQuestions[stage.id].riddles?.find((r: any) => r.id === currentRiddleId);
+      }
+      if (!riddle) {
+        riddle = riddleGatePool.find((r) => r.id === currentRiddleId);
+      }
+      if (!riddle) return { correct: false };
+      
+      const normalized = normalizeAnswer(answer);
+      const accepted = (riddle?.answers?.[lang] ?? []).map(normalizeAnswer);
+      const correct = accepted.includes(normalized);
+      
+      if (!correct) {
+        tx.update(playerRef, {
+          lastActiveAt: now,
+          stageState: {
+            ...(p.stageState ?? {}),
+            [stage.id]: {
+              ...state,
+              attempts: (state.attempts ?? 0) + 1,
+            },
+          },
+        } as any);
+        return { correct: false };
+      }
+      
+      // Correct answer - mark as solved
+      const newSolved = [...solvedRiddles, currentRiddleId];
+      const allSolved = newSolved.length >= needCorrect;
+      const nextIndex = currentIndex + 1;
+      
+      if (allSolved) {
+        const basePoints = 10 * needCorrect;
+        const speedBonus = computeSpeedBonusMs(state.startedAt, now, 5);
+        const nextStageIndex = stageIndex + 1;
+        const finished = nextStageIndex >= totalStages;
+        
+        tx.update(playerRef, {
+          score: (p.score ?? 0) + basePoints + speedBonus,
+          stageIndex: finished ? totalStages : nextStageIndex,
+          finishedAt: finished ? now : p.finishedAt ?? null,
+          lastActiveAt: now,
+          stageState: {
+            ...(p.stageState ?? {}),
+            [stage.id]: {
+              ...state,
+              solvedRiddles: newSolved,
+              completedAt: now,
+            },
+          },
+        } as any);
+        return { correct: true, finished, playerName: p.name };
+      }
+      
+      // Move to next riddle
+      tx.update(playerRef, {
+        score: (p.score ?? 0) + 10, // Points per riddle
+        lastActiveAt: now,
+        stageState: {
+          ...(p.stageState ?? {}),
+          [stage.id]: {
+            ...state,
+            solvedRiddles: newSolved,
+            currentRiddleIndex: nextIndex,
+          },
+        },
+      } as any);
+      return { correct: true, finished: false, playerName: p.name };
+    }
+    
+    // Single riddle (original logic)
+    const riddleId = state.riddleId as string | undefined;
     let riddle: any = null;
     if (room && room.raceAiEnhanced && room.raceStageQuestions?.[stage.id]?.riddle) {
       riddle = room.raceStageQuestions[stage.id].riddle;
@@ -396,7 +594,20 @@ export async function submitEmojiAnswer(params: {
     }
     if (!clue) throw new Error('Clue not found');
 
-    const correct = answerText === clue.correct.en || answerText === clue.correct.cs || answerText === clue.correct[lang];
+    // Robust correctness:
+    // - Some content uses curly apostrophes/quotes (e.g. Rockin’ vs Rockin') which breaks strict equality.
+    // - In rare cases options may not include the exact correct string for a locale.
+    // We treat answers as correct if they fuzzy-match the correct title in either language,
+    // or any provided aliases (AI emoji generation may include these).
+    const targets: string[] = [
+      (clue?.correct?.[lang] ?? '').toString(),
+      (clue?.correct?.en ?? '').toString(),
+      (clue?.correct?.cs ?? '').toString(),
+      ...(Array.isArray(clue?.acceptedAliases?.en) ? clue.acceptedAliases.en : []).map((s: any) => String(s ?? '')),
+      ...(Array.isArray(clue?.acceptedAliases?.cs) ? clue.acceptedAliases.cs : []).map((s: any) => String(s ?? '')),
+    ].filter((s) => s.trim().length > 0);
+
+    const correct = targets.some((t) => fuzzyMatchGuess(answerText, t));
     const answered = { ...(st.answered ?? {}) };
     if (answered[clueId]) {
       return { correct: Boolean(answered[clueId].correct), completedStage: false, lockoutUntil: st.lockoutUntil ?? 0 };
@@ -557,6 +768,7 @@ export async function submitCodeLock(params: {
 
   const playerRef = doc(db, 'rooms', roomId, 'players', uid);
   const now = Date.now();
+  const needCorrect = stage.content?.needCorrect ?? 1;
 
   const res: any = await runTransaction(db, async (tx) => {
     const snap = await tx.get(playerRef);
@@ -570,10 +782,118 @@ export async function submitCodeLock(params: {
       return { correct: false, lockoutUntil };
     }
 
+    // Handle multiple codes
+    if (needCorrect > 1) {
+      const puzzleIds = st.puzzleIds as string[] | undefined;
+      const solvedCodes = (st.solvedCodes ?? []) as string[];
+      const currentIndex = st.currentPuzzleIndex ?? 0;
+      
+      if (!puzzleIds || currentIndex >= puzzleIds.length) {
+        return { correct: false };
+      }
+      
+      const currentPuzzleId = puzzleIds[currentIndex];
+      if (solvedCodes.includes(currentPuzzleId)) {
+        // Already solved, move to next
+        const nextIndex = currentIndex + 1;
+        const allSolved = solvedCodes.length >= needCorrect;
+        
+        if (allSolved) {
+          const basePoints = 15 * needCorrect;
+          const speedBonus = computeSpeedBonusMs(st.startedAt, now, 5);
+          tx.update(playerRef, {
+            score: (p.score ?? 0) + basePoints + speedBonus,
+            stageIndex: Math.min(getTotalStages(trackId), stageIndex + 1),
+            lastActiveAt: now,
+            stageState: {
+              ...(p.stageState ?? {}),
+              [stage.id]: {
+                ...st,
+                completedAt: now,
+              },
+            },
+          } as any);
+          return { correct: true, playerName: p.name };
+        }
+        
+        tx.update(playerRef, {
+          lastActiveAt: now,
+          stageState: {
+            ...(p.stageState ?? {}),
+            [stage.id]: {
+              ...st,
+              currentPuzzleIndex: nextIndex,
+            },
+          },
+        } as any);
+        return { correct: true, playerName: p.name };
+      }
+      
+      const puzzle = codePuzzles.find((c) => c.id === currentPuzzleId) ?? codePuzzles[0];
+      const normalizedInput = code.trim().replace(/\D/g, '').padStart(4, '0').slice(0, 4);
+      const normalizedPuzzleCode = String(puzzle.code).trim().replace(/\D/g, '').padStart(4, '0').slice(0, 4);
+      const correct = normalizedInput === normalizedPuzzleCode;
+      
+      if (!correct) {
+        const nextLockout = now + (stage.content.lockoutMs ?? 10_000);
+        tx.update(playerRef, {
+          lastActiveAt: now,
+          stageState: {
+            ...(p.stageState ?? {}),
+            [stage.id]: {
+              ...st,
+              attempts: (st.attempts ?? 0) + 1,
+              lockoutUntil: nextLockout,
+            },
+          },
+        } as any);
+        return { correct: false, lockoutUntil: nextLockout };
+      }
+      
+      // Correct answer - mark as solved
+      const newSolved = [...solvedCodes, currentPuzzleId];
+      const allSolved = newSolved.length >= needCorrect;
+      const nextIndex = currentIndex + 1;
+      
+      if (allSolved) {
+        const basePoints = 15 * needCorrect;
+        const speedBonus = computeSpeedBonusMs(st.startedAt, now, 5);
+        tx.update(playerRef, {
+          score: (p.score ?? 0) + basePoints + speedBonus,
+          stageIndex: Math.min(getTotalStages(trackId), stageIndex + 1),
+          lastActiveAt: now,
+          stageState: {
+            ...(p.stageState ?? {}),
+            [stage.id]: {
+              ...st,
+              solvedCodes: newSolved,
+              completedAt: now,
+            },
+          },
+        } as any);
+        return { correct: true, playerName: p.name };
+      }
+      
+      // Move to next code
+      tx.update(playerRef, {
+        score: (p.score ?? 0) + 15, // Points per code
+        lastActiveAt: now,
+        stageState: {
+          ...(p.stageState ?? {}),
+          [stage.id]: {
+            ...st,
+            solvedCodes: newSolved,
+            currentPuzzleIndex: nextIndex,
+            lockoutUntil: 0,
+          },
+        },
+      } as any);
+      return { correct: true, playerName: p.name };
+    }
+
+    // Single code (original logic)
     const puzzle = codePuzzles.find((c) => c.id === st.puzzleId) ?? codePuzzles[0];
-    // Normalize the input: trim, remove all non-digits, pad to 4 digits with leading zeros if needed
     const normalizedInput = code.trim().replace(/\D/g, '').padStart(4, '0').slice(0, 4);
-    // Normalize the puzzle code to ensure consistent comparison
     const normalizedPuzzleCode = String(puzzle.code).trim().replace(/\D/g, '').padStart(4, '0').slice(0, 4);
     const correct = normalizedInput === normalizedPuzzleCode;
 

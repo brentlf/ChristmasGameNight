@@ -65,6 +65,31 @@
     @apply w-full px-3 md:px-4 py-2.5 md:py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder-white/55 focus:outline-none focus:border-christmas-gold focus:bg-white/20 transition-all text-sm md:text-base;
   }
   
+  /* Select dropdown styling - ensure proper contrast */
+  select.input-field,
+  .input-field[type="select"],
+  select {
+    @apply bg-wood-dark/90 text-white;
+    background-color: rgba(62, 39, 35, 0.9) !important;
+    color: white !important;
+  }
+  
+  select.input-field:focus,
+  select:focus {
+    @apply bg-wood-dark text-white;
+    background-color: rgb(62, 39, 35) !important;
+    color: white !important;
+  }
+  
+  /* Style option elements inside selects */
+  select.input-field option,
+  select option {
+    @apply bg-wood-dark text-white;
+    background-color: rgb(62, 39, 35) !important;
+    color: white !important;
+    padding: 0.5rem;
+  }
+  
   .game-show-title {
     @apply text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-fire-gold via-fire-orange via-white to-fire-gold drop-shadow-2xl;
     filter: drop-shadow(0 0 20px rgba(255, 193, 7, 0.4)) drop-shadow(0 0 40px rgba(255, 140, 0, 0.2));

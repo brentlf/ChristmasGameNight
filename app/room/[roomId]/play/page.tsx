@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { ensureStageInitialized, getStageByIndex, getTotalStages, submitCodeLock, submitEmojiAnswer, submitRiddleAnswer, submitTriviaAnswer } from '@/lib/raceEngine';
 import { getCodePuzzleById, getEmojiClueById, getFinalRiddleById, getPhotoPromptById, getRiddleGateRiddleById, getTriviaQuestionById } from '@/lib/raceContent';
+import type { Riddle, CodePuzzle } from '@/types';
 import { completePhotoScavenger } from '@/lib/raceEngine';
 import { validatePhotoWithAI } from '@/lib/utils/openai';
 import type { Player, Room, RaceStageDefinition, MiniGameType } from '@/types';
@@ -595,10 +596,39 @@ function StageBody(props: {
   if (safeStage.type === 'riddle_gate' || safeStage.type === 'final_riddle') {
     // Get room from props (passed down from parent component)
     const room = (props as any).room as Room | undefined;
-    const riddle =
-      safeStage.type === 'riddle_gate'
-        ? getRiddleGateRiddleById(safeState.riddleId ?? '', room, safeStage.id)
-        : getFinalRiddleById(safeState.riddleId ?? '', room, safeStage.id);
+    const needCorrect = safeStage.content?.needCorrect ?? 1;
+    
+    // Handle multiple riddles
+    let riddle: Riddle | undefined;
+    let currentIndex = 0;
+    let totalRiddles = 1;
+    let solvedCount = 0;
+    
+    if (needCorrect > 1 && safeStage.type === 'riddle_gate') {
+      const riddleIds = safeState.riddleIds as string[] | undefined;
+      const solvedRiddles = (safeState.solvedRiddles ?? []) as string[];
+      currentIndex = safeState.currentRiddleIndex ?? 0;
+      totalRiddles = needCorrect;
+      solvedCount = solvedRiddles.length;
+      
+      if (riddleIds && currentIndex < riddleIds.length) {
+        const currentRiddleId = riddleIds[currentIndex];
+        // Try AI first, then static
+        if (room && room.raceAiEnhanced && room.raceStageQuestions?.[safeStage.id]?.riddles) {
+          riddle = room.raceStageQuestions[safeStage.id].riddles?.find((r: any) => r.id === currentRiddleId) as Riddle | undefined;
+        }
+        if (!riddle) {
+          riddle = getRiddleGateRiddleById(currentRiddleId, room, safeStage.id);
+        }
+      }
+    } else {
+      // Single riddle (original logic)
+      riddle =
+        safeStage.type === 'riddle_gate'
+          ? getRiddleGateRiddleById(safeState.riddleId ?? '', room, safeStage.id)
+          : getFinalRiddleById(safeState.riddleId ?? '', room, safeStage.id);
+    }
+    
     const hint = riddle?.hint?.[lang];
     const additionalClue = riddle?.additionalClue?.[lang];
     const secondHint = riddle?.secondHint?.[lang];
@@ -608,6 +638,18 @@ function StageBody(props: {
 
     return (
       <div className="space-y-3 md:space-y-4">
+        {needCorrect > 1 && safeStage.type === 'riddle_gate' && (
+          <div className="text-center mb-2">
+            <p className="text-sm md:text-base text-white/70 break-words">
+              {lang === 'cs' ? `Hádanka ${currentIndex + 1} z ${totalRiddles}` : `Riddle ${currentIndex + 1} of ${totalRiddles}`}
+              {solvedCount > 0 && (
+                <span className="ml-2 text-christmas-gold">
+                  ({lang === 'cs' ? `${solvedCount} vyřešeno` : `${solvedCount} solved`})
+                </span>
+              )}
+            </p>
+          </div>
+        )}
         <p className="text-lg md:text-xl lg:text-2xl font-semibold leading-snug break-words">{riddle?.prompt?.[lang] ?? t('common.loading', lang)}</p>
 
         <input
@@ -628,7 +670,13 @@ function StageBody(props: {
               const res = await submitRiddleAnswer({ roomId, uid, trackId, stageIndex, answer: text, lang });
               if (res.correct) {
                 playSound('success');
-                toast.success(t('race.correct', lang));
+                setText(''); // Clear input for next riddle
+                const needCorrect = safeStage.content?.needCorrect ?? 1;
+                if (needCorrect > 1 && !res.finished) {
+                  toast.success(lang === 'cs' ? 'Správně! Další hádanka...' : 'Correct! Next riddle...');
+                } else {
+                  toast.success(t('race.correct', lang));
+                }
               } else {
                 playSound('ding', 0.15);
                 toast.error(t('race.incorrect', lang));
@@ -805,10 +853,45 @@ function StageBody(props: {
   }
 
   if (safeStage.type === 'code_lock') {
-    const puzzle = getCodePuzzleById(safeState.puzzleId ?? '');
+    const needCorrect = safeStage.content?.needCorrect ?? 1;
+    
+    // Handle multiple codes
+    let puzzle: CodePuzzle | undefined;
+    let currentIndex = 0;
+    let totalCodes = 1;
+    let solvedCount = 0;
+    
+    if (needCorrect > 1) {
+      const puzzleIds = safeState.puzzleIds as string[] | undefined;
+      const solvedCodes = (safeState.solvedCodes ?? []) as string[];
+      currentIndex = safeState.currentPuzzleIndex ?? 0;
+      totalCodes = needCorrect;
+      solvedCount = solvedCodes.length;
+      
+      if (puzzleIds && currentIndex < puzzleIds.length) {
+        const currentPuzzleId = puzzleIds[currentIndex];
+        puzzle = getCodePuzzleById(currentPuzzleId);
+      }
+    } else {
+      // Single code (original logic)
+      puzzle = getCodePuzzleById(safeState.puzzleId ?? '');
+    }
+    
     const hint = puzzle?.hint?.[lang];
     return (
       <div className="space-y-3 md:space-y-4">
+        {needCorrect > 1 && (
+          <div className="text-center mb-2">
+            <p className="text-sm md:text-base text-white/70 break-words">
+              {lang === 'cs' ? `Kód ${currentIndex + 1} z ${totalCodes}` : `Code ${currentIndex + 1} of ${totalCodes}`}
+              {solvedCount > 0 && (
+                <span className="ml-2 text-christmas-gold">
+                  ({lang === 'cs' ? `${solvedCount} vyřešeno` : `${solvedCount} solved`})
+                </span>
+              )}
+            </p>
+          </div>
+        )}
         <pre className="whitespace-pre-wrap rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4 text-white/85 text-xs md:text-sm break-words overflow-auto">
           {puzzle?.prompt?.[lang] ?? t('common.loading', lang)}
         </pre>
@@ -838,7 +921,13 @@ function StageBody(props: {
               const res = await submitCodeLock({ roomId, uid, trackId, stageIndex, code: text, lang });
               if (res.correct) {
                 playSound('success');
-                toast.success(t('race.correct', lang));
+                setText(''); // Clear input for next code
+                const needCorrect = safeStage.content?.needCorrect ?? 1;
+                if (needCorrect > 1) {
+                  toast.success(lang === 'cs' ? 'Správně! Další kód...' : 'Correct! Next code...');
+                } else {
+                  toast.success(t('race.correct', lang));
+                }
               } else {
                 playSound('ding', 0.15);
                 toast.error(t('race.incorrect', lang));

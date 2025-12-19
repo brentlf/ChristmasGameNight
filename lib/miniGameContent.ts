@@ -36,6 +36,17 @@ async function getAIContentFromCache<T>(
       const item = content.find((item: any) => item.id === itemId);
       return item || null;
     }
+
+    // Fallback: AI content may be stored on the selected deck doc (if aiContent/* writes are blocked).
+    const selectedRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'selected', 'selected');
+    const selectedSnap = await getDoc(selectedRef);
+    if (selectedSnap.exists()) {
+      const data = selectedSnap.data() as any;
+      const ai = data?.ai ?? null;
+      const content = Array.isArray(ai?.content) ? ai.content : [];
+      const item = content.find((x: any) => x?.id === itemId);
+      return item || null;
+    }
     return null;
   } catch (error) {
     console.error('Error fetching AI content from cache:', error);

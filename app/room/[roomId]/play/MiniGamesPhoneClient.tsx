@@ -497,6 +497,15 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
                 <h1 className="text-3xl font-black mb-2">
                   {isCorrect ? (lang === 'cs' ? 'Správně!' : 'Correct!') : lang === 'cs' ? 'Vedle…' : 'Not quite…'}
                 </h1>
+                {gameId === 'trivia' && content?.type === 'trivia' && content.item && typeof (r as any)?.correctIndex === 'number' && (
+                  <p className="text-white/70">
+                    {lang === 'cs' ? 'Správně bylo:' : 'Correct was:'}{' '}
+                    <span className="font-black text-christmas-gold">
+                      {String.fromCharCode(65 + Number((r as any).correctIndex))}.{' '}
+                      {(content.item.options?.[lang]?.[Number((r as any).correctIndex)] ?? '').toString()}
+                    </span>
+                  </p>
+                )}
                 {gameId === 'emoji' && (
                   <p className="text-white/70">
                     {lang === 'cs' ? 'Správně bylo:' : 'It was:'}{' '}

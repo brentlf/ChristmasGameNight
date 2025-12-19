@@ -6,15 +6,15 @@ export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    const { roomId, trackId, theme = 'Christmas' } = await request.json();
+    const { roomId, trackId, theme = 'Christmas', difficulty = 'easy' } = await request.json();
 
     if (!roomId || !trackId) {
       return NextResponse.json({ error: 'roomId and trackId are required' }, { status: 400 });
     }
 
     const track = getRaceTrack(trackId);
-    const stages = track.stages.map((s: any, idx: number) => ({ id: s.id, type: s.type }));
-    const raceContent = await generateAIRaceContent(roomId, trackId, stages, theme);
+    const stages = track.stages.map((s: any) => ({ id: s.id, type: s.type, content: s.content }));
+    const raceContent = await generateAIRaceContent(roomId, trackId, stages, theme, difficulty);
 
     return NextResponse.json({ raceContent });
   } catch (error: any) {

@@ -19,6 +19,12 @@ import { pictionaryChristmasPool } from '@/content/pictionary_christmas';
 import { guessTheSongChristmasPool } from '@/content/guess_the_song_christmas';
 import { familyFeudChristmasPool } from '@/content/family_feud_christmas';
 import { fuzzyMatchGuess } from '@/lib/utils/guessing';
+import {
+  getEmojiItemById,
+  getFamilyFeudItemById,
+  getPictionaryItemById,
+  getTriviaItemById,
+} from '@/lib/miniGameContent';
 
 export type SessionSelectedDoc = {
   gameId: SessionGameId;
@@ -60,8 +66,9 @@ export async function startMiniGameSession(params: {
   secondsPerQuestion?: number;
   aiEnhanced?: boolean;
   aiTheme?: string;
+  aiDifficulty?: 'easy' | 'medium' | 'hard';
 }): Promise<string> {
-  const { roomId, gameId, questionCount = 10, secondsPerQuestion = 45, aiEnhanced = false, aiTheme = 'Christmas' } = params;
+  const { roomId, gameId, questionCount = 10, secondsPerQuestion = 45, aiEnhanced = false, aiTheme = 'Christmas', aiDifficulty = 'easy' } = params;
 
   const roomRef = doc(db, 'rooms', roomId);
   const roomSnap = await getDoc(roomRef);
@@ -99,13 +106,66 @@ export async function startMiniGameSession(params: {
   const sessionId = sessionDocRef.id;
 
   let selectedIds: string[];
+  let aiGenerated: null | {
+    content: any[];
+    generatedAt: number;
+    theme: string;
+    difficulty: 'easy' | 'medium' | 'hard';
+  } = null;
 
   if (aiEnhanced && gameId !== 'guess_the_song') {
-    // Generate AI content and store in Firestore
-    // Note: guess_the_song requires audio files, so skip AI generation for it
+    // Generate AI content via server route (keeps OPENAI_API_KEY on server).
     try {
-      const { generateAIContentForSession } = await import('@/lib/ai/sessionContentGenerator');
-      selectedIds = await generateAIContentForSession(roomId, sessionId, gameId, effectiveQuestionCount, aiTheme);
+      const theme = (aiTheme || 'Christmas').trim() || 'Christmas';
+      const difficulty = aiDifficulty || 'easy';
+
+      const response = await fetch('/api/generate-session-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId,
+          sessionId,
+          gameId,
+          count: effectiveQuestionCount,
+          theme,
+          difficulty,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const data = (await response.json()) as any;
+      selectedIds = Array.isArray(data?.selectedIds) ? data.selectedIds : [];
+      aiGenerated = {
+        content: Array.isArray(data?.content) ? data.content : [],
+        generatedAt: Number(data?.generatedAt ?? Date.now()),
+        theme,
+        difficulty,
+      };
+
+      // Store the full content in Firestore for later retrieval (phones + TV)
+      // NOTE: Some deployments have stricter Firestore rules; cache writes may fail.
+      // We treat caching as "best effort" so we don't fall back to Christmas content.
+      try {
+        const cacheKey = `rooms/${roomId}/sessions/${sessionId}/aiContent/${gameId}`;
+        await setDoc(
+          doc(db, cacheKey),
+          {
+            content: aiGenerated.content,
+            generatedAt: aiGenerated.generatedAt,
+            gameId,
+            count: selectedIds.length,
+            theme,
+            difficulty,
+          } as any,
+          { merge: true }
+        );
+      } catch (cacheErr) {
+        // Don't fail the whole session if caching is blocked by rules.
+        console.warn('AI content generated but could not be cached in aiContent/*:', cacheErr);
+      }
     } catch (error) {
       console.error('Error generating AI content, falling back to static:', error);
       // Fallback to static content
@@ -127,6 +187,23 @@ export async function startMiniGameSession(params: {
   const selectedRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'selected', 'selected');
   const selectedDoc: SessionSelectedDoc = { gameId, selectedIds, createdAt: Date.now() };
   await setDoc(selectedRef, selectedDoc);
+
+  // Also store AI content alongside the selected deck as a fallback storage location.
+  // This is useful if rules block /aiContent/* writes; clients can still read from selected/selected.
+  if (aiGenerated && aiEnhanced) {
+    await setDoc(
+      selectedRef,
+      {
+        ai: {
+          theme: aiGenerated.theme,
+          difficulty: aiGenerated.difficulty,
+          generatedAt: aiGenerated.generatedAt,
+          content: aiGenerated.content,
+        },
+      } as any,
+      { merge: true }
+    );
+  }
 
   // Family Feud starts with team setup
   const initialStatus = gameId === 'family_feud' ? 'team_setup' : 'intro';
@@ -304,9 +381,19 @@ export async function controllerPictionaryReveal(params: {
   } as any);
 }
 
-export async function isPictionaryGuessCorrect(params: { promptId: string; guess: string }): Promise<boolean> {
-  const { promptId, guess } = params;
-  const prompt = pictionaryChristmasPool.find((p) => p.id === promptId);
+export async function isPictionaryGuessCorrect(params: {
+  promptId: string;
+  guess: string;
+  roomId?: string;
+  sessionId?: string;
+}): Promise<boolean> {
+  const { promptId, guess, roomId, sessionId } = params;
+  const staticPrompt = pictionaryChristmasPool.find((p) => p.id === promptId);
+  const prompt =
+    staticPrompt ||
+    (promptId.startsWith('ai_') && roomId && sessionId
+      ? await getPictionaryItemById(promptId, roomId, sessionId)
+      : undefined);
   if (!prompt) return false;
   return fuzzyMatchGuess(guess, prompt.prompt.en) || fuzzyMatchGuess(guess, prompt.prompt.cs);
 }
@@ -339,9 +426,10 @@ export async function controllerRevealAndScore(params: {
   let revealData: Record<string, any> = {};
 
   if (gameId === 'trivia') {
-    const q = triviaChristmasPool.find((x) => x.id === selectedId);
+    const staticQ = triviaChristmasPool.find((x) => x.id === selectedId);
+    const q = staticQ || (selectedId.startsWith('ai_') ? await getTriviaItemById(selectedId, roomId, sessionId) : undefined);
     if (!q) throw new Error('Trivia item missing');
-    const correctIndex = q.correctIndex;
+    const correctIndex = Number((q as any).correctIndex ?? 0);
     const correctUids: string[] = [];
     for (const a of answers) {
       const ok = typeof a.answer === 'number' && a.answer === correctIndex;
@@ -367,14 +455,18 @@ export async function controllerRevealAndScore(params: {
   }
 
   if (gameId === 'emoji') {
-    const item = emojiMoviesChristmasPool.find((x) => x.id === selectedId);
+    const staticItem = emojiMoviesChristmasPool.find((x) => x.id === selectedId);
+    const item =
+      staticItem || (selectedId.startsWith('ai_') ? await getEmojiItemById(selectedId, roomId, sessionId) : undefined);
     if (!item) throw new Error('Emoji item missing');
     // Accept both locales for correctness; players may answer in either language.
+    const aliasEn = Array.isArray((item as any).acceptedAliases?.en) ? (item as any).acceptedAliases.en : [];
+    const aliasCs = Array.isArray((item as any).acceptedAliases?.cs) ? (item as any).acceptedAliases.cs : [];
     const accepted = new Set([
       item.correct.en.toLowerCase().trim(),
       item.correct.cs.toLowerCase().trim(),
-      ...item.acceptedAliases.en.map((s) => s.toLowerCase().trim()),
-      ...item.acceptedAliases.cs.map((s) => s.toLowerCase().trim()),
+      ...aliasEn.map((s: any) => String(s ?? '').toLowerCase().trim()).filter(Boolean),
+      ...aliasCs.map((s: any) => String(s ?? '').toLowerCase().trim()).filter(Boolean),
     ]);
 
     const correctUids: string[] = [];
@@ -638,8 +730,10 @@ export async function submitFamilyFeudAnswer(params: {
   const selected = selectedSnap.data() as SessionSelectedDoc;
   const questionId = selected.selectedIds?.[roundIndex];
   if (!questionId) throw new Error('Question not found');
-  
-  const question = familyFeudChristmasPool.find((q) => q.id === questionId);
+
+  const question =
+    familyFeudChristmasPool.find((q) => q.id === questionId) ||
+    (questionId.startsWith('ai_') ? await getFamilyFeudItemById(questionId, roomId, sessionId) : undefined);
   if (!question) throw new Error('Question not found');
   
   // Validate answer directly
@@ -745,8 +839,10 @@ export async function submitFamilyFeudSteal(params: {
   const selected = selectedSnap.data() as SessionSelectedDoc;
   const questionId = selected.selectedIds?.[roundIndex];
   if (!questionId) throw new Error('Question not found');
-  
-  const question = familyFeudChristmasPool.find((q) => q.id === questionId);
+
+  const question =
+    familyFeudChristmasPool.find((q) => q.id === questionId) ||
+    (questionId.startsWith('ai_') ? await getFamilyFeudItemById(questionId, roomId, sessionId) : undefined);
   if (!question) throw new Error('Question not found');
   
   // Validate answer directly

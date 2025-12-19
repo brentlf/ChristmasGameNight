@@ -25,7 +25,8 @@ export async function generateAIContentForSession(
   sessionId: string,
   gameId: MiniGameType,
   count: number,
-  theme: string = 'Christmas'
+  theme: string = 'Christmas',
+  difficulty: 'easy' | 'medium' | 'hard' = 'easy'
 ): Promise<string[]> {
   // Generate seed from roomId and sessionId strings
   const seedStr = `${roomId}_${sessionId}`;
@@ -43,7 +44,7 @@ export async function generateAIContentForSession(
 
     switch (gameId) {
       case 'trivia': {
-        contentItems = await generateAITriviaQuestionsServer(count, theme);
+        contentItems = await generateAITriviaQuestionsServer(count, theme, difficulty);
         content = contentItems;
         break;
       }
@@ -51,7 +52,7 @@ export async function generateAIContentForSession(
         // For Family Feud, we need to generate multiple questions (one per round)
         const questions = [];
         for (let i = 0; i < count; i++) {
-          const question = await generateAIFamilyFeudQuestionServer(theme);
+          const question = await generateAIFamilyFeudQuestionServer(theme, difficulty);
           // Update ID to be unique
           question.id = `ai_ff_${sessionId}_${i}`;
           // Update answer IDs
@@ -66,17 +67,17 @@ export async function generateAIContentForSession(
         break;
       }
       case 'pictionary': {
-        contentItems = await generateAIPictionaryPromptsServer(count, theme);
+        contentItems = await generateAIPictionaryPromptsServer(count, theme, difficulty);
         content = contentItems;
         break;
       }
       case 'wyr': {
-        contentItems = await generateAIWouldYouRatherServer(count, theme);
+        contentItems = await generateAIWouldYouRatherServer(count, theme, difficulty);
         content = contentItems;
         break;
       }
       case 'emoji': {
-        contentItems = await generateAIEmojiMoviesServer(count, theme);
+        contentItems = await generateAIEmojiMoviesServer(count, theme, difficulty);
         content = contentItems;
         break;
       }

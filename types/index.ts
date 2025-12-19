@@ -109,6 +109,8 @@ export interface Room {
   raceAiEnhanced?: boolean;
   // Race AI theme (defaults to 'Christmas' if not specified)
   raceAiTheme?: string;
+  // Race AI difficulty (defaults to 'easy' if not specified)
+  raceAiDifficulty?: 'easy' | 'medium' | 'hard';
   // Race stage questions (stored per stage to ensure all players see same questions)
   // For AI-enhanced mode, this also contains the full content objects (riddles, questions, clues)
   raceStageQuestions?: Record<string, {
