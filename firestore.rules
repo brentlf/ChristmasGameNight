@@ -1,11 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow authenticated users to list/query the rooms collection (for active rooms page)
-    match /rooms/{document=**} {
-      allow list: if request.auth != null;
-    }
-    
     match /rooms/{roomId} {
       function isAuthed() {
         return request.auth != null;
@@ -23,7 +18,9 @@ service cloud.firestore {
       }
 
       // For family use we allow authenticated reads so join-by-code works.
+      // This allows both get (single document) and list (collection queries) operations
       allow read: if isAuthed();
+      allow list: if isAuthed();
 
       // Room creator becomes controller.
       allow create: if isAuthed()
