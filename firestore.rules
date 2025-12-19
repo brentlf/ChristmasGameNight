@@ -1,6 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Allow authenticated users to list/query the rooms collection (for active rooms page)
+    match /rooms/{document=**} {
+      allow list: if request.auth != null;
+    }
+    
     match /rooms/{roomId} {
       function isAuthed() {
         return request.auth != null;
