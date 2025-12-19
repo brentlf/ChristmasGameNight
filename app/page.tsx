@@ -29,7 +29,7 @@ export default function Home() {
         <div className="mb-12 text-center animate-slide-up">
           <div className="inline-flex items-center gap-2 rounded-full bg-wood-dark/40 border border-wood-light/30 px-4 py-2 text-sm text-white/90 backdrop-blur-md animate-float shadow-lg" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 193, 7, 0.15)' }}>
             <span className="text-base animate-pulse-slow">🎄</span>
-            <span>Christmas</span>
+            <span>{mounted ? t('landing.christmas', language) : 'Christmas'}</span>
             </div>
           </div>
 
@@ -63,10 +63,10 @@ export default function Home() {
                 🎮
               </div>
               <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white group-hover:text-fire-gold transition-colors duration-300 drop-shadow-lg">
-                Christmas Game Night
+                {mounted ? t('landing.gameNightTile', language) : 'Christmas Game Night'}
               </h2>
               <p className="text-white/75 text-sm md:text-base group-hover:text-white/95 transition-colors duration-300">
-                Amazing Race & Trivia
+                {mounted ? t('landing.gameNightTileSub', language) : 'Amazing Race & Trivia'}
               </p>
               
               {/* Warm shimmer effect on hover */}
@@ -98,10 +98,10 @@ export default function Home() {
                 🎡
               </div>
               <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white group-hover:text-fire-gold transition-colors duration-300 drop-shadow-lg">
-                Christmas Traditions
+                {mounted ? t('landing.traditionsTile', language) : 'Christmas Traditions'}
               </h2>
               <p className="text-white/75 text-sm md:text-base group-hover:text-white/95 transition-colors duration-300">
-                Explore & Learn
+                {mounted ? t('landing.traditionsTileSub', language) : 'Explore & Learn'}
               </p>
               
               {/* Warm shimmer effect on hover */}
@@ -129,7 +129,7 @@ export default function Home() {
               <span className={`relative text-sm font-semibold transition-colors duration-300 ${
                 language === 'en' ? 'text-fire-gold' : 'text-white group-hover:text-fire-gold'
               }`}>
-                English
+                {mounted ? t('landing.english', language) : 'English'}
               </span>
               <div className={`absolute inset-0 bg-gradient-to-br from-fire-gold/25 to-transparent transition-opacity duration-300 ${
                 language === 'en' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { getLanguage, setLanguage, type Language } from '@/lib/i18n'
+import { getLanguage, setLanguage, t, type Language } from '@/lib/i18n'
 import { useAudio } from '@/lib/contexts/AudioContext'
 
 const STORAGE_KEY_ACTIVE_ROOM_ID = 'cgn_active_room_id'
@@ -118,8 +118,8 @@ export default function TopLeftNav() {
             href={`/room/${activeRoomId}/play`}
             onClick={() => playSound('click')}
             className="inline-flex md:hidden items-center justify-center rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
-            aria-label="Return to active room"
-            title="Return to active room"
+            aria-label={t('nav.returnToActiveRoom', lang)}
+            title={t('nav.returnToActiveRoom', lang)}
           >
             <IconDoorReturn className="h-5 w-5" />
           </Link>
@@ -138,10 +138,10 @@ export default function TopLeftNav() {
               }
             }}
             className="hidden md:inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
-            aria-label="Go back"
+            aria-label={t('nav.back', lang)}
           >
             <IconArrowLeft className="h-5 w-5" />
-            <span className="hidden sm:inline">Back</span>
+            <span className="hidden sm:inline">{t('nav.back', lang)}</span>
           </button>
         )}
 
@@ -150,10 +150,10 @@ export default function TopLeftNav() {
             href="/"
             onClick={() => playSound('click')}
             className="hidden md:inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
-            aria-label="Go home"
+            aria-label={t('nav.home', lang)}
           >
             <IconHome className="h-5 w-5" />
-            <span className="hidden sm:inline">Home</span>
+            <span className="hidden sm:inline">{t('nav.home', lang)}</span>
           </Link>
         )}
 
@@ -198,10 +198,10 @@ export default function TopLeftNav() {
           href="/traditions"
           onClick={() => playSound('click')}
           className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
-          aria-label="Tradition Wheel"
+          aria-label={t('nav.traditions', lang)}
         >
           🎡
-          <span className="hidden sm:inline">Traditions</span>
+          <span className="hidden sm:inline">{t('nav.traditions', lang)}</span>
         </Link>
       </div>
     </div>

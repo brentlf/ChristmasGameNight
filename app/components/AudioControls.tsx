@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useAudio } from '@/lib/contexts/AudioContext'
+import { getLanguage, t, type Language } from '@/lib/i18n'
 
 function IconMusic(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -41,6 +42,7 @@ export default function AudioControls() {
   } = useAudio()
 
   const [open, setOpen] = useState(false)
+  const lang = getLanguage()
 
   // Persist audio settings so it feels consistent across the night.
   useEffect(() => {
@@ -96,7 +98,7 @@ export default function AudioControls() {
             setOpen((v) => !v)
           }}
           className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-lg px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
-          aria-label="Audio settings"
+          aria-label={t('audio.settings', lang)}
         >
           <IconMusic className="h-5 w-5" />
           <span className="hidden sm:inline">{backgroundMusicEnabled ? `${volumePct}%` : 'Off'}</span>
@@ -105,7 +107,7 @@ export default function AudioControls() {
         {open && (
           <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-md shadow-xl p-4">
             <div className="flex items-center justify-between gap-3 mb-3">
-              <p className="text-sm font-bold text-white">Music</p>
+              <p className="text-sm font-bold text-white">{t('audio.music', lang)}</p>
               <button
                 type="button"
                 onClick={() => {
@@ -116,11 +118,11 @@ export default function AudioControls() {
                   backgroundMusicEnabled ? 'bg-christmas-gold/25 border border-christmas-gold/40 text-white' : 'bg-white/10 text-white/80 hover:bg-white/15'
                 }`}
               >
-                {backgroundMusicEnabled ? 'On' : 'Off'}
+                {backgroundMusicEnabled ? t('audio.on', lang) : t('audio.off', lang)}
               </button>
             </div>
 
-            <label className="block text-xs text-white/70 mb-2">Volume: {volumePct}%</label>
+            <label className="block text-xs text-white/70 mb-2">{t('audio.volume', lang)}: {volumePct}%</label>
             <input
               type="range"
               min={0}
@@ -138,7 +140,7 @@ export default function AudioControls() {
             <div className="my-4 h-px bg-white/10" />
 
             <div className="flex items-center justify-between gap-3 mb-3">
-              <p className="text-sm font-bold text-white">Effects</p>
+              <p className="text-sm font-bold text-white">{t('audio.effects', lang)}</p>
               <button
                 type="button"
                 onClick={() => {
@@ -149,11 +151,11 @@ export default function AudioControls() {
                   soundEffectsEnabled ? 'bg-christmas-gold/25 border border-christmas-gold/40 text-white' : 'bg-white/10 text-white/80 hover:bg-white/15'
                 }`}
               >
-                {soundEffectsEnabled ? 'On' : 'Off'}
+                {soundEffectsEnabled ? t('audio.on', lang) : t('audio.off', lang)}
               </button>
             </div>
 
-            <label className="block text-xs text-white/70 mb-2">Volume: {sfxPct}%</label>
+            <label className="block text-xs text-white/70 mb-2">{t('audio.volume', lang)}: {sfxPct}%</label>
             <input
               type="range"
               min={0}
@@ -179,12 +181,12 @@ export default function AudioControls() {
                 }}
                 className="btn-secondary w-full text-xs"
               >
-                Mute all
+                {t('audio.muteAll', lang)}
               </button>
             </div>
 
             <p className="text-[11px] text-white/50 mt-3">
-              Note: browsers require a tap/click before audio can start.
+              {t('audio.browserNote', lang)}
             </p>
           </div>
         )}

@@ -79,6 +79,7 @@ const translations: Record<Language, Record<string, string>> = {
     'common.close': 'Close',
     'common.copy': 'Copy',
     'common.copied': 'Copied!',
+    'common.failedToCreateRoom': 'Failed to create room',
     
     // Controller
     'controller.title': 'Control Panel',
@@ -268,6 +269,52 @@ const translations: Record<Language, Record<string, string>> = {
     'scoring.racePlacement': 'Race Placement',
     'scoring.miniGameScores': 'Mini Game Scores',
     'scoring.totalPoints': 'Total Points',
+    
+    // Navigation
+    'nav.home': 'Home',
+    'nav.back': 'Back',
+    'nav.traditions': 'Traditions',
+    'nav.returnToActiveRoom': 'Return to active room',
+    'nav.backToHome': 'Back to Home',
+    
+    // Landing Page Additional
+    'landing.christmas': 'Christmas',
+    'landing.gameNightTile': 'Christmas Game Night',
+    'landing.gameNightTileSub': 'Amazing Race & Trivia',
+    'landing.traditionsTile': 'Christmas Traditions',
+    'landing.traditionsTileSub': 'Explore & Learn',
+    'landing.english': 'English',
+    'landing.czech': 'Czech',
+    
+    // Game Night Page
+    'gamenight.title': 'Christmas Game Night',
+    'gamenight.selectLanguage': 'Select your language',
+    'gamenight.chooseMode': 'Choose a game mode to create or join a room',
+    'gamenight.hostSession': 'Host Session',
+    'gamenight.hostSessionSub': 'One room • many games',
+    'gamenight.hostSessionDesc': 'Start any mini-game or Amazing Race from the TV hub. Phones auto-follow.',
+    'gamenight.leaderboard': 'Leaderboard',
+    'gamenight.leaderboardSub': 'Global Rankings',
+    'gamenight.leaderboardDesc': 'View all-time scores across all games',
+    'gamenight.activeRooms': 'Active Rooms',
+    
+    // Create Page
+    'create.amazingRaceMode': 'Amazing Race (Festive Dash)',
+    'create.hostSessionMode': 'Host Session',
+    'create.leaderboardMode': 'Leaderboard',
+    'create.unknownMode': 'Unknown Mode',
+    'create.gameNightDefault': 'Game Night',
+    'create.gameRoomDefault': 'Game Room',
+    
+    // Audio Controls
+    'audio.settings': 'Audio settings',
+    'audio.music': 'Music',
+    'audio.effects': 'Effects',
+    'audio.volume': 'Volume',
+    'audio.on': 'On',
+    'audio.off': 'Off',
+    'audio.muteAll': 'Mute all',
+    'audio.browserNote': 'Note: browsers require a tap/click before audio can start.',
   },
   cs: {
     // Landing
@@ -347,6 +394,7 @@ const translations: Record<Language, Record<string, string>> = {
     'common.close': 'Zavřít',
     'common.copy': 'Kopírovat',
     'common.copied': 'Zkopírováno!',
+    'common.failedToCreateRoom': 'Nepodařilo se vytvořit místnost',
     
     // Controller
     'controller.title': 'Ovládací Panel',
@@ -536,6 +584,52 @@ const translations: Record<Language, Record<string, string>> = {
     'scoring.racePlacement': 'Umístění v Závodě',
     'scoring.miniGameScores': 'Skóre Mini Her',
     'scoring.totalPoints': 'Celkové Body',
+    
+    // Navigation
+    'nav.home': 'Domů',
+    'nav.back': 'Zpět',
+    'nav.traditions': 'Tradice',
+    'nav.returnToActiveRoom': 'Zpět do aktivní místnosti',
+    'nav.backToHome': 'Zpět na Domů',
+    
+    // Landing Page Additional
+    'landing.christmas': 'Vánoce',
+    'landing.gameNightTile': 'Vánoční Herní Večer',
+    'landing.gameNightTileSub': 'Úžasný Závod & Trivia',
+    'landing.traditionsTile': 'Vánoční Tradice',
+    'landing.traditionsTileSub': 'Objevuj & Uč se',
+    'landing.english': 'Angličtina',
+    'landing.czech': 'Čeština',
+    
+    // Game Night Page
+    'gamenight.title': 'Vánoční Herní Večer',
+    'gamenight.selectLanguage': 'Vyberte jazyk',
+    'gamenight.chooseMode': 'Vyberte herní režim pro vytvoření nebo připojení k místnosti',
+    'gamenight.hostSession': 'Hostující Session',
+    'gamenight.hostSessionSub': 'Jedna místnost • mnoho her',
+    'gamenight.hostSessionDesc': 'Spusť libovolnou mini-hru nebo Úžasný Závod z TV centra. Telefony automaticky následují.',
+    'gamenight.leaderboard': 'Žebříček',
+    'gamenight.leaderboardSub': 'Celosvětové Žebříčky',
+    'gamenight.leaderboardDesc': 'Zobrazit všechny skóre napříč všemi hrami',
+    'gamenight.activeRooms': 'Aktivní Místnosti',
+    
+    // Create Page
+    'create.amazingRaceMode': 'Úžasný Závod (Vánoční Sprint)',
+    'create.hostSessionMode': 'Hostující Session',
+    'create.leaderboardMode': 'Žebříček',
+    'create.unknownMode': 'Neznámý Režim',
+    'create.gameNightDefault': 'Herní Večer',
+    'create.gameRoomDefault': 'Herní Místnost',
+    
+    // Audio Controls
+    'audio.settings': 'Nastavení zvuku',
+    'audio.music': 'Hudba',
+    'audio.effects': 'Zvuky',
+    'audio.volume': 'Hlasitost',
+    'audio.on': 'Zapnuto',
+    'audio.off': 'Vypnuto',
+    'audio.muteAll': 'Ztlumit vše',
+    'audio.browserNote': 'Poznámka: prohlížeče vyžadují klepnutí/kliknutí před spuštěním zvuku.',
   },
 };
 

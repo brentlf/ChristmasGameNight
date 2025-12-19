@@ -82,7 +82,7 @@ function CreatePageInner() {
       playSound('success');
       router.push(`/room/${roomId}/tv`);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create room');
+      toast.error(error.message || t('common.failedToCreateRoom', lang));
     } finally {
       setLoading(false);
     }
@@ -91,26 +91,26 @@ function CreatePageInner() {
   const getModeDisplayName = (mode: RoomMode): string => {
     switch (mode) {
       case 'amazing_race':
-        return 'Amazing Race (Festive Dash)';
+        return t('create.amazingRaceMode', lang);
       case 'mini_games':
-        return 'Host Session';
+        return t('create.hostSessionMode', lang);
       case 'leaderboard':
-        return 'Leaderboard';
+        return t('create.leaderboardMode', lang);
       default:
-        return 'Unknown Mode';
+        return t('create.unknownMode', lang);
     }
   };
 
   const getDefaultRoomName = (mode: RoomMode): string => {
     switch (mode) {
       case 'amazing_race':
-        return 'Amazing Race';
+        return t('game.amazingRace', lang);
       case 'mini_games':
-        return 'Game Night';
+        return t('create.gameNightDefault', lang);
       case 'leaderboard':
-        return 'Leaderboard';
+        return t('common.leaderboard', lang);
       default:
-        return 'Game Room';
+        return t('create.gameRoomDefault', lang);
     }
   };
 
@@ -132,7 +132,7 @@ function CreatePageInner() {
         <div className="mb-8 flex items-center justify-between">
           <Link href="/game-night" className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md hover:bg-white/20 transition">
             <span>←</span>
-            <span>Back</span>
+            <span>{t('common.back', lang)}</span>
           </Link>
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md">
             <span>🎬</span>

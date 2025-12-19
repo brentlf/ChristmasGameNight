@@ -34,21 +34,21 @@ export default function GameNightPage() {
           <div className="mb-8 text-center">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-4 py-2 text-sm text-white/80 backdrop-blur-md">
               <span className="text-base">🎄</span>
-              <span>Christmas Game Night</span>
+              <span>{t('gamenight.title', language)}</span>
             </div>
           </div>
 
           <div className="card mx-auto max-w-lg text-center">
-            <h1 className="game-show-title mb-4">Christmas Game Night</h1>
-            <p className="text-lg md:text-xl mb-8 text-white/80">Select your language</p>
+            <h1 className="game-show-title mb-4">{t('gamenight.title', language)}</h1>
+            <p className="text-lg md:text-xl mb-8 text-white/80">{t('gamenight.selectLanguage', language)}</p>
             <p className="text-sm mb-4 text-white/70">{t('landing.selectLanguage', language)}</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button onClick={() => handleLanguageSelect('en')} className="btn-primary w-full">
-                English
+                {t('landing.english', language)}
               </button>
               <button onClick={() => handleLanguageSelect('cs')} className="btn-primary w-full">
-                Čeština
+                {t('landing.czech', language)}
               </button>
             </div>
           </div>
@@ -63,7 +63,7 @@ export default function GameNightPage() {
         <div className="mb-10 flex items-center justify-between gap-4">
           <Link href="/" className="hidden md:inline-flex items-center gap-3 rounded-full bg-white/10 border border-white/15 px-4 py-2 backdrop-blur-md hover:bg-white/20 transition">
             <span>←</span>
-            <span className="font-semibold">Back to Home</span>
+            <span className="font-semibold">{t('nav.backToHome', language)}</span>
           </Link>
 
           <div className="flex items-center gap-2">
@@ -96,9 +96,9 @@ export default function GameNightPage() {
 
           <div className="relative">
             <div className="text-center mb-8">
-              <h1 className="game-show-title mb-3">Christmas Game Night</h1>
+              <h1 className="game-show-title mb-3">{t('gamenight.title', language)}</h1>
               <p className="text-lg text-white/80">
-                Choose a game mode to create or join a room
+                {t('gamenight.chooseMode', language)}
               </p>
             </div>
 
@@ -108,10 +108,10 @@ export default function GameNightPage() {
                 className="card text-center p-6 hover:bg-white/10 transition cursor-pointer border-2 border-transparent hover:border-christmas-gold/40"
               >
                 <div className="text-5xl mb-3">📺</div>
-                <h2 className="text-xl font-bold mb-2">Host Session</h2>
-                <p className="text-sm text-white/70 mb-3">One room • many games</p>
+                <h2 className="text-xl font-bold mb-2">{t('gamenight.hostSession', language)}</h2>
+                <p className="text-sm text-white/70 mb-3">{t('gamenight.hostSessionSub', language)}</p>
                 <p className="text-xs text-white/60">
-                  Start any mini-game or Amazing Race from the TV hub. Phones auto-follow.
+                  {t('gamenight.hostSessionDesc', language)}
                 </p>
               </button>
 
@@ -120,10 +120,10 @@ export default function GameNightPage() {
                 className="card text-center p-6 hover:bg-white/10 transition cursor-pointer border-2 border-transparent hover:border-christmas-gold/40"
               >
                 <div className="text-5xl mb-3">🏆</div>
-                <h2 className="text-xl font-bold mb-2">Leaderboard</h2>
-                <p className="text-sm text-white/70 mb-3">Global Rankings</p>
+                <h2 className="text-xl font-bold mb-2">{t('gamenight.leaderboard', language)}</h2>
+                <p className="text-sm text-white/70 mb-3">{t('gamenight.leaderboardSub', language)}</p>
                 <p className="text-xs text-white/60">
-                  View all-time scores across all games
+                  {t('gamenight.leaderboardDesc', language)}
                 </p>
               </Link>
             </div>
@@ -146,7 +146,7 @@ export default function GameNightPage() {
         }}
       >
         <span className="text-lg">🏠</span>
-        <span>Active Rooms</span>
+        <span>{t('gamenight.activeRooms', language)}</span>
       </Link>
     </main>
   );
