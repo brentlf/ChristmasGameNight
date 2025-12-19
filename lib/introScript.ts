@@ -43,6 +43,26 @@ export const INTRO_SCRIPT: Record<Exclude<SessionGameId, 'race'>, IntroLine[]> =
       cs: 'Rychlé prsty, ostré oči. První správný bere víc.',
     },
   ],
+  guess_the_song: [
+    {
+      en: 'Listen closely. Guess the Christmas song before the reveal.',
+      cs: 'Dobře poslouchejte. Uhodněte vánoční písničku.',
+    },
+    {
+      en: 'Audio plays on TV. Lock in your answer on your phone.',
+      cs: 'Zvuk hraje na TV. Zamkni odpověď na telefonu.',
+    },
+  ],
+  family_feud: [
+    {
+      en: 'We asked 100 people… Christmas answers are on the board.',
+      cs: 'Zeptali jsme se lidí… Vánoční odpovědi jsou na tabuli.',
+    },
+    {
+      en: 'Two teams compete. Guess answers to reveal them. Three strikes and the other team can steal!',
+      cs: 'Dva týmy soupeří. Hádejte odpovědi, abyste je odhalili. Tři chyby a druhý tým může ukrást!',
+    },
+  ],
 };
 
 

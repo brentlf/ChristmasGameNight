@@ -5,6 +5,8 @@ import { triviaChristmasPool } from '@/content/trivia_christmas';
 import { emojiMoviesChristmasPool } from '@/content/emoji_movies_christmas';
 import { wouldYouRatherChristmasPool } from '@/content/would_you_rather_christmas';
 import { pictionaryChristmasPool } from '@/content/pictionary_christmas';
+import { guessTheSongChristmasPool } from '@/content/guess_the_song_christmas';
+import { familyFeudChristmasPool } from '@/content/family_feud_christmas';
 import { generateSeed, shuffleSeeded } from '@/lib/utils/seededRandom';
 
 function normalizeForGuessing(input: string): string {
@@ -138,7 +140,7 @@ export async function initializeMiniGameSets(roomId: string, enabledGames?: Mini
   }
 
   // If enabledGames is provided, only initialize those. Otherwise, initialize all.
-  const gamesToInit = enabledGames || ['trivia', 'emoji', 'wyr', 'pictionary'];
+  const gamesToInit = enabledGames || ['trivia', 'emoji', 'wyr', 'pictionary', 'guess_the_song', 'family_feud'];
 
   const miniGames: Partial<Room['miniGames']> = {};
   
@@ -153,6 +155,12 @@ export async function initializeMiniGameSets(roomId: string, enabledGames?: Mini
   }
   if (gamesToInit.includes('pictionary')) {
     miniGames.pictionary = { selectedIds: selectRandomItems(pictionaryChristmasPool, 10).map((item) => item.id) };
+  }
+  if (gamesToInit.includes('guess_the_song')) {
+    miniGames.guess_the_song = { selectedIds: selectRandomItems(guessTheSongChristmasPool, 10).map((item) => item.id) };
+  }
+  if (gamesToInit.includes('family_feud')) {
+    miniGames.family_feud = { selectedIds: selectRandomItems(familyFeudChristmasPool, 5).map((item) => item.id) };
   }
 
   await updateDoc(roomRef, { miniGames });
@@ -735,6 +743,9 @@ export function calculateTotalMiniGameScore(progress: Player['miniGameProgress']
   // Pictionary uses new multiplayer scoring
   if (progress.pictionary) {
     total += progress.pictionary.score || 0;
+  }
+  if (progress.guess_the_song) {
+    total += progress.guess_the_song.score || 0;
   }
   return total;
 }

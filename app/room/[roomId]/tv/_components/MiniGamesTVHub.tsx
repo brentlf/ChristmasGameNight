@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAudio } from '@/lib/contexts/AudioContext';
 import { createPortal } from 'react-dom';
 import type { MiniGameType, Player, Room } from '@/types';
 import { useSessionSelected } from '@/lib/hooks/useSessionSelected';
@@ -16,11 +17,13 @@ import {
   controllerStartQuestion,
   isPictionaryGuessCorrect,
   startMiniGameSession,
+  setFamilyFeudTeams,
+  startFamilyFeudRound,
+  endFamilyFeudRound,
 } from '@/lib/sessions/sessionEngine';
-import { getEmojiItemById, getTriviaItemById, getWYRItemById } from '@/lib/miniGameContent';
+import { getEmojiItemById, getTriviaItemById, getWYRItemById, getGuessTheSongItemById, getFamilyFeudItemById } from '@/lib/miniGameContent';
 import TimerRing from '@/app/components/TimerRing';
 import GameIntro from '@/app/components/GameIntro';
-import { useAudio } from '@/lib/contexts/AudioContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { rolloverRoomWithSamePlayers } from '@/lib/utils/room';
@@ -30,6 +33,8 @@ function gameLabel(gameId: MiniGameType) {
   if (gameId === 'emoji') return '🎬 Emoji';
   if (gameId === 'wyr') return '🎄 Would You Rather';
   if (gameId === 'pictionary') return '🎨 Pictionary';
+  if (gameId === 'guess_the_song') return '🎵 Guess the Song';
+  if (gameId === 'family_feud') return '🎯 Family Feud';
   return gameId;
 }
 
@@ -191,6 +196,8 @@ export default function MiniGamesTVHub(props: {
     if (gameId === 'trivia') return { type: 'trivia' as const, item: getTriviaItemById(id) };
     if (gameId === 'emoji') return { type: 'emoji' as const, item: getEmojiItemById(id) };
     if (gameId === 'wyr') return { type: 'wyr' as const, item: getWYRItemById(id) };
+    if (gameId === 'guess_the_song') return { type: 'guess_the_song' as const, item: getGuessTheSongItemById(id) };
+    if (gameId === 'family_feud') return { type: 'family_feud' as const, item: getFamilyFeudItemById(id) };
     return null;
   }, [gameId, questionIndex, selectedIds]);
 
@@ -448,6 +455,23 @@ export default function MiniGamesTVHub(props: {
         />
       );
     }
+    if (gameId === 'family_feud') {
+      const roundIndex = currentSession?.roundIndex ?? 0;
+      const questionId = selectedIds?.[roundIndex] ?? null;
+      return (
+        <FamilyFeudTVRound
+          roomId={roomId}
+          sessionId={sessionId!}
+          room={room}
+          players={players}
+          selectedIds={selectedIds}
+          roundIndex={roundIndex}
+          questionId={questionId}
+          lang={lang}
+          isController={isController}
+        />
+      );
+    }
     if (!content || !gameId) return null;
     if (content.type === 'trivia' && content.item) {
       return (
@@ -490,6 +514,16 @@ export default function MiniGamesTVHub(props: {
             </div>
           </div>
         </div>
+      );
+    }
+    if (content.type === 'guess_the_song' && content.item) {
+      return (
+        <GuessTheSongTVQuestion
+          item={content.item}
+          questionIndex={questionIndex!}
+          totalQuestions={selectedIds.length}
+          lang={lang}
+        />
       );
     }
     return null;
@@ -564,6 +598,21 @@ export default function MiniGamesTVHub(props: {
               <div className="text-4xl font-black">{Number(r.bPct ?? 0)}%</div>
               <div className="text-white/60">{Number(r.bCount ?? 0)} votes</div>
             </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (gameId === 'guess_the_song' && r) {
+      return (
+        <div className="text-center">
+          <div className="text-6xl mb-3">🎵</div>
+          <div className="text-3xl font-black">{lang === 'cs' ? 'Správná odpověď' : 'Correct answer'}</div>
+          <div className="text-4xl font-black text-christmas-gold mt-3">
+            {(r.correctAnswer?.[lang] ?? r.correctAnswer?.en ?? '').toString()}
+          </div>
+          <div className="text-white/70 mt-2">
+            {lang === 'cs' ? 'Správně:' : 'Correct:'} {Number(r.correctCount ?? 0)}/{Number(r.total ?? activeCount)}
           </div>
         </div>
       );
@@ -663,6 +712,24 @@ export default function MiniGamesTVHub(props: {
               disabled={!isController || busy}
               onClick={() => requestStartGame('pictionary')}
             />
+            <GameTile
+              title={lang === 'cs' ? 'Uhádni písničku' : 'Guess the Song'}
+              subtitle={lang === 'cs' ? 'Poslouchej & hádej' : 'Listen & guess'}
+              description={lang === 'cs' ? 'Poslouchej úryvek a uhodni vánoční písničku.' : 'Listen to the snippet and guess the Christmas song.'}
+              icon="🎵"
+              accent="blue"
+              disabled={!isController || busy}
+              onClick={() => requestStartGame('guess_the_song')}
+            />
+            <GameTile
+              title={lang === 'cs' ? 'Vánoční rodinný souboj' : 'Christmas Family Feud'}
+              subtitle={lang === 'cs' ? 'Týmová hra' : 'Team game'}
+              description={lang === 'cs' ? 'Dva týmy soupeří. Hádejte odpovědi a odhalte je na tabuli.' : 'Two teams compete. Guess answers to reveal them on the board.'}
+              icon="🎯"
+              accent="red"
+              disabled={!isController || busy}
+              onClick={() => requestStartGame('family_feud')}
+            />
           </div>
 
           {!isController && (
@@ -671,6 +738,19 @@ export default function MiniGamesTVHub(props: {
             </p>
           )}
         </div>
+      );
+    }
+
+    if (sessionStatus === 'team_setup') {
+      return (
+        <FamilyFeudTeamSetup
+          roomId={roomId}
+          sessionId={sessionId!}
+          room={room}
+          players={players}
+          lang={lang}
+          isController={isController}
+        />
       );
     }
 
@@ -686,6 +766,8 @@ export default function MiniGamesTVHub(props: {
               if (!isController) return;
               if (gameId === 'pictionary') {
                 await controllerStartPictionaryRound({ roomId, sessionId, roundIndex: 0 });
+              } else if (gameId === 'family_feud') {
+                await startFamilyFeudRound({ roomId, sessionId, roundIndex: 0 });
               } else {
                 await controllerStartQuestion({ roomId, sessionId, questionIndex: 0 });
               }
@@ -748,7 +830,23 @@ export default function MiniGamesTVHub(props: {
       );
     }
 
-    if (sessionStatus === 'reveal') {
+    if (sessionStatus === 'reveal' || sessionStatus === 'round_reveal') {
+      if (gameId === 'family_feud') {
+        // Family Feud shows the round view during reveal
+        return (
+          <div className="flex-1 min-h-0 rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8 flex flex-col">
+            <div className="flex items-center justify-between gap-4 mb-5">
+              <div className="min-w-0">
+                <div className="text-sm text-white/70">{gameLabel(gameId)}</div>
+                <div className="text-white/90 text-lg font-bold">
+                  {lang === 'cs' ? 'Konec kola' : 'Round End'}
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0">{renderQuestion()}</div>
+          </div>
+        );
+      }
       return (
         <div className="flex-1 min-h-0 rounded-3xl border border-white/10 bg-white/5 p-8 md:p-10 flex flex-col justify-center">
           {renderReveal()}
@@ -961,6 +1059,667 @@ function PictionaryTVRound(props: {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GuessTheSongTVQuestion(props: {
+  item: ReturnType<typeof getGuessTheSongItemById>;
+  questionIndex: number;
+  totalQuestions: number;
+  lang: 'en' | 'cs';
+}) {
+  const { item, questionIndex, totalQuestions, lang } = props;
+  const { playSound } = useAudio();
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [replayCooldown, setReplayCooldown] = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (!item) return;
+    
+    // Clean up previous audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+    
+    const audio = new Audio(item.audioSrc);
+    audio.volume = 0.3;
+    audio.preload = 'auto';
+    audioRef.current = audio;
+    
+    // Set up event handlers
+    const handleEnded = () => {
+      setAudioPlaying(false);
+    };
+    
+    const handleError = () => {
+      setAudioPlaying(false);
+      setAutoplayBlocked(true);
+    };
+    
+    const handleCanPlay = () => {
+      // Try to auto-play once audio is ready
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setAudioPlaying(true);
+            setAutoplayBlocked(false);
+          })
+          .catch((error) => {
+            // Autoplay was blocked - this is expected in many browsers
+            setAudioPlaying(false);
+            setAutoplayBlocked(true);
+            // Don't log to console as this is expected behavior
+          });
+      }
+    };
+    
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
+    audio.addEventListener('canplaythrough', handleCanPlay);
+    
+    // Also try immediate play (may work if user has already interacted)
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          setAudioPlaying(true);
+          setAutoplayBlocked(false);
+        })
+        .catch(() => {
+          // Will try again on canplaythrough
+          setAutoplayBlocked(true);
+        });
+    }
+
+    return () => {
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
+      audio.removeEventListener('canplaythrough', handleCanPlay);
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = '';
+      setAudioPlaying(false);
+      setAutoplayBlocked(false);
+    };
+  }, [item]);
+
+  const handleReplay = () => {
+    if (replayCooldown || !audioRef.current) return;
+    setReplayCooldown(true);
+    setAutoplayBlocked(false);
+    setAudioPlaying(true);
+    audioRef.current.currentTime = 0;
+    const playPromise = audioRef.current.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          setAudioPlaying(true);
+        })
+        .catch((error) => {
+          setAudioPlaying(false);
+          console.error('Failed to play audio:', error);
+        });
+    }
+    setTimeout(() => setReplayCooldown(false), 2000);
+  };
+
+  if (!item) return null;
+
+  return (
+    <div className="space-y-4">
+      <div className="text-white/70 text-sm">Song {questionIndex + 1}/{totalQuestions}</div>
+      <div className="text-4xl font-black leading-tight text-center">{item.questionText[lang]}</div>
+      
+      <div className="flex items-center justify-center gap-4">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 flex items-center justify-center">
+          <div className="text-6xl">🎵</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            playSound('click', 0.1);
+            handleReplay();
+          }}
+          disabled={replayCooldown || audioPlaying}
+          className="btn-secondary disabled:opacity-50"
+        >
+          {audioPlaying
+            ? lang === 'cs'
+              ? 'Přehrává se...'
+              : 'Playing...'
+            : replayCooldown
+            ? lang === 'cs'
+              ? 'Počkej...'
+              : 'Wait...'
+            : autoplayBlocked
+            ? lang === 'cs'
+              ? '▶️ Přehrát'
+              : '▶️ Play snippet'
+            : lang === 'cs'
+            ? '▶️ Přehrát znovu'
+            : '▶️ Replay snippet'}
+        </button>
+      </div>
+      
+      {autoplayBlocked && (
+        <div className="text-center text-sm text-white/60">
+          {lang === 'cs'
+            ? 'Klikni na tlačítko pro přehrání úryvku.'
+            : 'Click the button to play the snippet.'}
+        </div>
+      )}
+
+      <div className="text-center text-white/60 text-sm">
+        {lang === 'cs'
+          ? 'Odpovědi se zobrazí na telefonech.'
+          : 'Answers will appear on phones.'}
+      </div>
+    </div>
+  );
+}
+
+function FamilyFeudTeamSetup(props: {
+  roomId: string;
+  sessionId: string;
+  room: Room;
+  players: Player[];
+  lang: 'en' | 'cs';
+  isController: boolean;
+}) {
+  const { roomId, sessionId, room, players, lang, isController } = props;
+  const currentSession = room.currentSession;
+  const teamMapping = currentSession?.teamMapping || {};
+  const [draggedPlayer, setDraggedPlayer] = useState<string | null>(null);
+  const [localMapping, setLocalMapping] = useState<Record<string, 'A' | 'B'>>(teamMapping);
+  const { playSound } = useAudio();
+
+  const teamA = players.filter((p) => localMapping[p.uid] === 'A');
+  const teamB = players.filter((p) => localMapping[p.uid] === 'B');
+  const unassigned = players.filter((p) => !localMapping[p.uid]);
+
+  const handleRandomAssign = () => {
+    const shuffled = [...players].sort(() => Math.random() - 0.5);
+    const newMapping: Record<string, 'A' | 'B'> = {};
+    shuffled.forEach((p, idx) => {
+      newMapping[p.uid] = idx % 2 === 0 ? 'A' : 'B';
+    });
+    setLocalMapping(newMapping);
+    playSound('click', 0.1);
+  };
+
+  const handleSave = async () => {
+    if (!isController) return;
+    if (teamA.length === 0 || teamB.length === 0) {
+      alert(lang === 'cs' ? 'Každý tým musí mít alespoň jednoho hráče.' : 'Each team must have at least one player.');
+      return;
+    }
+    playSound('success', 0.15);
+    await setFamilyFeudTeams({ roomId, sessionId, teamMapping: localMapping });
+  };
+
+  const handleDrop = (team: 'A' | 'B', uid: string) => {
+    setLocalMapping((prev) => ({ ...prev, [uid]: team }));
+    setDraggedPlayer(null);
+    playSound('click', 0.05);
+  };
+
+  return (
+    <div className="flex-1 min-h-0 rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8 flex flex-col">
+      <div className="mb-6">
+        <h2 className="text-3xl font-black mb-2">
+          {lang === 'cs' ? 'Rozdělení týmů' : 'Team Setup'}
+        </h2>
+        <p className="text-white/70 text-sm">
+          {lang === 'cs' ? 'Přetáhněte hráče do týmů nebo použijte náhodné rozdělení.' : 'Drag players to teams or use random assignment.'}
+        </p>
+      </div>
+
+      <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Team A */}
+        <div 
+          className="rounded-2xl border-2 border-christmas-red/40 bg-christmas-red/10 p-4"
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (draggedPlayer) handleDrop('A', draggedPlayer);
+          }}
+        >
+          <div className="text-xl font-black mb-3 text-christmas-red">
+            {lang === 'cs' ? 'Tým A' : 'Team A'} ({teamA.length})
+          </div>
+          <div className="space-y-2 min-h-[200px]">
+            {teamA.map((p) => (
+              <div
+                key={p.uid}
+                draggable={isController}
+                onDragStart={() => setDraggedPlayer(p.uid)}
+                onDragEnd={() => setDraggedPlayer(null)}
+                className="rounded-xl border border-white/20 bg-white/5 p-3 flex items-center gap-3 cursor-move"
+              >
+                <span className="text-2xl">{p.avatar}</span>
+                <span className="font-semibold">{p.name}</span>
+                {isController && (
+                  <button
+                    type="button"
+                    onClick={() => setLocalMapping((prev) => {
+                      const next = { ...prev };
+                      delete next[p.uid];
+                      return next;
+                    })}
+                    className="ml-auto text-white/60 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            {teamA.length === 0 && (
+              <div className="text-white/40 text-sm text-center py-8">
+                {lang === 'cs' ? 'Přetáhněte sem hráče' : 'Drag players here'}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Unassigned */}
+        <div className="rounded-2xl border border-white/20 bg-white/5 p-4">
+          <div className="text-lg font-bold mb-3 text-white/70">
+            {lang === 'cs' ? 'Nepřiřazeno' : 'Unassigned'} ({unassigned.length})
+          </div>
+          <div className="space-y-2 min-h-[200px]">
+            {unassigned.map((p) => (
+              <div
+                key={p.uid}
+                draggable={isController}
+                onDragStart={() => setDraggedPlayer(p.uid)}
+                onDragEnd={() => setDraggedPlayer(null)}
+                className="rounded-xl border border-white/20 bg-white/5 p-3 flex items-center gap-3 cursor-move"
+              >
+                <span className="text-2xl">{p.avatar}</span>
+                <span className="font-semibold">{p.name}</span>
+              </div>
+            ))}
+            {unassigned.length === 0 && (
+              <div className="text-white/40 text-sm text-center py-8">
+                {lang === 'cs' ? 'Všichni přiřazeni' : 'All assigned'}
+              </div>
+            )}
+          </div>
+          {isController && unassigned.length > 0 && (
+            <button
+              type="button"
+              onClick={handleRandomAssign}
+              className="btn-secondary w-full mt-4 text-sm"
+            >
+              {lang === 'cs' ? '🎲 Náhodné rozdělení' : '🎲 Random Assign'}
+            </button>
+          )}
+        </div>
+
+        {/* Team B */}
+        <div 
+          className="rounded-2xl border-2 border-blue-400/40 bg-blue-400/10 p-4"
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (draggedPlayer) handleDrop('B', draggedPlayer);
+          }}
+        >
+          <div className="text-xl font-black mb-3 text-blue-400">
+            {lang === 'cs' ? 'Tým B' : 'Team B'} ({teamB.length})
+          </div>
+          <div className="space-y-2 min-h-[200px]">
+            {teamB.map((p) => (
+              <div
+                key={p.uid}
+                draggable={isController}
+                onDragStart={() => setDraggedPlayer(p.uid)}
+                onDragEnd={() => setDraggedPlayer(null)}
+                className="rounded-xl border border-white/20 bg-white/5 p-3 flex items-center gap-3 cursor-move"
+              >
+                <span className="text-2xl">{p.avatar}</span>
+                <span className="font-semibold">{p.name}</span>
+                {isController && (
+                  <button
+                    type="button"
+                    onClick={() => setLocalMapping((prev) => {
+                      const next = { ...prev };
+                      delete next[p.uid];
+                      return next;
+                    })}
+                    className="ml-auto text-white/60 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            {teamB.length === 0 && (
+              <div className="text-white/40 text-sm text-center py-8">
+                {lang === 'cs' ? 'Přetáhněte sem hráče' : 'Drag players here'}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {isController && (
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={handleRandomAssign}
+            className="btn-secondary"
+          >
+            {lang === 'cs' ? '🎲 Náhodně' : '🎲 Random'}
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={teamA.length === 0 || teamB.length === 0}
+            className="btn-primary"
+          >
+            {lang === 'cs' ? 'Pokračovat' : 'Continue'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FamilyFeudTVRound(props: {
+  roomId: string;
+  sessionId: string;
+  room: Room;
+  players: Player[];
+  selectedIds: string[] | null;
+  roundIndex: number;
+  questionId: string | null;
+  lang: 'en' | 'cs';
+  isController: boolean;
+}) {
+  const { roomId, sessionId, room, players, selectedIds, roundIndex, questionId, lang, isController } = props;
+  const currentSession = room.currentSession;
+  const question = questionId ? getFamilyFeudItemById(questionId) : null;
+  const activeTeam = currentSession?.activeTeam || 'A';
+  const strikes = currentSession?.strikes || 0;
+  const revealedAnswerIds = currentSession?.revealedAnswerIds || [];
+  const teamScores = currentSession?.teamScores || { A: 0, B: 0 };
+  const teamMapping = currentSession?.teamMapping || {};
+  const sessionStatus = currentSession?.status;
+  const { playSound } = useAudio();
+  const [showQuestion, setShowQuestion] = useState(false);
+  const prevRevealedCount = useRef(0);
+  const prevStrikes = useRef(0);
+
+  // Play sounds when answers are revealed or strikes occur
+  useEffect(() => {
+    const currentRevealedCount = revealedAnswerIds.length;
+    const currentStrikes = strikes;
+
+    // Answer revealed sound
+    if (currentRevealedCount > prevRevealedCount.current && sessionStatus === 'in_round') {
+      playSound('success', 0.3); // Family Feud "Good answer!" sound
+    }
+
+    // Strike sound
+    if (currentStrikes > prevStrikes.current && sessionStatus === 'in_round') {
+      playSound('ding', 0.4); // Family Feud "X" buzz sound
+    }
+
+    // Steal opportunity sound
+    if (sessionStatus === 'steal' && prevStrikes.current < 3) {
+      playSound('jingle', 0.25); // Dramatic sound for steal opportunity
+    }
+
+    prevRevealedCount.current = currentRevealedCount;
+    prevStrikes.current = currentStrikes;
+  }, [revealedAnswerIds.length, strikes, sessionStatus, playSound]);
+
+  const handleEndRound = async () => {
+    if (!isController) return;
+    playSound('whoosh', 0.2);
+    await endFamilyFeudRound({ roomId, sessionId, roundIndex });
+  };
+
+  if (!question) {
+    return (
+      <div className="text-center text-white/70">
+        {lang === 'cs' ? 'Načítání otázky...' : 'Loading question...'}
+      </div>
+    );
+  }
+
+  // Calculate current round score (sum of revealed answers)
+  const currentRoundScore = question.answers
+    .filter((a) => revealedAnswerIds.includes(a.id))
+    .reduce((sum, a) => sum + a.points, 0);
+
+  // Organize answers into two columns (left and right)
+  const leftColumnAnswers = question.answers.filter((_, idx) => idx % 2 === 0);
+  const rightColumnAnswers = question.answers.filter((_, idx) => idx % 2 === 1);
+
+  return (
+    <div className="relative w-full h-full flex flex-col items-center justify-center p-8" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
+      {/* Outer frame with lights effect */}
+      <div className="absolute inset-0 border-[20px] border-orange-500 rounded-3xl" style={{ boxShadow: 'inset 0 0 30px rgba(255, 165, 0, 0.3)' }} />
+      <div className="absolute inset-[20px] border-[3px] border-black rounded-2xl" />
+      <div className="absolute inset-[23px] border-[15px] rounded-xl" style={{ 
+        background: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%)',
+        borderColor: '#1e40af',
+        boxShadow: 'inset 0 0 50px rgba(30, 64, 175, 0.5), 0 0 100px rgba(37, 99, 235, 0.3)'
+      }}>
+        {/* Decorative lights on frame */}
+        <div className="absolute top-2 left-2 right-2 h-4 flex gap-2">
+          {Array.from({ length: 40 }).map((_, i) => (
+            <div key={i} className="flex-1 h-2 rounded-full bg-amber-300/40" style={{ boxShadow: '0 0 8px rgba(251, 191, 36, 0.6)' }} />
+          ))}
+        </div>
+        <div className="absolute bottom-2 left-2 right-2 h-4 flex gap-2">
+          {Array.from({ length: 40 }).map((_, i) => (
+            <div key={i} className="flex-1 h-2 rounded-full bg-amber-300/40" style={{ boxShadow: '0 0 8px rgba(251, 191, 36, 0.6)' }} />
+          ))}
+        </div>
+        <div className="absolute left-2 top-2 bottom-2 w-4 flex flex-col gap-2">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div key={i} className="flex-1 w-2 rounded-full bg-amber-300/40" style={{ boxShadow: '0 0 8px rgba(251, 191, 36, 0.6)' }} />
+          ))}
+        </div>
+        <div className="absolute right-2 top-2 bottom-2 w-4 flex flex-col gap-2">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div key={i} className="flex-1 w-2 rounded-full bg-amber-300/40" style={{ boxShadow: '0 0 8px rgba(251, 191, 36, 0.6)' }} />
+          ))}
+        </div>
+
+        {/* Main content area */}
+        <div className="relative z-10 h-full flex flex-col p-6">
+          {/* Top bar */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-6xl font-black text-white tracking-wider" style={{ textShadow: '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.4)' }}>
+              ROUND
+            </div>
+            <div className="flex items-center gap-8">
+              {/* Current Score Display */}
+              <div className="bg-sky-300 rounded-xl px-8 py-4 border-4 border-white" style={{ boxShadow: '0 0 30px rgba(125, 211, 252, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.3)' }}>
+                <div className="text-7xl font-black text-white" style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)' }}>
+                  {currentRoundScore}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Question area */}
+          <div className="mb-6">
+            {showQuestion ? (
+              <div className="bg-blue-900 rounded-2xl p-6 border-4 border-white min-h-[120px] flex items-center justify-center">
+                <div className="text-4xl md:text-5xl font-black text-white text-center leading-tight" style={{ textShadow: '2px 2px 8px rgba(0, 0, 0, 0.8)' }}>
+                  {question.question[lang]}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-blue-900 rounded-2xl p-6 border-4 border-white min-h-[120px] flex items-center justify-center">
+                <div className="text-3xl text-white/50 font-bold">
+                  {lang === 'cs' ? 'Otázka je skryta' : 'Question Hidden'}
+                </div>
+              </div>
+            )}
+            {isController && (
+              <button
+                type="button"
+                onClick={() => setShowQuestion(!showQuestion)}
+                className="mt-3 bg-black text-white px-6 py-3 rounded-lg font-bold text-lg hover:bg-gray-800 transition-colors"
+              >
+                {showQuestion ? (lang === 'cs' ? 'SKRÝT OTÁZKU' : 'HIDE QUESTION') : (lang === 'cs' ? 'ZOBRAZIT OTÁZKU' : 'SHOW QUESTION')}
+              </button>
+            )}
+          </div>
+
+          {/* Answer Board - Two Columns */}
+          <div className="flex-1 grid grid-cols-2 gap-6 mb-6">
+            {/* Left Column */}
+            <div className="space-y-4">
+              {leftColumnAnswers.map((answer) => {
+                const isRevealed = revealedAnswerIds.includes(answer.id);
+                return (
+                  <div
+                    key={answer.id}
+                    className="relative bg-blue-900 rounded-xl border-4 border-white overflow-hidden transition-all duration-700"
+                    style={{
+                      boxShadow: isRevealed ? '0 0 30px rgba(255, 255, 255, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.1)' : '0 0 10px rgba(0, 0, 0, 0.5)',
+                      transform: isRevealed ? 'scale(1.02)' : 'scale(1)',
+                    }}
+                  >
+                    {isRevealed ? (
+                      <>
+                        {/* Points box */}
+                        <div className="absolute top-2 right-2 bg-white rounded-lg px-4 py-2 border-2 border-blue-600">
+                          <div className="text-4xl font-black text-blue-600" style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                            {answer.points}
+                          </div>
+                        </div>
+                        {/* Answer text */}
+                        <div className="p-6 pr-24">
+                          <div className="text-3xl md:text-4xl font-black text-white uppercase tracking-wide" style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
+                            {answer.text[lang]}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-6 min-h-[100px] flex items-center justify-center">
+                        <div className="text-5xl font-black text-white/20">?</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-4">
+              {rightColumnAnswers.map((answer) => {
+                const isRevealed = revealedAnswerIds.includes(answer.id);
+                return (
+                  <div
+                    key={answer.id}
+                    className="relative bg-blue-900 rounded-xl border-4 border-white overflow-hidden transition-all duration-700"
+                    style={{
+                      boxShadow: isRevealed ? '0 0 30px rgba(255, 255, 255, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.1)' : '0 0 10px rgba(0, 0, 0, 0.5)',
+                      transform: isRevealed ? 'scale(1.02)' : 'scale(1)',
+                    }}
+                  >
+                    {isRevealed ? (
+                      <>
+                        {/* Points box */}
+                        <div className="absolute top-2 right-2 bg-white rounded-lg px-4 py-2 border-2 border-blue-600">
+                          <div className="text-4xl font-black text-blue-600" style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                            {answer.points}
+                          </div>
+                        </div>
+                        {/* Answer text */}
+                        <div className="p-6 pr-24">
+                          <div className="text-3xl md:text-4xl font-black text-white uppercase tracking-wide" style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
+                            {answer.text[lang]}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-6 min-h-[100px] flex items-center justify-center">
+                        <div className="text-5xl font-black text-white/20">?</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {/* Team Scores */}
+              <div className="flex items-center gap-8">
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1 font-bold">{lang === 'cs' ? 'TÝM A' : 'TEAM A'}</div>
+                  <div className={`text-5xl font-black ${activeTeam === 'A' && sessionStatus === 'in_round' ? 'text-red-500' : 'text-white'}`} style={{ textShadow: activeTeam === 'A' && sessionStatus === 'in_round' ? '0 0 20px rgba(239, 68, 68, 0.8)' : '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
+                    {teamScores.A}
+                  </div>
+                </div>
+                <div className="text-4xl font-black text-white">-</div>
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1 font-bold">{lang === 'cs' ? 'TÝM B' : 'TEAM B'}</div>
+                  <div className={`text-5xl font-black ${activeTeam === 'B' && sessionStatus === 'in_round' ? 'text-blue-400' : 'text-white'}`} style={{ textShadow: activeTeam === 'B' && sessionStatus === 'in_round' ? '0 0 20px rgba(96, 165, 250, 0.8)' : '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
+                    {teamScores.B}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Strikes */}
+            {sessionStatus === 'in_round' && (
+              <div className="flex items-center gap-3">
+                <div className="text-2xl font-black text-white mr-2">{lang === 'cs' ? 'CHYBY:' : 'STRIKES:'}</div>
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="w-16 h-16 rounded-full border-4 border-white flex items-center justify-center bg-red-600"
+                    style={{
+                      boxShadow: i <= strikes ? '0 0 30px rgba(220, 38, 38, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.3)' : '0 0 10px rgba(0, 0, 0, 0.5)',
+                    }}
+                  >
+                    <div className="text-4xl font-black text-white" style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
+                      {i <= strikes ? '✕' : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Steal indicator */}
+            {sessionStatus === 'steal' && (
+              <div className="bg-yellow-400 rounded-xl px-8 py-4 border-4 border-white animate-pulse" style={{ boxShadow: '0 0 40px rgba(250, 204, 21, 0.8)' }}>
+                <div className="text-3xl font-black text-black uppercase tracking-wider">
+                  {lang === 'cs' ? `TÝM ${activeTeam} MŮŽE UKRÁST!` : `TEAM ${activeTeam} CAN STEAL!`}
+                </div>
+              </div>
+            )}
+
+            {/* Controller actions */}
+            {isController && sessionStatus === 'round_reveal' && (
+              <button
+                type="button"
+                onClick={handleEndRound}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-8 py-4 rounded-xl font-black text-xl border-4 border-white hover:from-blue-600 hover:to-blue-700 transition-all"
+                style={{ boxShadow: '0 0 30px rgba(59, 130, 246, 0.6)' }}
+              >
+                {lang === 'cs' ? 'DALŠÍ KOLO >>' : 'NEXT ROUND >>'}
+              </button>
+            )}
           </div>
         </div>
       </div>

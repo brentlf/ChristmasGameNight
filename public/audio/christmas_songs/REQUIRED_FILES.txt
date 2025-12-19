@@ -1,0 +1,93 @@
+Required Audio Files for "Guess the Christmas Song" Game
+========================================================
+
+This file lists all 50 audio files needed for the game.
+Each file should be a 5-10 second instrumental snippet in MP3 or OGG format.
+
+UNIQUE FILES NEEDED (some songs use the same audio for different variants):
+--------------------------------------------------------
+
+1. jingle_bells_01.mp3
+2. silent_night_01.mp3
+3. deck_the_halls_01.mp3
+4. we_wish_you_01.mp3
+5. o_holy_night_01.mp3
+6. joy_to_the_world_01.mp3
+7. away_in_manger_01.mp3
+8. the_first_noel_01.mp3
+9. hark_herald_01.mp3
+10. white_christmas_01.mp3
+11. let_it_snow_01.mp3
+12. winter_wonderland_01.mp3
+13. rockin_around_01.mp3
+14. jingle_bell_rock_01.mp3
+15. santa_claus_coming_01.mp3
+16. rudolph_01.mp3
+17. frosty_01.mp3
+18. all_i_want_01.mp3
+19. last_christmas_01.mp3
+20. feliz_navidad_01.mp3
+21. 12_days_01.mp3
+22. chestnuts_01.mp3
+23. have_yourself_01.mp3
+24. it_beginning_01.mp3
+25. silver_bells_01.mp3
+26. carol_bells_01.mp3
+27. god_rest_01.mp3
+28. good_king_01.mp3
+29. here_comes_01.mp3
+30. holly_jolly_01.mp3
+31. little_drummer_01.mp3
+32. mistletoe_01.mp3
+33. nutcracker_01.mp3
+34. sleigh_ride_01.mp3
+35. somewhere_01.mp3
+36. underneath_01.mp3
+37. wonderful_time_01.mp3
+38. blue_christmas_01.mp3
+39. christmas_wrapping_01.mp3
+40. do_they_know_01.mp3
+
+TOTAL: 40 unique audio files (some songs reuse the same audio for different question variants)
+
+HOW TO OBTAIN AUDIO FILES:
+---------------------------
+
+Option 1: Royalty-Free Sources
+- Freesound.org (search for "christmas instrumental")
+- Incompetech.com (Kevin MacLeod - check licensing)
+- YouTube Audio Library (free music library)
+- Pixabay Music (royalty-free)
+
+Option 2: Create Your Own
+- Use instrumental versions of Christmas songs
+- Extract 5-10 second snippets from recognizable parts
+- Use audio editing software (Audacity, GarageBand, etc.)
+- Ensure no vocals (instrumental only)
+
+Option 3: Use AI-Generated Music
+- Use AI music generators to create instrumental snippets
+- Ensure they're recognizable as the intended songs
+
+IMPORTANT LEGAL NOTES:
+----------------------
+- Ensure you have proper licensing for any audio files you use
+- For commercial use, you may need to purchase licenses
+- Public domain songs (like traditional carols) are generally safe
+- Modern songs (like "All I Want for Christmas Is You") require licensing
+
+AUDIO SPECIFICATIONS:
+---------------------
+- Format: MP3 or OGG (OGG preferred for web)
+- Length: 5-10 seconds
+- Type: Instrumental only (no vocals)
+- Volume: Normalized, subtle (not too loud)
+- Quality: 128kbps minimum, 192kbps recommended
+- Sample Rate: 44.1kHz
+
+PLACEMENT:
+----------
+Place all files directly in: public/audio/christmas_songs/
+
+The game will work without audio files, but players won't hear the snippets.
+The TV will show a music note icon and replay button regardless.

@@ -10,9 +10,9 @@ export type RoomStatus =
   | 'session_reveal'
   | 'session_results';
 export type RoomMode = 'amazing_race' | 'mini_games' | 'leaderboard';
-export type MiniGameType = 'trivia' | 'emoji' | 'wyr' | 'pictionary';
+export type MiniGameType = 'trivia' | 'emoji' | 'wyr' | 'pictionary' | 'guess_the_song' | 'family_feud';
 
-export type SessionStatus = 'lobby' | 'intro' | 'in_game' | 'reveal' | 'between' | 'finished';
+export type SessionStatus = 'lobby' | 'intro' | 'team_setup' | 'in_game' | 'in_round' | 'steal' | 'round_reveal' | 'reveal' | 'between' | 'finished';
 export type SessionGameId = MiniGameType | 'race';
 
 export interface RoomCurrentSession {
@@ -31,6 +31,16 @@ export interface RoomCurrentSession {
   revealData?: Record<string, any> | null;
   // Pictionary-specific
   drawerUid?: string | null;
+  // Family Feud-specific
+  roundIndex?: number;
+  activeTeam?: 'A' | 'B';
+  strikes?: number;
+  revealedAnswerIds?: string[];
+  teamScores?: {
+    A: number;
+    B: number;
+  };
+  teamMapping?: Record<string, 'A' | 'B'>; // uid -> team
 }
 
 export interface Room {
@@ -63,6 +73,8 @@ export interface Room {
     emoji?: { selectedIds: string[] };
     wyr?: { selectedIds: string[] };
     pictionary?: { selectedIds: string[] };
+    guess_the_song?: { selectedIds: string[] };
+    family_feud?: { selectedIds: string[] };
   };
   // Pictionary game state (for multiplayer rounds)
   pictionaryGameState?: {
@@ -139,6 +151,8 @@ export interface Player {
       roundsDrawn?: number; // number of rounds this player has drawn
       roundsGuessed?: number; // number of rounds this player has guessed correctly
     };
+    guess_the_song?: { answers: number[]; score: number; completedAt?: number };
+    family_feud?: { score: number; completedAt?: number };
   };
   totalMiniGameScore?: number;
   // Overall scoring (meta layer)

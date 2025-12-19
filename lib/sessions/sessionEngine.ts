@@ -16,6 +16,8 @@ import { triviaChristmasPool } from '@/content/trivia_christmas';
 import { emojiMoviesChristmasPool } from '@/content/emoji_movies_christmas';
 import { wouldYouRatherChristmasPool } from '@/content/would_you_rather_christmas';
 import { pictionaryChristmasPool } from '@/content/pictionary_christmas';
+import { guessTheSongChristmasPool } from '@/content/guess_the_song_christmas';
+import { familyFeudChristmasPool } from '@/content/family_feud_christmas';
 import { fuzzyMatchGuess } from '@/lib/utils/guessing';
 
 export type SessionSelectedDoc = {
@@ -45,6 +47,8 @@ function getIdPoolForGame(gameId: SessionGameId): string[] {
   if (gameId === 'emoji') return emojiMoviesChristmasPool.map((q) => q.id);
   if (gameId === 'wyr') return wouldYouRatherChristmasPool.map((q) => q.id);
   if (gameId === 'pictionary') return pictionaryChristmasPool.map((q) => q.id);
+  if (gameId === 'guess_the_song') return guessTheSongChristmasPool.map((q) => q.id);
+  if (gameId === 'family_feud') return familyFeudChristmasPool.map((q) => q.id);
   // Pictionary + race are handled elsewhere (pictionary has its own live stream; race has a separate engine)
   return [];
 }
@@ -76,10 +80,13 @@ export async function startMiniGameSession(params: {
   // - >6 players: each draws 1x
   // (3 players falls into the 4-6 bucket => 2x)
   const effectiveQuestionCount = (() => {
-    if (gameId !== 'pictionary') return questionCount;
-    const n = activePlayerUids.length;
-    const drawsPerPlayer = n < 3 ? 3 : n <= 6 ? 2 : 1;
-    return Math.max(1, n * drawsPerPlayer);
+    if (gameId === 'pictionary') {
+      const n = activePlayerUids.length;
+      const drawsPerPlayer = n < 3 ? 3 : n <= 6 ? 2 : 1;
+      return Math.max(1, n * drawsPerPlayer);
+    }
+    if (gameId === 'family_feud') return 5; // Always 5 rounds for Family Feud
+    return questionCount;
   })();
 
   if (poolIds.length < effectiveQuestionCount) {
@@ -99,20 +106,35 @@ export async function startMiniGameSession(params: {
   const selectedDoc: SessionSelectedDoc = { gameId, selectedIds, createdAt: Date.now() };
   await setDoc(selectedRef, selectedDoc);
 
+  // Family Feud starts with team setup
+  const initialStatus = gameId === 'family_feud' ? 'team_setup' : 'intro';
+  
+  const currentSessionData: any = {
+    sessionId,
+    status: initialStatus,
+    gameId,
+    questionIndex: 0,
+    activePlayerUids,
+    answeredUids: [],
+    revealData: null,
+    questionStartedAt: null,
+    questionEndsAt: null,
+  };
+  
+  // Only add roundIndex for family_feud (Firestore doesn't allow undefined)
+  if (gameId === 'family_feud') {
+    currentSessionData.roundIndex = 0;
+    currentSessionData.activeTeam = 'A';
+    currentSessionData.strikes = 0;
+    currentSessionData.revealedAnswerIds = [];
+    currentSessionData.teamScores = { A: 0, B: 0 };
+    currentSessionData.teamMapping = {};
+  }
+  
   await updateDoc(roomRef, {
     roomMode: 'mini_games',
     status: 'session_intro',
-    currentSession: {
-      sessionId,
-      status: 'intro',
-      gameId,
-      questionIndex: 0,
-      activePlayerUids,
-      answeredUids: [],
-      revealData: null,
-      questionStartedAt: null,
-      questionEndsAt: null,
-    },
+    currentSession: currentSessionData,
   } as any);
 
   return sessionId;
@@ -383,6 +405,34 @@ export async function controllerRevealAndScore(params: {
     };
   }
 
+  if (gameId === 'guess_the_song') {
+    const item = guessTheSongChristmasPool.find((x) => x.id === selectedId);
+    if (!item) throw new Error('Song item missing');
+    const correctIndex = item.correctIndex;
+    const correctUids: string[] = [];
+    for (const a of answers) {
+      const ok = typeof a.answer === 'number' && a.answer === correctIndex;
+      if (ok) correctUids.push(a.uid);
+      scoreBatch.set(
+        doc(scoresBaseRef, a.uid),
+        {
+          uid: a.uid,
+          score: increment(ok ? 10 : 0),
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      );
+    }
+    revealData = {
+      correctIndex,
+      correctUids,
+      correctCount: correctUids.length,
+      total: active.length,
+      correctAnswer: item.correctAnswer,
+      variant: item.variant,
+    };
+  }
+
   await scoreBatch.commit();
 
   await updateDoc(roomRef, {
@@ -427,6 +477,292 @@ export async function submitSessionAnswer(params: {
   );
   // Keep presence-ish info fresh.
   await updateDoc(doc(db, 'rooms', roomId, 'players', uid), { lastActiveAt: Date.now() } as any);
+}
+
+// Family Feud: Set team assignments
+export async function setFamilyFeudTeams(params: {
+  roomId: string;
+  sessionId: string;
+  teamMapping: Record<string, 'A' | 'B'>;
+}): Promise<void> {
+  const { roomId, sessionId, teamMapping } = params;
+  const roomRef = doc(db, 'rooms', roomId);
+  await updateDoc(roomRef, {
+    'currentSession.teamMapping': teamMapping,
+    'currentSession.status': 'intro',
+  } as any);
+}
+
+// Family Feud: Start a round
+export async function startFamilyFeudRound(params: {
+  roomId: string;
+  sessionId: string;
+  roundIndex: number;
+}): Promise<void> {
+  const { roomId, sessionId, roundIndex } = params;
+  const roomRef = doc(db, 'rooms', roomId);
+  const roomSnap = await getDoc(roomRef);
+  if (!roomSnap.exists()) throw new Error('Room not found');
+  const room = { id: roomSnap.id, ...(roomSnap.data() as any) } as Room;
+  
+  const currentSession = room.currentSession;
+  if (!currentSession || currentSession.gameId !== 'family_feud') throw new Error('Not a Family Feud session');
+  
+  const activeTeam = roundIndex % 2 === 0 ? 'A' : 'B';
+  
+  await updateDoc(roomRef, {
+    status: 'session_in_game',
+    'currentSession.status': 'in_round',
+    'currentSession.roundIndex': roundIndex,
+    'currentSession.activeTeam': activeTeam,
+    'currentSession.strikes': 0,
+    'currentSession.revealedAnswerIds': [],
+    'currentSession.questionIndex': roundIndex,
+    'currentSession.questionStartedAt': Date.now(),
+    'currentSession.questionEndsAt': null, // No time limit for Family Feud rounds
+  } as any);
+}
+
+// Family Feud: Submit an answer
+export async function submitFamilyFeudAnswer(params: {
+  roomId: string;
+  sessionId: string;
+  uid: string;
+  roundIndex: number;
+  answer: string;
+}): Promise<{ correct: boolean; answerId?: string; points?: number }> {
+  const { roomId, sessionId, uid, roundIndex, answer } = params;
+  const roomRef = doc(db, 'rooms', roomId);
+  const roomSnap = await getDoc(roomRef);
+  if (!roomSnap.exists()) throw new Error('Room not found');
+  const room = { id: roomSnap.id, ...(roomSnap.data() as any) } as Room;
+  
+  const currentSession = room.currentSession;
+  if (!currentSession || currentSession.gameId !== 'family_feud') throw new Error('Not a Family Feud session');
+  
+  // Check if user is on the active team
+  const teamMapping = currentSession.teamMapping || {};
+  const userTeam = teamMapping[uid];
+  const activeTeam = currentSession.activeTeam;
+  
+  if (userTeam !== activeTeam) {
+    throw new Error('Not your team\'s turn');
+  }
+  
+  // Get the question
+  const selectedSnap = await getDoc(doc(db, 'rooms', roomId, 'sessions', sessionId, 'selected', 'selected'));
+  if (!selectedSnap.exists()) throw new Error('Session selected deck missing');
+  const selected = selectedSnap.data() as SessionSelectedDoc;
+  const questionId = selected.selectedIds?.[roundIndex];
+  if (!questionId) throw new Error('Question not found');
+  
+  const question = familyFeudChristmasPool.find((q) => q.id === questionId);
+  if (!question) throw new Error('Question not found');
+  
+  // Validate answer directly
+  const lang = 'en'; // Could be determined from user preference
+  let matchedAnswer: { id: string; points: number } | null = null;
+  
+  for (const ans of question.answers) {
+    const answerText = ans.text[lang] || ans.text.en;
+    
+    // Direct match
+    if (fuzzyMatchGuess(answer, answerText)) {
+      matchedAnswer = { id: ans.id, points: ans.points };
+      break;
+    }
+    
+    // Check aliases
+    if (ans.aliases && ans.aliases.length > 0) {
+      for (const alias of ans.aliases) {
+        if (fuzzyMatchGuess(answer, alias)) {
+          matchedAnswer = { id: ans.id, points: ans.points };
+          break;
+        }
+      }
+      if (matchedAnswer) break;
+    }
+  }
+  
+  if (matchedAnswer) {
+    // Check if already revealed
+    const revealedAnswerIds = currentSession.revealedAnswerIds || [];
+    if (revealedAnswerIds.includes(matchedAnswer.id)) {
+      return { correct: false }; // Already revealed
+    }
+    
+    // Reveal the answer
+    const newRevealed = [...revealedAnswerIds, matchedAnswer.id];
+    const teamScores = currentSession.teamScores || { A: 0, B: 0 };
+    const newTeamScores = {
+      ...teamScores,
+      [activeTeam]: teamScores[activeTeam] + matchedAnswer.points,
+    };
+    
+    await updateDoc(roomRef, {
+      'currentSession.revealedAnswerIds': newRevealed,
+      'currentSession.teamScores': newTeamScores,
+    } as any);
+    
+    return { correct: true, answerId: matchedAnswer.id, points: matchedAnswer.points };
+  } else {
+    // Wrong answer - add strike
+    const strikes = (currentSession.strikes || 0) + 1;
+    
+    if (strikes >= 3) {
+      // Three strikes - switch to steal mode
+      await updateDoc(roomRef, {
+        'currentSession.status': 'steal',
+        'currentSession.strikes': strikes,
+        'currentSession.activeTeam': activeTeam === 'A' ? 'B' : 'A',
+      } as any);
+    } else {
+      await updateDoc(roomRef, {
+        'currentSession.strikes': strikes,
+      } as any);
+    }
+    
+    return { correct: false };
+  }
+}
+
+// Family Feud: Submit steal attempt
+export async function submitFamilyFeudSteal(params: {
+  roomId: string;
+  sessionId: string;
+  uid: string;
+  roundIndex: number;
+  answer: string;
+}): Promise<{ correct: boolean; answerId?: string; points?: number; stole: boolean }> {
+  const { roomId, sessionId, uid, roundIndex, answer } = params;
+  const roomRef = doc(db, 'rooms', roomId);
+  const roomSnap = await getDoc(roomRef);
+  if (!roomSnap.exists()) throw new Error('Room not found');
+  const room = { id: roomSnap.id, ...(roomSnap.data() as any) } as Room;
+  
+  const currentSession = room.currentSession;
+  if (!currentSession || currentSession.gameId !== 'family_feud') throw new Error('Not a Family Feud session');
+  
+  if (currentSession.status !== 'steal') {
+    throw new Error('Not in steal mode');
+  }
+  
+  // Check if user is on the stealing team
+  const teamMapping = currentSession.teamMapping || {};
+  const userTeam = teamMapping[uid];
+  const activeTeam = currentSession.activeTeam;
+  
+  if (userTeam !== activeTeam) {
+    throw new Error('Not your team\'s turn');
+  }
+  
+  // Get the question
+  const selectedSnap = await getDoc(doc(db, 'rooms', roomId, 'sessions', sessionId, 'selected', 'selected'));
+  if (!selectedSnap.exists()) throw new Error('Session selected deck missing');
+  const selected = selectedSnap.data() as SessionSelectedDoc;
+  const questionId = selected.selectedIds?.[roundIndex];
+  if (!questionId) throw new Error('Question not found');
+  
+  const question = familyFeudChristmasPool.find((q) => q.id === questionId);
+  if (!question) throw new Error('Question not found');
+  
+  // Validate answer directly
+  const lang = 'en';
+  const revealedAnswerIds = currentSession.revealedAnswerIds || [];
+  let matchedAnswer: { id: string; points: number } | null = null;
+  
+  for (const ans of question.answers) {
+    const answerText = ans.text[lang] || ans.text.en;
+    
+    // Direct match
+    if (fuzzyMatchGuess(answer, answerText)) {
+      matchedAnswer = { id: ans.id, points: ans.points };
+      break;
+    }
+    
+    // Check aliases
+    if (ans.aliases && ans.aliases.length > 0) {
+      for (const alias of ans.aliases) {
+        if (fuzzyMatchGuess(answer, alias)) {
+          matchedAnswer = { id: ans.id, points: ans.points };
+          break;
+        }
+      }
+      if (matchedAnswer) break;
+    }
+  }
+  
+  if (matchedAnswer && !revealedAnswerIds.includes(matchedAnswer.id)) {
+    // Steal successful - give all round points to stealing team
+    const roundPoints = question.answers
+      .filter((a) => revealedAnswerIds.includes(a.id))
+      .reduce((sum, a) => sum + a.points, 0) + matchedAnswer.points;
+    
+    const teamScores = currentSession.teamScores || { A: 0, B: 0 };
+    const newTeamScores = {
+      ...teamScores,
+      [activeTeam]: teamScores[activeTeam] + roundPoints,
+    };
+    
+    await updateDoc(roomRef, {
+      'currentSession.status': 'round_reveal',
+      'currentSession.teamScores': newTeamScores,
+      'currentSession.revealedAnswerIds': [...revealedAnswerIds, matchedAnswer.id],
+    } as any);
+    
+    return { correct: true, answerId: matchedAnswer.id, points: roundPoints, stole: true };
+  } else {
+    // Steal failed - original team keeps points
+    const roundPoints = question.answers
+      .filter((a) => revealedAnswerIds.includes(a.id))
+      .reduce((sum, a) => sum + a.points, 0);
+    
+    const originalTeam = activeTeam === 'A' ? 'B' : 'A';
+    const teamScores = currentSession.teamScores || { A: 0, B: 0 };
+    const newTeamScores = {
+      ...teamScores,
+      [originalTeam]: teamScores[originalTeam] + roundPoints,
+    };
+    
+    await updateDoc(roomRef, {
+      'currentSession.status': 'round_reveal',
+      'currentSession.teamScores': newTeamScores,
+    } as any);
+    
+    return { correct: false, stole: false };
+  }
+}
+
+// Family Feud: End round and advance
+export async function endFamilyFeudRound(params: {
+  roomId: string;
+  sessionId: string;
+  roundIndex: number;
+}): Promise<void> {
+  const { roomId, sessionId, roundIndex } = params;
+  const roomRef = doc(db, 'rooms', roomId);
+  const roomSnap = await getDoc(roomRef);
+  if (!roomSnap.exists()) throw new Error('Room not found');
+  const room = { id: roomSnap.id, ...(roomSnap.data() as any) } as Room;
+  
+  const currentSession = room.currentSession;
+  if (!currentSession || currentSession.gameId !== 'family_feud') throw new Error('Not a Family Feud session');
+  
+  const selectedSnap = await getDoc(doc(db, 'rooms', roomId, 'sessions', sessionId, 'selected', 'selected'));
+  if (!selectedSnap.exists()) throw new Error('Session selected deck missing');
+  const selected = selectedSnap.data() as SessionSelectedDoc;
+  const totalRounds = selected.selectedIds?.length || 0;
+  
+  if (roundIndex + 1 >= totalRounds) {
+    // Game over
+    await updateDoc(roomRef, {
+      status: 'session_results',
+      'currentSession.status': 'finished',
+    } as any);
+  } else {
+    // Next round
+    await startFamilyFeudRound({ roomId, sessionId, roundIndex: roundIndex + 1 });
+  }
 }
 
 

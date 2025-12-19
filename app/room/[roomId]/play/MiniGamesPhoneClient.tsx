@@ -7,8 +7,8 @@ import { getLanguage, t } from '@/lib/i18n';
 import { useSessionSelected } from '@/lib/hooks/useSessionSelected';
 import { useSessionAnswers } from '@/lib/hooks/useSessionAnswers';
 import { useSessionScores } from '@/lib/hooks/useSessionScores';
-import { submitSessionAnswer } from '@/lib/sessions/sessionEngine';
-import { getEmojiItemById, getTriviaItemById, getWYRItemById } from '@/lib/miniGameContent';
+import { submitSessionAnswer, submitFamilyFeudAnswer, submitFamilyFeudSteal } from '@/lib/sessions/sessionEngine';
+import { getEmojiItemById, getTriviaItemById, getWYRItemById, getGuessTheSongItemById, getFamilyFeudItemById } from '@/lib/miniGameContent';
 import TimerRing from '@/app/components/TimerRing';
 import GameIntro from '@/app/components/GameIntro';
 import toast from 'react-hot-toast';
@@ -88,6 +88,8 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
     if (gameId === 'emoji') return { type: 'emoji' as const, item: getEmojiItemById(id) };
     if (gameId === 'wyr') return { type: 'wyr' as const, item: getWYRItemById(id) };
     if (gameId === 'pictionary') return { type: 'pictionary' as const, item: getPictionaryItemById(id) };
+    if (gameId === 'guess_the_song') return { type: 'guess_the_song' as const, item: getGuessTheSongItemById(id) };
+    if (gameId === 'family_feud') return { type: 'family_feud' as const, item: getFamilyFeudItemById(id) };
     return null;
   }, [gameId, questionIndex, selectedIds]);
 
@@ -125,6 +127,28 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
     );
   }
 
+  // Team setup for Family Feud
+  if (status === 'team_setup') {
+    return (
+      <main className="min-h-dvh px-4 py-10 md:py-12">
+        <div className="mx-auto max-w-3xl">
+          <div className="card text-center">
+            <div className="text-5xl mb-4">🎯</div>
+            <h1 className="game-show-title mb-2">
+              {lang === 'cs' ? 'Vánoční rodinný souboj' : 'Christmas Family Feud'}
+            </h1>
+            <p className="text-white/70 mb-6">
+              {lang === 'cs' ? 'Host rozdělí týmy na TV.' : 'The host will assign teams on the TV.'}
+            </p>
+            <p className="text-sm text-white/60">
+              {lang === 'cs' ? 'Počkej, až host dokončí rozdělení týmů.' : 'Wait for the host to finish team setup.'}
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   // Intro (players can locally dismiss; controller can skip globally)
   if (status === 'intro' && localIntroDismissedSessionId !== sessionId) {
     return (
@@ -145,7 +169,30 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   }
 
   // In-game
-  if (status === 'in_game') {
+  if (status === 'in_game' || status === 'in_round' || status === 'steal') {
+    if (gameId === 'family_feud') {
+      const roundIndex = currentSession?.roundIndex ?? 0;
+      const questionId = selectedIds?.[roundIndex] ?? null;
+      const teamMapping = currentSession?.teamMapping || {};
+      const userTeam = teamMapping[player.uid];
+      const activeTeam = currentSession?.activeTeam || 'A';
+      const sessionStatus = currentSession?.status;
+      
+      return (
+        <FamilyFeudPhoneRound
+          roomId={roomId}
+          sessionId={sessionId!}
+          roundIndex={roundIndex}
+          questionId={questionId}
+          player={player}
+          userTeam={userTeam}
+          activeTeam={activeTeam}
+          sessionStatus={sessionStatus}
+          totalRounds={selectedIds?.length || 5}
+        />
+      );
+    }
+    
     if (gameId === 'pictionary') {
       const isDrawer = player.uid === (currentSession.drawerUid ?? null);
       const prompt = content?.type === 'pictionary' ? content.item : null;
@@ -278,6 +325,29 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
                     </button>
                   </div>
                 )}
+
+                {content?.type === 'guess_the_song' && content.item && (
+                  <div className="space-y-3">
+                    <div className="text-center mb-4">
+                      <div className="text-6xl mb-2">🎵</div>
+                      <p className="text-sm text-white/70">{content.item.questionText[lang]}</p>
+                      <p className="text-xs text-white/50 mt-2">
+                        {lang === 'cs' ? 'Sleduj TV pro přehrání úryvku.' : 'Watch TV for audio snippet.'}
+                      </p>
+                    </div>
+                    {content.item.options[lang].map((opt, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => submit(idx)}
+                        className="w-full rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-4 text-left"
+                      >
+                        <span className="text-white/60 mr-2">{String.fromCharCode(65 + idx)}.</span>
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -287,7 +357,54 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   }
 
   // Reveal
-  if (status === 'reveal') {
+  if (status === 'reveal' || status === 'round_reveal') {
+    if (gameId === 'family_feud') {
+      const roundIndex = currentSession?.roundIndex ?? 0;
+      const teamScores = currentSession?.teamScores || { A: 0, B: 0 };
+      const teamMapping = currentSession?.teamMapping || {};
+      const userTeam = teamMapping[player.uid];
+      
+      return (
+        <main className="min-h-dvh px-4 py-10">
+          <div className="max-w-xl mx-auto">
+            <div className="card text-center">
+              <div className="text-6xl mb-4">🎯</div>
+              <h1 className="text-3xl font-black mb-2">
+                {lang === 'cs' ? 'Konec kola' : 'Round End'}
+              </h1>
+              <div className="mt-6 space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-white/70 text-sm mb-2">{lang === 'cs' ? 'Skóre týmů' : 'Team Scores'}</div>
+                  <div className="flex justify-around">
+                    <div>
+                      <div className="text-xs text-white/60">{lang === 'cs' ? 'Tým A' : 'Team A'}</div>
+                      <div className="text-3xl font-black text-christmas-red">{teamScores.A}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-white/60">{lang === 'cs' ? 'Tým B' : 'Team B'}</div>
+                      <div className="text-3xl font-black text-blue-400">{teamScores.B}</div>
+                    </div>
+                  </div>
+                </div>
+                {userTeam && (
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="text-white/70 text-sm">{lang === 'cs' ? 'Tvůj tým' : 'Your team'}</div>
+                    <div className="text-2xl font-black mt-1">
+                      {lang === 'cs' ? `Tým ${userTeam}` : `Team ${userTeam}`}: {teamScores[userTeam] || 0}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-white/50 mt-4">
+                {lang === 'cs' ? 'Další kolo hned…' : 'Next round in a moment…'}
+              </p>
+            </div>
+          </div>
+        </main>
+      );
+    }
+    
+    // Continue with existing reveal logic for other games
     const r = currentSession.revealData ?? {};
     const correctUids: string[] = Array.isArray(r.correctUids) ? r.correctUids : [];
     const isCorrect = correctUids.includes(player.uid);
@@ -319,6 +436,17 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
                   A: {Number(r.aPct ?? 0)}% • B: {Number(r.bPct ?? 0)}%
                 </p>
                 <p className="text-sm text-white/60 mt-2">{(r.commentary?.[lang] ?? r.commentary?.en ?? '').toString()}</p>
+              </>
+            ) : gameId === 'guess_the_song' ? (
+              <>
+                <div className="text-6xl mb-4">{isCorrect ? '✅' : '❌'}</div>
+                <h1 className="text-3xl font-black mb-2">
+                  {isCorrect ? (lang === 'cs' ? 'Správně!' : 'Correct!') : lang === 'cs' ? 'Vedle…' : 'Not quite…'}
+                </h1>
+                <p className="text-white/70">
+                  {lang === 'cs' ? 'Správně bylo:' : 'It was:'}{' '}
+                  <span className="font-black text-christmas-gold">{(r.correctAnswer?.[lang] ?? r.correctAnswer?.en ?? '').toString()}</span>
+                </p>
               </>
             ) : (
               <>
@@ -716,6 +844,213 @@ function PictionaryGuesserPhone(props: {
                   ? 'Když někdo uhádne správně, kolo se brzy odhalí na TV.'
                   : 'When someone guesses correctly, the round will reveal on the TV shortly.'}
               </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function FamilyFeudPhoneRound(props: {
+  roomId: string;
+  sessionId: string;
+  roundIndex: number;
+  questionId: string | null;
+  player: Player;
+  userTeam: 'A' | 'B' | undefined;
+  activeTeam: 'A' | 'B';
+  sessionStatus: string | undefined;
+  totalRounds: number;
+}) {
+  const { roomId, sessionId, roundIndex, questionId, player, userTeam, activeTeam, sessionStatus, totalRounds } = props;
+  const lang = getLanguage();
+  const { playSound } = useAudio();
+  const [answer, setAnswer] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  
+  const question = questionId ? getFamilyFeudItemById(questionId) : null;
+  const isActiveTeam = userTeam === activeTeam;
+  const isStealMode = sessionStatus === 'steal';
+  const canAnswer = isActiveTeam && (sessionStatus === 'in_round' || isStealMode);
+
+  const handleSubmit = async () => {
+    if (!answer.trim() || busy || !canAnswer) return;
+    setBusy(true);
+    try {
+      playSound('click', 0.1);
+      let result;
+      if (isStealMode) {
+        result = await submitFamilyFeudSteal({
+          roomId,
+          sessionId,
+          uid: player.uid,
+          roundIndex,
+          answer: answer.trim(),
+        });
+      } else {
+        result = await submitFamilyFeudAnswer({
+          roomId,
+          sessionId,
+          uid: player.uid,
+          roundIndex,
+          answer: answer.trim(),
+        });
+      }
+      
+      if (result.correct) {
+        playSound('success', 0.2);
+        setFeedback(lang === 'cs' ? 'Správně! ✅' : 'Correct! ✅');
+        setAnswer('');
+      } else {
+        playSound('ding', 0.15);
+        if (isStealMode && !result.stole) {
+          setFeedback(lang === 'cs' ? 'Ukradení selhalo ❌' : 'Steal failed ❌');
+        } else {
+          setFeedback(lang === 'cs' ? 'Špatně ❌' : 'Incorrect ❌');
+        }
+      }
+    } catch (e: any) {
+      toast.error(e?.message || t('common.error', lang));
+      setFeedback(lang === 'cs' ? 'Chyba' : 'Error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!feedback) return;
+    const id = setTimeout(() => setFeedback(null), 2000);
+    return () => clearTimeout(id);
+  }, [feedback]);
+
+  if (!question) {
+    return (
+      <main className="min-h-dvh px-4 py-10">
+        <div className="max-w-xl mx-auto">
+          <div className="card text-center">
+            <p className="text-white/70">{lang === 'cs' ? 'Načítání...' : 'Loading...'}</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!userTeam) {
+    return (
+      <main className="min-h-dvh px-4 py-10">
+        <div className="max-w-xl mx-auto">
+          <div className="card text-center">
+            <p className="text-white/70 mb-4">
+              {lang === 'cs' ? 'Nejsi přiřazen k týmu.' : 'You are not assigned to a team.'}
+            </p>
+            <p className="text-sm text-white/60">
+              {lang === 'cs' ? 'Kontaktuj hostitele.' : 'Contact the host.'}
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-dvh px-4 py-6 md:py-10">
+      <div className="max-w-xl mx-auto space-y-4">
+        <div className="card">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-bold">
+                {lang === 'cs' ? 'Vánoční rodinný souboj' : 'Christmas Family Feud'}
+              </h1>
+              <p className="text-white/70 text-sm">
+                {lang === 'cs' ? 'Kolo' : 'Round'} {roundIndex + 1}/{totalRounds}
+              </p>
+              <p className="text-xs text-white/60 mt-1">
+                {lang === 'cs' ? `Tvůj tým: ${userTeam}` : `Your team: ${userTeam}`}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="mb-4">
+            <h2 className="text-2xl font-black mb-2">{question.question[lang]}</h2>
+            {isStealMode ? (
+              <div className="rounded-xl border-2 border-christmas-gold bg-christmas-gold/10 p-3 text-center">
+                <div className="text-lg font-bold text-christmas-gold mb-1">
+                  {lang === 'cs' ? '⚡ Ukradení!' : '⚡ Steal!'}
+                </div>
+                <div className="text-sm text-white/80">
+                  {lang === 'cs' ? 'Máš jednu šanci ukrást všechny body!' : 'You have one chance to steal all the points!'}
+                </div>
+              </div>
+            ) : isActiveTeam ? (
+              <div className="rounded-xl border-2 border-christmas-red bg-christmas-red/10 p-3 text-center">
+                <div className="text-lg font-bold text-christmas-red mb-1">
+                  {lang === 'cs' ? '🎯 Tvá řada!' : '🎯 Your turn!'}
+                </div>
+                <div className="text-sm text-white/80">
+                  {lang === 'cs' ? 'Hádej odpověď na tabuli.' : 'Guess an answer on the board.'}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-white/20 bg-white/5 p-3 text-center">
+                <div className="text-sm text-white/70">
+                  {lang === 'cs' ? `Čeká se na tým ${activeTeam}...` : `Waiting for team ${activeTeam}...`}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {canAnswer && (
+            <>
+              {feedback && (
+                <div className="mb-3 text-center text-sm font-semibold text-white/80">
+                  {feedback}
+                </div>
+              )}
+              <input
+                className="input-field"
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                placeholder={lang === 'cs' ? 'Napiš odpověď...' : 'Type your answer...'}
+                maxLength={64}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSubmit();
+                }}
+                disabled={busy}
+              />
+              <button
+                type="button"
+                className="btn-primary w-full mt-3"
+                onClick={handleSubmit}
+                disabled={busy || !answer.trim()}
+              >
+                {busy
+                  ? lang === 'cs'
+                    ? 'Odesílám...'
+                    : 'Sending...'
+                  : isStealMode
+                  ? lang === 'cs'
+                    ? '⚡ Ukrást!'
+                    : '⚡ Steal!'
+                  : lang === 'cs'
+                  ? 'Odeslat odpověď'
+                  : 'Submit Answer'}
+              </button>
+            </>
+          )}
+
+          {!canAnswer && (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-center">
+              <div className="text-4xl mb-3">⏳</div>
+              <p className="text-white/90 font-semibold">
+                {lang === 'cs' ? 'Čekáme na tým...' : 'Waiting for team...'}
+              </p>
+              <p className="text-sm text-white/60 mt-1">
+                {lang === 'cs' ? 'Sleduj TV pro aktuální stav.' : 'Watch the TV for current status.'}
+              </p>
             </div>
           )}
         </div>

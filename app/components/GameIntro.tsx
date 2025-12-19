@@ -11,6 +11,8 @@ function gameTitle(gameId: MiniGameType, lang: 'en' | 'cs') {
   if (gameId === 'emoji') return lang === 'cs' ? 'Emoji hádanka' : 'Emoji Movie Guess';
   if (gameId === 'wyr') return lang === 'cs' ? 'Co radši?' : 'Would You Rather';
   if (gameId === 'pictionary') return lang === 'cs' ? 'Kreslení' : 'Pictionary';
+  if (gameId === 'guess_the_song') return lang === 'cs' ? 'Uhádni vánoční písničku' : 'Guess the Christmas Song';
+  if (gameId === 'family_feud') return lang === 'cs' ? 'Vánoční rodinný souboj' : 'Christmas Family Feud';
   return gameId;
 }
 
@@ -107,7 +109,7 @@ export default function GameIntro(props: {
               <div className="h-full min-h-[12rem] flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-6xl mb-3 animate-pulse-slow">
-                    {gameId === 'trivia' ? '⚡' : gameId === 'emoji' ? '🎬' : gameId === 'wyr' ? '🎄' : '🎨'}
+                    {gameId === 'trivia' ? '⚡' : gameId === 'emoji' ? '🎬' : gameId === 'wyr' ? '🎄' : gameId === 'pictionary' ? '🎨' : gameId === 'guess_the_song' ? '🎵' : gameId === 'family_feud' ? '🎯' : '🎄'}
                   </div>
                   <div className="text-white/70 text-sm">
                     {lang === 'cs' ? 'Připravujeme show…' : 'Getting the show ready…'}
