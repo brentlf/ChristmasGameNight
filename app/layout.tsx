@@ -26,7 +26,7 @@ export default function RootLayout({
           <TopLeftNav />
           <AudioPolicyClient />
           <AudioControls />
-          <div className="relative min-h-dvh">
+          <div className="relative min-h-dvh pt-16 sm:pt-20 md:pt-4">
             {children}
           </div>
           <Toaster position="top-center" />
