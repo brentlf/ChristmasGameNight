@@ -777,7 +777,17 @@ export default function MiniGamesTVHub(props: {
       );
     }
 
-    if (sessionStatus === 'in_game') {
+    if (sessionStatus === 'in_game' || sessionStatus === 'in_round' || sessionStatus === 'steal') {
+      // Family Feud uses full-screen game board
+      if (gameId === 'family_feud') {
+        return (
+          <div className="flex-1 min-h-0 w-full">
+            {renderQuestion()}
+          </div>
+        );
+      }
+      
+      // Other games use the standard layout
       return (
         <div className="flex-1 min-h-0 rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8 flex flex-col">
           <div className="flex items-center justify-between gap-4 mb-5">
@@ -832,18 +842,10 @@ export default function MiniGamesTVHub(props: {
 
     if (sessionStatus === 'reveal' || sessionStatus === 'round_reveal') {
       if (gameId === 'family_feud') {
-        // Family Feud shows the round view during reveal
+        // Family Feud shows the full game board with all answers revealed
         return (
-          <div className="flex-1 min-h-0 rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8 flex flex-col">
-            <div className="flex items-center justify-between gap-4 mb-5">
-              <div className="min-w-0">
-                <div className="text-sm text-white/70">{gameLabel(gameId)}</div>
-                <div className="text-white/90 text-lg font-bold">
-                  {lang === 'cs' ? 'Konec kola' : 'Round End'}
-                </div>
-              </div>
-            </div>
-            <div className="flex-1 min-h-0">{renderQuestion()}</div>
+          <div className="flex-1 min-h-0 w-full">
+            {renderQuestion()}
           </div>
         );
       }
@@ -1501,12 +1503,15 @@ function FamilyFeudTVRound(props: {
     .filter((a) => revealedAnswerIds.includes(a.id))
     .reduce((sum, a) => sum + a.points, 0);
 
+  // In round_reveal status, show all answers (revealed and unrevealed)
+  const showAllAnswers = sessionStatus === 'round_reveal';
+
   // Organize answers into two columns (left and right)
   const leftColumnAnswers = question.answers.filter((_, idx) => idx % 2 === 0);
   const rightColumnAnswers = question.answers.filter((_, idx) => idx % 2 === 1);
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center p-8" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
+    <div className="relative w-full h-full min-h-[600px] flex flex-col items-center justify-center p-4 md:p-8" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
       {/* Outer frame with lights effect */}
       <div className="absolute inset-0 border-[20px] border-orange-500 rounded-3xl" style={{ boxShadow: 'inset 0 0 30px rgba(255, 165, 0, 0.3)' }} />
       <div className="absolute inset-[20px] border-[3px] border-black rounded-2xl" />
@@ -1541,8 +1546,13 @@ function FamilyFeudTVRound(props: {
         <div className="relative z-10 h-full flex flex-col p-6">
           {/* Top bar */}
           <div className="flex items-center justify-between mb-4">
-            <div className="text-6xl font-black text-white tracking-wider" style={{ textShadow: '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.4)' }}>
-              ROUND
+            <div className="flex items-center gap-4">
+              <div className="text-6xl font-black text-white tracking-wider" style={{ textShadow: '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.4)' }}>
+                ROUND
+              </div>
+              <div className="text-3xl font-black text-white/80">
+                {roundIndex + 1}/{selectedIds?.length || 4}
+              </div>
             </div>
             <div className="flex items-center gap-8">
               {/* Current Score Display */}
@@ -1556,7 +1566,7 @@ function FamilyFeudTVRound(props: {
 
           {/* Question area */}
           <div className="mb-6">
-            {showQuestion ? (
+            {showQuestion || showAllAnswers ? (
               <div className="bg-blue-900 rounded-2xl p-6 border-4 border-white min-h-[120px] flex items-center justify-center">
                 <div className="text-4xl md:text-5xl font-black text-white text-center leading-tight" style={{ textShadow: '2px 2px 8px rgba(0, 0, 0, 0.8)' }}>
                   {question.question[lang]}
@@ -1569,7 +1579,7 @@ function FamilyFeudTVRound(props: {
                 </div>
               </div>
             )}
-            {isController && (
+            {isController && !showAllAnswers && (
               <button
                 type="button"
                 onClick={() => setShowQuestion(!showQuestion)}
@@ -1578,6 +1588,13 @@ function FamilyFeudTVRound(props: {
                 {showQuestion ? (lang === 'cs' ? 'SKRÝT OTÁZKU' : 'HIDE QUESTION') : (lang === 'cs' ? 'ZOBRAZIT OTÁZKU' : 'SHOW QUESTION')}
               </button>
             )}
+            {showAllAnswers && (
+              <div className="mt-3 text-center">
+                <div className="inline-block bg-yellow-400 text-black px-6 py-3 rounded-lg font-black text-lg animate-pulse" style={{ boxShadow: '0 0 30px rgba(250, 204, 21, 0.6)' }}>
+                  {lang === 'cs' ? 'KONEC KOLA - VŠECHNY ODPOVĚDI' : 'ROUND END - ALL ANSWERS'}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Answer Board - Two Columns */}
@@ -1585,7 +1602,8 @@ function FamilyFeudTVRound(props: {
             {/* Left Column */}
             <div className="space-y-4">
               {leftColumnAnswers.map((answer) => {
-                const isRevealed = revealedAnswerIds.includes(answer.id);
+                const isRevealed = revealedAnswerIds.includes(answer.id) || showAllAnswers;
+                const wasRevealed = revealedAnswerIds.includes(answer.id);
                 return (
                   <div
                     key={answer.id}
@@ -1593,21 +1611,29 @@ function FamilyFeudTVRound(props: {
                     style={{
                       boxShadow: isRevealed ? '0 0 30px rgba(255, 255, 255, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.1)' : '0 0 10px rgba(0, 0, 0, 0.5)',
                       transform: isRevealed ? 'scale(1.02)' : 'scale(1)',
+                      opacity: showAllAnswers && !wasRevealed ? 0.7 : 1,
                     }}
                   >
                     {isRevealed ? (
                       <>
                         {/* Points box */}
-                        <div className="absolute top-2 right-2 bg-white rounded-lg px-4 py-2 border-2 border-blue-600">
-                          <div className="text-4xl font-black text-blue-600" style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                        <div className={`absolute top-2 right-2 rounded-lg px-4 py-2 border-2 ${
+                          wasRevealed ? 'bg-white border-blue-600' : 'bg-gray-400 border-gray-500'
+                        }`}>
+                          <div className={`text-4xl font-black ${wasRevealed ? 'text-blue-600' : 'text-gray-600'}`} style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}>
                             {answer.points}
                           </div>
                         </div>
                         {/* Answer text */}
                         <div className="p-6 pr-24">
-                          <div className="text-3xl md:text-4xl font-black text-white uppercase tracking-wide" style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
+                          <div className={`text-3xl md:text-4xl font-black uppercase tracking-wide ${wasRevealed ? 'text-white' : 'text-gray-300'}`} style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
                             {answer.text[lang]}
                           </div>
+                          {showAllAnswers && !wasRevealed && (
+                            <div className="text-sm text-gray-400 mt-1 font-semibold">
+                              {lang === 'cs' ? '(Neuhodnuto)' : '(Not guessed)'}
+                            </div>
+                          )}
                         </div>
                       </>
                     ) : (
@@ -1623,7 +1649,8 @@ function FamilyFeudTVRound(props: {
             {/* Right Column */}
             <div className="space-y-4">
               {rightColumnAnswers.map((answer) => {
-                const isRevealed = revealedAnswerIds.includes(answer.id);
+                const isRevealed = revealedAnswerIds.includes(answer.id) || showAllAnswers;
+                const wasRevealed = revealedAnswerIds.includes(answer.id);
                 return (
                   <div
                     key={answer.id}
@@ -1631,21 +1658,29 @@ function FamilyFeudTVRound(props: {
                     style={{
                       boxShadow: isRevealed ? '0 0 30px rgba(255, 255, 255, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.1)' : '0 0 10px rgba(0, 0, 0, 0.5)',
                       transform: isRevealed ? 'scale(1.02)' : 'scale(1)',
+                      opacity: showAllAnswers && !wasRevealed ? 0.7 : 1,
                     }}
                   >
                     {isRevealed ? (
                       <>
                         {/* Points box */}
-                        <div className="absolute top-2 right-2 bg-white rounded-lg px-4 py-2 border-2 border-blue-600">
-                          <div className="text-4xl font-black text-blue-600" style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                        <div className={`absolute top-2 right-2 rounded-lg px-4 py-2 border-2 ${
+                          wasRevealed ? 'bg-white border-blue-600' : 'bg-gray-400 border-gray-500'
+                        }`}>
+                          <div className={`text-4xl font-black ${wasRevealed ? 'text-blue-600' : 'text-gray-600'}`} style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' }}>
                             {answer.points}
                           </div>
                         </div>
                         {/* Answer text */}
                         <div className="p-6 pr-24">
-                          <div className="text-3xl md:text-4xl font-black text-white uppercase tracking-wide" style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
+                          <div className={`text-3xl md:text-4xl font-black uppercase tracking-wide ${wasRevealed ? 'text-white' : 'text-gray-300'}`} style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
                             {answer.text[lang]}
                           </div>
+                          {showAllAnswers && !wasRevealed && (
+                            <div className="text-sm text-gray-400 mt-1 font-semibold">
+                              {lang === 'cs' ? '(Neuhodnuto)' : '(Not guessed)'}
+                            </div>
+                          )}
                         </div>
                       </>
                     ) : (
@@ -1709,16 +1744,32 @@ function FamilyFeudTVRound(props: {
               </div>
             )}
 
+            {/* Round summary when showing all answers */}
+            {showAllAnswers && (
+              <div className="mt-4 text-center">
+                <div className="inline-block bg-white/10 rounded-xl px-6 py-3 border-2 border-white/30">
+                  <div className="text-sm text-white/80 mb-1 font-bold">
+                    {lang === 'cs' ? 'Body v tomto kole' : 'Points this round'}
+                  </div>
+                  <div className="text-3xl font-black text-white">
+                    {currentRoundScore}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Controller actions */}
             {isController && sessionStatus === 'round_reveal' && (
-              <button
-                type="button"
-                onClick={handleEndRound}
-                className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-8 py-4 rounded-xl font-black text-xl border-4 border-white hover:from-blue-600 hover:to-blue-700 transition-all"
-                style={{ boxShadow: '0 0 30px rgba(59, 130, 246, 0.6)' }}
-              >
-                {lang === 'cs' ? 'DALŠÍ KOLO >>' : 'NEXT ROUND >>'}
-              </button>
+              <div className="flex justify-center mt-4">
+                <button
+                  type="button"
+                  onClick={handleEndRound}
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-8 py-4 rounded-xl font-black text-xl border-4 border-white hover:from-blue-600 hover:to-blue-700 transition-all"
+                  style={{ boxShadow: '0 0 30px rgba(59, 130, 246, 0.6)' }}
+                >
+                  {lang === 'cs' ? 'DALŠÍ KOLO >>' : 'NEXT ROUND >>'}
+                </button>
+              </div>
             )}
           </div>
         </div>

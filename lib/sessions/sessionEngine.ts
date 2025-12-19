@@ -85,7 +85,7 @@ export async function startMiniGameSession(params: {
       const drawsPerPlayer = n < 3 ? 3 : n <= 6 ? 2 : 1;
       return Math.max(1, n * drawsPerPlayer);
     }
-    if (gameId === 'family_feud') return 5; // Always 5 rounds for Family Feud
+    if (gameId === 'family_feud') return 4; // Always 4 rounds for Family Feud (2 per team)
     return questionCount;
   })();
 

@@ -20,6 +20,56 @@ import { getPictionaryItemById } from '@/lib/miniGameContent';
 import { submitPictionaryGuess, writePictionaryLive, type PictionarySegment } from '@/lib/sessions/pictionaryClient';
 import { usePictionaryLive } from '@/lib/hooks/usePictionaryLive';
 
+// TypeScript declarations for Speech Recognition API
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition;
+    webkitSpeechRecognition: typeof SpeechRecognition;
+  }
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onstart: ((this: SpeechRecognition, ev: Event) => any) | null;
+  onend: ((this: SpeechRecognition, ev: Event) => any) | null;
+  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
+  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message: string;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
 function answeredProgress(answered: number, total: number) {
   return `${Math.min(answered, total)}/${Math.max(total, 0)}`;
 }
@@ -188,7 +238,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
           userTeam={userTeam}
           activeTeam={activeTeam}
           sessionStatus={sessionStatus}
-          totalRounds={selectedIds?.length || 5}
+          totalRounds={selectedIds?.length || 4}
         />
       );
     }
@@ -869,14 +919,124 @@ function FamilyFeudPhoneRound(props: {
   const [answer, setAnswer] = useState('');
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceAvailable, setVoiceAvailable] = useState<boolean | null>(null);
+  const [isHttps, setIsHttps] = useState(true);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   
   const question = questionId ? getFamilyFeudItemById(questionId) : null;
   const isActiveTeam = userTeam === activeTeam;
   const isStealMode = sessionStatus === 'steal';
   const canAnswer = isActiveTeam && (sessionStatus === 'in_round' || isStealMode);
 
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setVoiceAvailable(false);
+      return;
+    }
+    
+    // Check if we're on HTTPS (required for Web Speech API)
+    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    setIsHttps(isSecure);
+    if (!isSecure) {
+      console.warn('Web Speech API requires HTTPS');
+      setVoiceAvailable(false);
+      return;
+    }
+    
+    // Check for Speech Recognition API support
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn('Speech Recognition API not supported in this browser');
+      setVoiceAvailable(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = lang === 'cs' ? 'cs-CZ' : 'en-US';
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        playSound('click', 0.1);
+      };
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = event.results[0][0].transcript.trim();
+        setAnswer(transcript);
+        setIsListening(false);
+        playSound('success', 0.15);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+        if (event.error === 'no-speech') {
+          setFeedback(lang === 'cs' ? 'Žádný zvuk' : 'No speech detected');
+        } else if (event.error === 'not-allowed') {
+          setFeedback(lang === 'cs' ? 'Mikrofon není povolen - zkontroluj nastavení prohlížeče' : 'Microphone not allowed - check browser settings');
+          setVoiceAvailable(false);
+        } else if (event.error === 'service-not-allowed') {
+          setFeedback(lang === 'cs' ? 'Služba rozpoznávání není dostupná' : 'Recognition service not available');
+          setVoiceAvailable(false);
+        } else {
+          setFeedback(lang === 'cs' ? 'Chyba rozpoznávání' : 'Recognition error');
+        }
+        setTimeout(() => setFeedback(null), 3000);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      setVoiceAvailable(true);
+    } catch (error) {
+      console.error('Failed to initialize speech recognition:', error);
+      setVoiceAvailable(false);
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          // Ignore errors when stopping
+        }
+        recognitionRef.current = null;
+      }
+    };
+  }, [lang, playSound]);
+
+  const startListening = () => {
+    if (!recognitionRef.current || isListening || busy) return;
+    
+    try {
+      recognitionRef.current.start();
+    } catch (error) {
+      console.error('Failed to start recognition:', error);
+      setFeedback(lang === 'cs' ? 'Nelze spustit rozpoznávání' : 'Cannot start recognition');
+      setTimeout(() => setFeedback(null), 2000);
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!answer.trim() || busy || !canAnswer) return;
+    
+    // Stop listening if active
+    stopListening();
+    
     setBusy(true);
     try {
       playSound('click', 0.1);
@@ -1010,22 +1170,51 @@ function FamilyFeudPhoneRound(props: {
                   {feedback}
                 </div>
               )}
-              <input
-                className="input-field"
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                placeholder={lang === 'cs' ? 'Napiš odpověď...' : 'Type your answer...'}
-                maxLength={64}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSubmit();
-                }}
-                disabled={busy}
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="text"
+                  className="input-field flex-1"
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  placeholder={lang === 'cs' ? 'Napiš nebo použij mikrofon na klávesnici...' : 'Type or use keyboard microphone...'}
+                  maxLength={64}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSubmit();
+                  }}
+                  disabled={busy || isListening}
+                  // Enable native voice input on mobile devices
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                />
+                {voiceAvailable === true && recognitionRef.current && (
+                  <button
+                    type="button"
+                    onClick={isListening ? stopListening : startListening}
+                    disabled={busy}
+                    className={`px-4 py-3 rounded-xl border-2 font-bold transition-all ${
+                      isListening
+                        ? 'bg-red-600 border-red-500 text-white animate-pulse'
+                        : 'bg-blue-600 border-blue-500 text-white hover:bg-blue-700'
+                    } disabled:opacity-50`}
+                    title={isListening ? (lang === 'cs' ? 'Zastavit nahrávání' : 'Stop recording') : (lang === 'cs' ? 'Začít nahrávání' : 'Start recording')}
+                  >
+                    {isListening ? '⏹️' : '🎤'}
+                  </button>
+                )}
+              </div>
+              {isListening && (
+                <div className="mt-2 text-center text-sm text-blue-400 font-semibold animate-pulse">
+                  {lang === 'cs' ? '🎤 Poslouchej...' : '🎤 Listening...'}
+                </div>
+              )}
               <button
                 type="button"
                 className="btn-primary w-full mt-3"
                 onClick={handleSubmit}
-                disabled={busy || !answer.trim()}
+                disabled={busy || !answer.trim() || isListening}
               >
                 {busy
                   ? lang === 'cs'
@@ -1039,6 +1228,24 @@ function FamilyFeudPhoneRound(props: {
                   ? 'Odeslat odpověď'
                   : 'Submit Answer'}
               </button>
+              {voiceAvailable === false && (
+                <div className="mt-2 text-center">
+                  <p className="text-xs text-white/60 mb-1">
+                    {lang === 'cs' 
+                      ? '💡 Na mobilu použij mikrofon na klávesnici!' 
+                      : '💡 On mobile, use the microphone button on your keyboard!'}
+                  </p>
+                  <p className="text-xs text-white/40">
+                    {!isHttps
+                      ? (lang === 'cs' 
+                          ? 'Pro tlačítko mikrofonu vyžaduje HTTPS.' 
+                          : 'Microphone button requires HTTPS.')
+                      : (lang === 'cs' 
+                          ? 'Nebo použij Chrome/Edge/Safari pro tlačítko mikrofonu.' 
+                          : 'Or use Chrome/Edge/Safari for microphone button.')}
+                  </p>
+                </div>
+              )}
             </>
           )}
 

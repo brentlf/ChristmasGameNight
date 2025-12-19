@@ -28,12 +28,28 @@ service cloud.firestore {
       // Controller can update anything.
       // Additionally: allow any authed user to start the race (lobby -> running)
       // by changing ONLY status + raceStartedAt.
+      // For Family Feud: allow players to update currentSession fields for gameplay
       allow update: if isAuthed() && (
         (resource.data.controllerUid == request.auth.uid)
         || (
           resource.data.status == 'lobby'
           && request.resource.data.status == 'running'
           && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'raceStartedAt'])
+        )
+        || (
+          // Family Feud: allow authenticated users to update currentSession for gameplay
+          resource.data.currentSession != null
+          && resource.data.currentSession.gameId == 'family_feud'
+          && request.resource.data.currentSession != null
+          && request.resource.data.currentSession.gameId == 'family_feud'
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['currentSession'])
+          && request.resource.data.currentSession.diff(resource.data.currentSession).changedKeys().hasOnly([
+            'revealedAnswerIds',
+            'teamScores',
+            'strikes',
+            'status',
+            'activeTeam'
+          ])
         )
       );
 
