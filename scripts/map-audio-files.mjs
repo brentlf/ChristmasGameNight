@@ -114,3 +114,4 @@ import { writeFileSync } from 'fs';
 const mappingPath = join(process.cwd(), 'scripts', 'audio-mapping.json');
 writeFileSync(mappingPath, JSON.stringify(mapping, null, 2));
 console.log(`📄 Mapping saved to: ${mappingPath}`);
+

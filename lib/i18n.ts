@@ -29,6 +29,8 @@ const translations: Record<Language, Record<string, string>> = {
     'create.allowSkips': 'Allow skips',
     'create.eventsEnabled': 'Event feed on TV',
     'create.eventsHelp': 'Shows join + stage-complete updates on the TV hub.',
+    'create.aiEnhanced': 'AI-Enhanced Questions',
+    'create.aiEnhancedHelp': 'Generate unique questions dynamically using AI for endless variety',
     'create.createRoom': 'Create Room',
     
     // Join
@@ -344,6 +346,8 @@ const translations: Record<Language, Record<string, string>> = {
     'create.allowSkips': 'Povolit přeskočení',
     'create.eventsEnabled': 'Event feed na TV',
     'create.eventsHelp': 'Ukazuje připojení a dokončení etap na TV.',
+    'create.aiEnhanced': 'AI vylepšené otázky',
+    'create.aiEnhancedHelp': 'Generujte jedinečné otázky dynamicky pomocí AI pro nekonečnou rozmanitost',
     'create.createRoom': 'Vytvořit Místnost',
     
     // Join

@@ -27,3 +27,4 @@ Files should be named according to the `audioSrc` paths in `content/guess_the_so
 4. Place files in this directory
 
 Note: The game will work without audio files, but players won't hear the snippets. The TV will show a music note icon and a replay button.
+

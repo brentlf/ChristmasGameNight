@@ -58,8 +58,10 @@ export async function startMiniGameSession(params: {
   gameId: MiniGameType;
   questionCount?: number;
   secondsPerQuestion?: number;
+  aiEnhanced?: boolean;
+  aiTheme?: string;
 }): Promise<string> {
-  const { roomId, gameId, questionCount = 10, secondsPerQuestion = 45 } = params;
+  const { roomId, gameId, questionCount = 10, secondsPerQuestion = 45, aiEnhanced = false, aiTheme = 'Christmas' } = params;
 
   const roomRef = doc(db, 'rooms', roomId);
   const roomSnap = await getDoc(roomRef);
@@ -72,8 +74,7 @@ export async function startMiniGameSession(params: {
   const allPlayerUids = playersSnap.docs.map((d) => d.id);
   const readyUids = playersSnap.docs.filter((d) => Boolean((d.data() as any)?.ready)).map((d) => d.id);
   const activePlayerUids = (readyUids.length ? readyUids : allPlayerUids).slice(0, 64);
-
-  const poolIds = getIdPoolForGame(gameId);
+  
   // Pictionary rounds should scale with player count so everyone gets a fair turn:
   // - <3 players: each draws 3x
   // - 4-6 players: each draws 2x
@@ -89,11 +90,6 @@ export async function startMiniGameSession(params: {
     return questionCount;
   })();
 
-  if (poolIds.length < effectiveQuestionCount) {
-    throw new Error(`Not enough content for ${gameId} (${poolIds.length} available)`);
-  }
-  const selectedIds = selectRandomItems(poolIds, effectiveQuestionCount);
-
   const sessionDocRef = await addDoc(collection(db, 'rooms', roomId, 'sessions'), {
     createdAt: Date.now(),
     gameId,
@@ -101,6 +97,32 @@ export async function startMiniGameSession(params: {
     secondsPerQuestion,
   } as any);
   const sessionId = sessionDocRef.id;
+
+  let selectedIds: string[];
+
+  if (aiEnhanced && gameId !== 'guess_the_song') {
+    // Generate AI content and store in Firestore
+    // Note: guess_the_song requires audio files, so skip AI generation for it
+    try {
+      const { generateAIContentForSession } = await import('@/lib/ai/sessionContentGenerator');
+      selectedIds = await generateAIContentForSession(roomId, sessionId, gameId, effectiveQuestionCount, aiTheme);
+    } catch (error) {
+      console.error('Error generating AI content, falling back to static:', error);
+      // Fallback to static content
+      const poolIds = getIdPoolForGame(gameId);
+      if (poolIds.length < effectiveQuestionCount) {
+        throw new Error(`Not enough content for ${gameId} (${poolIds.length} available)`);
+      }
+      selectedIds = selectRandomItems(poolIds, effectiveQuestionCount);
+    }
+  } else {
+    // Use static content
+    const poolIds = getIdPoolForGame(gameId);
+    if (poolIds.length < effectiveQuestionCount) {
+      throw new Error(`Not enough content for ${gameId} (${poolIds.length} available)`);
+    }
+    selectedIds = selectRandomItems(poolIds, effectiveQuestionCount);
+  }
 
   const selectedRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'selected', 'selected');
   const selectedDoc: SessionSelectedDoc = { gameId, selectedIds, createdAt: Date.now() };

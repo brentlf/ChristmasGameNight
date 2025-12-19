@@ -9,7 +9,7 @@ import { getLanguage, t } from '@/lib/i18n';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { submitEmojiAnswer } from '@/lib/miniGameEngine';
-import { getEmojiItemById } from '@/lib/miniGameContent';
+import { useEmojiItem } from '@/lib/hooks/useGameContentItem';
 import { shuffleSeeded, generateSeed } from '@/lib/utils/seededRandom';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -91,7 +91,15 @@ export default function EmojiPage() {
   }
 
   const questionId = selectedIds[currentIndex];
-  const item = getEmojiItemById(questionId);
+  const { item, loading } = useEmojiItem(questionId, roomId);
+
+  if (loading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <div className="text-2xl">{t('common.loading', lang)}</div>
+      </div>
+    );
+  }
 
   if (!item) {
     return (
@@ -123,7 +131,7 @@ function EmojiQuestion({
 }: {
   roomId: string;
   uid: string;
-  item: ReturnType<typeof getEmojiItemById>;
+  item: NonNullable<ReturnType<typeof useEmojiItem>['item']>;
   questionIndex: number;
   totalQuestions: number;
   lang: 'en' | 'cs';

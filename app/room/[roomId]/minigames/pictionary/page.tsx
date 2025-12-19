@@ -15,7 +15,7 @@ import {
   submitPictionaryGuess, 
   endPictionaryRound 
 } from '@/lib/miniGameEngine';
-import { getPictionaryItemById } from '@/lib/miniGameContent';
+import { usePictionaryItem } from '@/lib/hooks/useGameContentItem';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { MiniGameAdvanceGate } from '../_components/MiniGameAdvanceGate';
@@ -303,7 +303,7 @@ function PictionaryRoundEnd({
   };
 
   const drawer = players.find((p) => p.uid === gameState.currentDrawerUid);
-  const prompt = gameState.currentPromptId ? getPictionaryItemById(gameState.currentPromptId) : null;
+  const { item: prompt } = usePictionaryItem(gameState.currentPromptId || null, roomId);
   const drawerScore =
     (drawer ? (gameState.totalScores?.[drawer.uid] ?? drawer.miniGameProgress?.pictionary?.score ?? 0) : 0);
 
@@ -364,7 +364,7 @@ function PictionaryDrawer({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const prompt = gameState.currentPromptId ? getPictionaryItemById(gameState.currentPromptId) : null;
+  const { item: prompt } = usePictionaryItem(gameState.currentPromptId || null, roomId);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {

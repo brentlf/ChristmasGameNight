@@ -64,3 +64,4 @@ if (notFound.length > 0) {
 } else {
   console.log(`\n🎉 All files mapped!`);
 }
+

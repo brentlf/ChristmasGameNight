@@ -19,8 +19,7 @@ service cloud.firestore {
 
       // For family use we allow authenticated reads so join-by-code works.
       // This allows both get (single document) and list (collection queries) operations
-      allow read: if isAuthed();
-      allow list: if isAuthed();
+      allow read, list: if isAuthed();
 
       // Room creator becomes controller.
       allow create: if isAuthed()
@@ -93,6 +92,13 @@ service cloud.firestore {
         match /selected/{docId} {
           allow read: if isAuthed();
           allow create, update, delete: if isRoomController();
+        }
+
+        // AI-generated content cache (stored per session per game type)
+        match /aiContent/{gameType} {
+          allow read: if isAuthed();
+          allow create, update: if isAuthed(); // Allow any authenticated user to generate/cache AI content
+          allow delete: if isRoomController();
         }
 
         // Per-player answer doc (doc id = uid)

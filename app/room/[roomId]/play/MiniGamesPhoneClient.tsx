@@ -8,7 +8,8 @@ import { useSessionSelected } from '@/lib/hooks/useSessionSelected';
 import { useSessionAnswers } from '@/lib/hooks/useSessionAnswers';
 import { useSessionScores } from '@/lib/hooks/useSessionScores';
 import { submitSessionAnswer, submitFamilyFeudAnswer, submitFamilyFeudSteal } from '@/lib/sessions/sessionEngine';
-import { getEmojiItemById, getTriviaItemById, getWYRItemById, getGuessTheSongItemById, getFamilyFeudItemById } from '@/lib/miniGameContent';
+import { getGuessTheSongItemById, getFamilyFeudItemById } from '@/lib/miniGameContent';
+import type { FamilyFeudQuestion } from '@/content/family_feud_christmas';
 import TimerRing from '@/app/components/TimerRing';
 import GameIntro from '@/app/components/GameIntro';
 import toast from 'react-hot-toast';
@@ -19,6 +20,7 @@ import { useAudio } from '@/lib/contexts/AudioContext';
 import { getPictionaryItemById } from '@/lib/miniGameContent';
 import { submitPictionaryGuess, writePictionaryLive, type PictionarySegment } from '@/lib/sessions/pictionaryClient';
 import { usePictionaryLive } from '@/lib/hooks/usePictionaryLive';
+import { useGameContent } from '@/lib/hooks/useGameContent';
 
 // TypeScript declarations for Speech Recognition API
 interface SpeechRecognition extends EventTarget {
@@ -130,18 +132,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
     }
   };
 
-  const content = useMemo(() => {
-    if (!gameId || questionIndex === null) return null;
-    const id = selectedIds?.[questionIndex];
-    if (!id) return null;
-    if (gameId === 'trivia') return { type: 'trivia' as const, item: getTriviaItemById(id) };
-    if (gameId === 'emoji') return { type: 'emoji' as const, item: getEmojiItemById(id) };
-    if (gameId === 'wyr') return { type: 'wyr' as const, item: getWYRItemById(id) };
-    if (gameId === 'pictionary') return { type: 'pictionary' as const, item: getPictionaryItemById(id) };
-    if (gameId === 'guess_the_song') return { type: 'guess_the_song' as const, item: getGuessTheSongItemById(id) };
-    if (gameId === 'family_feud') return { type: 'family_feud' as const, item: getFamilyFeudItemById(id) };
-    return null;
-  }, [gameId, questionIndex, selectedIds]);
+  const content = useGameContent(gameId || null, questionIndex, selectedIds, roomId, sessionId);
 
   // Lobby / between sessions
   if (!currentSession || !sessionId || !gameId || status === 'between' || room.status === 'between_sessions') {
@@ -317,7 +308,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
                 {content?.type === 'trivia' && content.item && (
                   <div className="space-y-3">
                     <p className="text-sm text-white/70">{content.item.question[lang]}</p>
-                    {content.item.options[lang].map((opt, idx) => (
+                    {content.item.options[lang].map((opt: string, idx: number) => (
                       <button
                         key={idx}
                         type="button"
@@ -385,7 +376,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
                         {lang === 'cs' ? 'Sleduj TV pro přehrání úryvku.' : 'Watch TV for audio snippet.'}
                       </p>
                     </div>
-                    {content.item.options[lang].map((opt, idx) => (
+                    {content.item.options[lang].map((opt: string, idx: number) => (
                       <button
                         key={idx}
                         type="button"
@@ -923,8 +914,23 @@ function FamilyFeudPhoneRound(props: {
   const [voiceAvailable, setVoiceAvailable] = useState<boolean | null>(null);
   const [isHttps, setIsHttps] = useState(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const [question, setQuestion] = useState<FamilyFeudQuestion | null>(null);
   
-  const question = questionId ? getFamilyFeudItemById(questionId) : null;
+  // Load question (async for AI content)
+  useEffect(() => {
+    if (!questionId) {
+      setQuestion(null);
+      return;
+    }
+    
+    getFamilyFeudItemById(questionId, roomId, sessionId).then((item) => {
+      setQuestion(item || null);
+    }).catch((error) => {
+      console.error('Error loading Family Feud question:', error);
+      setQuestion(null);
+    });
+  }, [questionId, roomId, sessionId]);
+  
   const isActiveTeam = userTeam === activeTeam;
   const isStealMode = sessionStatus === 'steal';
   const canAnswer = isActiveTeam && (sessionStatus === 'in_round' || isStealMode);

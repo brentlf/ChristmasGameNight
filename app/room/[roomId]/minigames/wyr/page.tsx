@@ -9,7 +9,7 @@ import { getLanguage, t } from '@/lib/i18n';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { submitWYRChoice } from '@/lib/miniGameEngine';
-import { getWYRItemById } from '@/lib/miniGameContent';
+import { useWYRItem } from '@/lib/hooks/useGameContentItem';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { MiniGameAdvanceGate } from '../_components/MiniGameAdvanceGate';
@@ -90,7 +90,15 @@ export default function WYRPage() {
   }
 
   const questionId = selectedIds[currentIndex];
-  const item = getWYRItemById(questionId);
+  const { item, loading } = useWYRItem(questionId, roomId);
+
+  if (loading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <div className="text-2xl">{t('common.loading', lang)}</div>
+      </div>
+    );
+  }
 
   if (!item) {
     return (
@@ -122,7 +130,7 @@ function WYRQuestion({
 }: {
   roomId: string;
   uid: string;
-  item: ReturnType<typeof getWYRItemById>;
+  item: NonNullable<ReturnType<typeof useWYRItem>['item']>;
   questionIndex: number;
   totalQuestions: number;
   lang: 'en' | 'cs';

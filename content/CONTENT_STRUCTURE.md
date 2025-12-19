@@ -322,3 +322,4 @@ To add a third language (e.g., Slovak):
 - Content is bundled at build time (no runtime fetching)
 - Arrays are small enough to search linearly (O(n) is acceptable)
 - Seeded random ensures consistent selection across clients
+

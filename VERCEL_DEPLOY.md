@@ -143,3 +143,4 @@ Once set up:
 - You can trigger manual deployments from the dashboard
 
 That's it! Your app should be live on Vercel. 🚀
+

@@ -250,3 +250,4 @@ if (errors.length === 0 && warnings.length === 0) {
   console.log(`\n✅ Validation passed with ${warnings.length} warning(s)\n`);
   process.exit(0);
 }
+

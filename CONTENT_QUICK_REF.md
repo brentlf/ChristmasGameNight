@@ -131,3 +131,4 @@ npm run content:list-ids <game-type>
 - Review examples in existing content files
 - Run validation to see specific errors
 - Check TypeScript errors in your IDE
+

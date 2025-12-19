@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Player, RaceStageDefinition, Room } from '@/types';
 import {
@@ -75,10 +75,25 @@ export async function ensureStageInitialized(params: {
   uid: string;
   trackId: Room['raceTrackId'];
   stageIndex: number;
+  room?: Room;
 }): Promise<void> {
-  const { roomId, uid, trackId, stageIndex } = params;
+  const { roomId, uid, trackId, stageIndex, room } = params;
   const stage = getStageByIndex(trackId, stageIndex);
   if (!stage) return;
+
+  // Get room data if not provided (for AI-enhanced mode check)
+  let roomData = room;
+  if (!roomData) {
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomSnap = await getDoc(roomRef);
+    if (roomSnap.exists()) {
+      roomData = { id: roomSnap.id, ...roomSnap.data() } as Room;
+    }
+  }
+
+  // Check if AI-enhanced mode is enabled and content exists
+  const isAIEnhanced = roomData?.raceAiEnhanced ?? false;
+  const aiStageContent = isAIEnhanced ? roomData?.raceStageQuestions?.[stage.id] : null;
 
   // Valid-id sets to repair older/stale stored ids (prevents "❓" / missing options in stage 2).
   const emojiIdSet = new Set(emojiClues.map((c) => c.id));
@@ -103,12 +118,29 @@ export async function ensureStageInitialized(params: {
     // Determine whether the player stage state is "complete enough" to render.
     // This doubles as a repair mechanism for older rooms where raceStageQuestions existed
     // but some stage-specific fields were missing (e.g., emoji clueIds).
+    // For AI-enhanced mode, accept AI-generated IDs (they start with "ai_")
     const hasRequiredPlayerFields = (() => {
       if (!existing?.startedAt) return false;
-      if (stage.type === 'riddle_gate') return typeof existing.riddleId === 'string' && riddleGateIdSet.has(existing.riddleId);
-      if (stage.type === 'final_riddle') return typeof existing.riddleId === 'string' && finalRiddleIdSet.has(existing.riddleId);
-      if (stage.type === 'emoji_guess') return allValidIds(existing.clueIds, emojiIdSet);
-      if (stage.type === 'trivia_solo') return allValidIds(existing.questionIds, triviaIdSet);
+      if (stage.type === 'riddle_gate') {
+        const rid = existing.riddleId;
+        return typeof rid === 'string' && (riddleGateIdSet.has(rid) || (isAIEnhanced && rid.startsWith('ai_')));
+      }
+      if (stage.type === 'final_riddle') {
+        const rid = existing.riddleId;
+        return typeof rid === 'string' && (finalRiddleIdSet.has(rid) || (isAIEnhanced && rid.startsWith('ai_')));
+      }
+      if (stage.type === 'emoji_guess') {
+        const ids = existing.clueIds;
+        if (!Array.isArray(ids) || ids.length === 0) return false;
+        if (isAIEnhanced) return ids.every((id) => typeof id === 'string' && id.startsWith('ai_'));
+        return allValidIds(ids, emojiIdSet);
+      }
+      if (stage.type === 'trivia_solo') {
+        const ids = existing.questionIds;
+        if (!Array.isArray(ids) || ids.length === 0) return false;
+        if (isAIEnhanced) return ids.every((id) => typeof id === 'string' && id.startsWith('ai_'));
+        return allValidIds(ids, triviaIdSet);
+      }
       if (stage.type === 'code_lock') return typeof existing.puzzleId === 'string' && codePuzzleIdSet.has(existing.puzzleId);
       if (stage.type === 'photo_scavenger') return typeof existing.promptId === 'string' && photoPromptIdSet.has(existing.promptId);
       return true;
@@ -118,14 +150,42 @@ export async function ensureStageInitialized(params: {
     // Firestore rules only allow the controller to update the room doc, so writing here would
     // break stage initialization for regular players (leading to "❓" and no options).
     // Instead, generate deterministically from (roomId, stageIndex) so every player sees the same content.
-    const seed = generateSeed(roomId, stageIndex);
+    // OR use AI-generated content if available.
     const stageQuestions: any = {};
-    if (stage.type === 'riddle_gate') stageQuestions.riddleId = pickRandomIdsSeeded(riddleGatePool, 1, seed)[0];
-    if (stage.type === 'emoji_guess') stageQuestions.clueIds = pickRandomIdsSeeded(emojiClues, 5, seed);
-    if (stage.type === 'trivia_solo') stageQuestions.questionIds = pickRandomIdsSeeded(getTriviaPool('en'), 5, seed);
-    if (stage.type === 'code_lock') stageQuestions.puzzleId = pickRandomIdsSeeded(codePuzzles, 1, seed)[0];
-    if (stage.type === 'photo_scavenger') stageQuestions.promptId = pickRandomIdsSeeded(photoPrompts, 1, seed)[0];
-    if (stage.type === 'final_riddle') stageQuestions.riddleId = pickRandomIdsSeeded(finalRiddlePool, 1, seed)[0];
+    
+    if (aiStageContent) {
+      // Use AI-generated content if available
+      if (stage.type === 'riddle_gate' || stage.type === 'final_riddle') {
+        stageQuestions.riddleId = aiStageContent.riddleId;
+        stageQuestions.riddle = aiStageContent.riddle; // Store full riddle object for later retrieval
+      }
+      if (stage.type === 'emoji_guess') {
+        stageQuestions.clueIds = aiStageContent.clueIds;
+        stageQuestions.clues = aiStageContent.clues; // Store full clue objects
+      }
+      if (stage.type === 'trivia_solo') {
+        stageQuestions.questionIds = aiStageContent.questionIds;
+        stageQuestions.questions = aiStageContent.questions; // Store full question objects
+      }
+      // code_lock and photo_scavenger don't support AI generation, use static
+      if (stage.type === 'code_lock') {
+        const seed = generateSeed(roomId, stageIndex);
+        stageQuestions.puzzleId = pickRandomIdsSeeded(codePuzzles, 1, seed)[0];
+      }
+      if (stage.type === 'photo_scavenger') {
+        const seed = generateSeed(roomId, stageIndex);
+        stageQuestions.promptId = pickRandomIdsSeeded(photoPrompts, 1, seed)[0];
+      }
+    } else {
+      // Use static content with seeded random
+      const seed = generateSeed(roomId, stageIndex);
+      if (stage.type === 'riddle_gate') stageQuestions.riddleId = pickRandomIdsSeeded(riddleGatePool, 1, seed)[0];
+      if (stage.type === 'emoji_guess') stageQuestions.clueIds = pickRandomIdsSeeded(emojiClues, 5, seed);
+      if (stage.type === 'trivia_solo') stageQuestions.questionIds = pickRandomIdsSeeded(getTriviaPool('en'), 5, seed);
+      if (stage.type === 'code_lock') stageQuestions.puzzleId = pickRandomIdsSeeded(codePuzzles, 1, seed)[0];
+      if (stage.type === 'photo_scavenger') stageQuestions.promptId = pickRandomIdsSeeded(photoPrompts, 1, seed)[0];
+      if (stage.type === 'final_riddle') stageQuestions.riddleId = pickRandomIdsSeeded(finalRiddlePool, 1, seed)[0];
+    }
 
     // If the player already has a complete stage state, no further work is needed.
     if (hasRequiredPlayerFields) return;
@@ -141,16 +201,36 @@ export async function ensureStageInitialized(params: {
 
     if (stage.type === 'riddle_gate') {
       const rid = existing.riddleId;
-      base.riddleId = (typeof rid === 'string' && riddleGateIdSet.has(rid)) ? rid : (stageQuestions as any).riddleId;
+      if (isAIEnhanced && typeof rid === 'string' && rid.startsWith('ai_')) {
+        base.riddleId = rid; // Keep existing AI ID
+      } else if (typeof rid === 'string' && riddleGateIdSet.has(rid)) {
+        base.riddleId = rid; // Keep existing static ID
+      } else {
+        base.riddleId = (stageQuestions as any).riddleId; // Use generated ID
+      }
     }
     if (stage.type === 'emoji_guess') {
-      base.clueIds = allValidIds(existing.clueIds, emojiIdSet) ? existing.clueIds : (stageQuestions as any).clueIds;
+      const existingIds = existing.clueIds;
+      if (isAIEnhanced && Array.isArray(existingIds) && existingIds.length > 0 && existingIds.every(id => typeof id === 'string' && id.startsWith('ai_'))) {
+        base.clueIds = existingIds; // Keep existing AI IDs
+      } else if (allValidIds(existingIds, emojiIdSet)) {
+        base.clueIds = existingIds; // Keep existing static IDs
+      } else {
+        base.clueIds = (stageQuestions as any).clueIds; // Use generated IDs
+      }
       base.correctCount = existing.correctCount ?? 0;
       base.answered = existing.answered ?? {};
       base.lockoutUntil = existing.lockoutUntil ?? 0;
     }
     if (stage.type === 'trivia_solo') {
-      base.questionIds = allValidIds(existing.questionIds, triviaIdSet) ? existing.questionIds : (stageQuestions as any).questionIds;
+      const existingIds = existing.questionIds;
+      if (isAIEnhanced && Array.isArray(existingIds) && existingIds.length > 0 && existingIds.every(id => typeof id === 'string' && id.startsWith('ai_'))) {
+        base.questionIds = existingIds; // Keep existing AI IDs
+      } else if (allValidIds(existingIds, triviaIdSet)) {
+        base.questionIds = existingIds; // Keep existing static IDs
+      } else {
+        base.questionIds = (stageQuestions as any).questionIds; // Use generated IDs
+      }
       base.current = existing.current ?? 0;
       base.correctCount = existing.correctCount ?? 0;
       base.answers = existing.answers ?? {};
@@ -170,7 +250,13 @@ export async function ensureStageInitialized(params: {
     }
     if (stage.type === 'final_riddle') {
       const rid = existing.riddleId;
-      base.riddleId = (typeof rid === 'string' && finalRiddleIdSet.has(rid)) ? rid : (stageQuestions as any).riddleId;
+      if (isAIEnhanced && typeof rid === 'string' && rid.startsWith('ai_')) {
+        base.riddleId = rid; // Keep existing AI ID
+      } else if (typeof rid === 'string' && finalRiddleIdSet.has(rid)) {
+        base.riddleId = rid; // Keep existing static ID
+      } else {
+        base.riddleId = (stageQuestions as any).riddleId; // Use generated ID
+      }
     }
 
     tx.update(playerRef, {
@@ -206,8 +292,21 @@ export async function submitRiddleAnswer(params: {
 
     const state = (p.stageState?.[stage.id] ?? {}) as any;
     const riddleId = state.riddleId as string | undefined;
-    const pool = stage.type === 'riddle_gate' ? riddleGatePool : finalRiddlePool;
-    const riddle = pool.find((r) => r.id === riddleId) ?? pool[0];
+    
+    // Get room to check for AI content
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomSnap = await tx.get(roomRef);
+    const room = roomSnap.exists() ? { id: roomSnap.id, ...roomSnap.data() } as Room : null;
+    
+    // Try to get AI riddle first, then fallback to static pool
+    let riddle: any = null;
+    if (room && room.raceAiEnhanced && room.raceStageQuestions?.[stage.id]?.riddle) {
+      riddle = room.raceStageQuestions[stage.id].riddle;
+    }
+    if (!riddle) {
+      const pool = stage.type === 'riddle_gate' ? riddleGatePool : finalRiddlePool;
+      riddle = pool.find((r) => r.id === riddleId) ?? pool[0];
+    }
     const normalized = normalizeAnswer(answer);
     const accepted = (riddle?.answers?.[lang] ?? []).map(normalizeAnswer);
     const correct = accepted.includes(normalized);
@@ -282,7 +381,19 @@ export async function submitEmojiAnswer(params: {
       return { correct: false, completedStage: false, lockoutUntil };
     }
 
-    const clue = emojiClues.find((c) => c.id === clueId);
+    // Get room to check for AI content
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomSnap = await tx.get(roomRef);
+    const room = roomSnap.exists() ? { id: roomSnap.id, ...roomSnap.data() } as Room : null;
+    
+    // Try to get AI clue first, then fallback to static pool
+    let clue: any = null;
+    if (room && room.raceAiEnhanced && room.raceStageQuestions?.[stage.id]?.clues) {
+      clue = room.raceStageQuestions[stage.id].clues?.find((c: any) => c.id === clueId);
+    }
+    if (!clue) {
+      clue = emojiClues.find((c) => c.id === clueId);
+    }
     if (!clue) throw new Error('Clue not found');
 
     const correct = answerText === clue.correct.en || answerText === clue.correct.cs || answerText === clue.correct[lang];
@@ -364,8 +475,20 @@ export async function submitTriviaAnswer(params: {
       return { done: false, current };
     }
 
-    const qPool = getTriviaPool('en');
-    const question = qPool.find((qq) => qq.id === questionId);
+    // Get room to check for AI content
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomSnap = await tx.get(roomRef);
+    const room = roomSnap.exists() ? { id: roomSnap.id, ...roomSnap.data() } as Room : null;
+    
+    // Try to get AI question first, then fallback to static pool
+    let question: any = null;
+    if (room && room.raceAiEnhanced && room.raceStageQuestions?.[stage.id]?.questions) {
+      question = room.raceStageQuestions[stage.id].questions?.find((q: any) => q.id === questionId);
+    }
+    if (!question) {
+      const qPool = getTriviaPool('en');
+      question = qPool.find((qq) => qq.id === questionId);
+    }
     if (!question) throw new Error('Question not found');
 
     const answeredMap = { ...(st.answers ?? {}) };

@@ -312,7 +312,7 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
   useEffect(() => {
     // Initialize stage even if it's null (will create the stage state)
     if (room.status === 'running' && trackId) {
-      ensureStageInitialized({ roomId, uid: player.uid, trackId, stageIndex }).catch((err) => {
+      ensureStageInitialized({ roomId, uid: player.uid, trackId, stageIndex, room }).catch((err) => {
         console.error('Error initializing stage:', err);
       });
     }
@@ -433,6 +433,7 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
             state={currentState}
             lang={lang}
             now={now}
+            room={room}
           />
         </div>
       </div>
@@ -448,8 +449,9 @@ function StageBody(props: {
   state: any;
   lang: 'en' | 'cs';
   now: number;
+  room: Room;
 }) {
-  const { roomId, trackId, stageIndex, stage, state, lang, now } = props;
+  const { roomId, trackId, stageIndex, stage, state, lang, now, room } = props;
   const uid = auth?.currentUser?.uid;
   const { playSound } = useAudio();
   const [text, setText] = useState('');
@@ -499,10 +501,12 @@ function StageBody(props: {
   }
 
   if (safeStage.type === 'riddle_gate' || safeStage.type === 'final_riddle') {
+    // Get room from props (passed down from parent component)
+    const room = (props as any).room as Room | undefined;
     const riddle =
       safeStage.type === 'riddle_gate'
-        ? getRiddleGateRiddleById(safeState.riddleId ?? '')
-        : getFinalRiddleById(safeState.riddleId ?? '');
+        ? getRiddleGateRiddleById(safeState.riddleId ?? '', room, safeStage.id)
+        : getFinalRiddleById(safeState.riddleId ?? '', room, safeStage.id);
     const hint = riddle?.hint?.[lang];
     const additionalClue = riddle?.additionalClue?.[lang];
     const secondHint = riddle?.secondHint?.[lang];
@@ -588,7 +592,7 @@ function StageBody(props: {
     const needCorrect = Number(safeStage.content?.needCorrect ?? 3);
 
     const nextClueId = clueIds.find((id) => !answered[id]) ?? clueIds[0];
-    const clue = getEmojiClueById(nextClueId ?? '');
+    const clue = getEmojiClueById(nextClueId ?? '', room, safeStage.id);
     const options: string[] = clue?.options?.[lang] ?? [];
 
     return (
@@ -644,7 +648,7 @@ function StageBody(props: {
   }
 
   if (safeStage.type === 'trivia_solo') {
-    const q = questionId ? getTriviaQuestionById(lang, questionId) : undefined;
+    const q = questionId ? getTriviaQuestionById(lang, questionId, room, safeStage.id) : undefined;
 
     if (!q) {
       return <p className="text-white/70">{t('common.loading', lang)}</p>;

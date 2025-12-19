@@ -34,3 +34,4 @@ for (const [target, source] of Object.entries(NEW_MAPPINGS)) {
     console.log(`❌ ${target} - Failed: ${error.message}`);
   }
 }
+

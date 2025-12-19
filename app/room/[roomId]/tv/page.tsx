@@ -14,7 +14,7 @@ import { getRaceTrack } from '@/lib/raceEngine';
 import { useEvents } from '@/lib/hooks/useEvents';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
-import { getWYRItemById } from '@/lib/miniGameContent';
+import { useWYRItem } from '@/lib/hooks/useGameContentItem';
 import { endPictionaryRound, initializePictionaryGame, startPictionaryRound } from '@/lib/miniGameEngine';
 import type { Player, Room } from '@/types';
 import toast from 'react-hot-toast';
@@ -99,9 +99,12 @@ function WYRVisualSnapshot({ room, players, lang }: { room: Room; players: Playe
   const selectedIds = room.miniGames?.wyr?.selectedIds ?? [];
   const playersWithAnswers = players.filter((p) => p.miniGameProgress?.wyr?.choices && p.miniGameProgress.wyr.choices.length > 0);
   
-  // Group answers by question
+  // Group answers by question (for static content - for AI content, this visualization will need updating)
   const questionAnswers = selectedIds.map((questionId, questionIndex) => {
-    const item = getWYRItemById(questionId);
+    // For static content, load synchronously
+    const staticPool = require('@/content/would_you_rather_christmas').wouldYouRatherChristmasPool;
+    const item = staticPool.find((i: any) => i.id === questionId);
+    
     const playersA: Player[] = [];
     const playersB: Player[] = [];
     

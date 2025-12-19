@@ -103,13 +103,24 @@ export interface Room {
   // Overall scoring (meta layer)
   overallScoringEnabled?: boolean;
   overallScoringMode?: 'placements' | 'sumMiniGameScores' | 'hybrid';
+  // AI-enhanced mode: generate content dynamically using AI instead of static pools
+  aiEnhanced?: boolean;
+  // Race AI-enhanced mode flag
+  raceAiEnhanced?: boolean;
+  // Race AI theme (defaults to 'Christmas' if not specified)
+  raceAiTheme?: string;
   // Race stage questions (stored per stage to ensure all players see same questions)
+  // For AI-enhanced mode, this also contains the full content objects (riddles, questions, clues)
   raceStageQuestions?: Record<string, {
     riddleId?: string;
     clueIds?: string[];
     questionIds?: string[];
     puzzleId?: string;
     promptId?: string;
+    // AI-generated content (full objects stored here)
+    riddle?: any;
+    questions?: any[];
+    clues?: any[];
   }>;
 }
 

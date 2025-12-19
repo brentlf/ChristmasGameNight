@@ -227,3 +227,4 @@ Before adding content:
 - [ ] For trivia/songs: correctIndex is 0-3
 - [ ] Ran validation: `npm run validate-content`
 - [ ] Tested in game (both languages)
+

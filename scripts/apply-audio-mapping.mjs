@@ -102,3 +102,4 @@ if (skipped > 0) {
   console.log(`\n💡 Note: Files were copied (not renamed) to preserve originals.`);
   console.log(`   You can delete the original files if you want.`);
 }
+

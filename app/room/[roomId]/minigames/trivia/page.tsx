@@ -9,7 +9,7 @@ import { getLanguage, t } from '@/lib/i18n';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { submitTriviaAnswer } from '@/lib/miniGameEngine';
-import { getTriviaItemById } from '@/lib/miniGameContent';
+import { useTriviaItem } from '@/lib/hooks/useGameContentItem';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { MiniGameAdvanceGate } from '../_components/MiniGameAdvanceGate';
@@ -90,7 +90,15 @@ export default function TriviaPage() {
   }
 
   const questionId = selectedIds[currentIndex];
-  const question = getTriviaItemById(questionId);
+  const { item: question, loading } = useTriviaItem(questionId, roomId);
+
+  if (loading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <div className="text-2xl">{t('common.loading', lang)}</div>
+      </div>
+    );
+  }
 
   if (!question) {
     return (
@@ -122,7 +130,7 @@ function TriviaQuestion({
 }: {
   roomId: string;
   uid: string;
-  question: ReturnType<typeof getTriviaItemById>;
+  question: NonNullable<ReturnType<typeof useTriviaItem>['item']>;
   questionIndex: number;
   totalQuestions: number;
   lang: 'en' | 'cs';
@@ -179,7 +187,7 @@ function TriviaQuestion({
           <h2 className="text-2xl font-semibold mb-6">{question.question[lang]}</h2>
 
           <div className="space-y-3">
-            {question.options[lang].map((opt, idx) => (
+            {question.options[lang].map((opt: string, idx: number) => (
               <button
                 key={idx}
                 className={`w-full rounded-2xl border p-4 text-left transition disabled:opacity-50 ${
