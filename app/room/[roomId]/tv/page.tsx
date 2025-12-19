@@ -411,8 +411,8 @@ export default function TVPage() {
     });
 
     return (
-      <main className="h-dvh flex flex-col px-4 py-6 md:py-8 overflow-hidden">
-        <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 flex flex-col">
+      <main className="min-h-dvh flex flex-col px-4 py-6 md:py-8">
+        <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
           {/* Header */}
           <div className="card mb-4 md:mb-5 relative overflow-hidden shrink-0">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
@@ -427,19 +427,19 @@ export default function TVPage() {
                   <span className="text-white/70">Scan to join</span>
                 </div>
 
-                <h1 className="game-show-title text-3xl md:text-4xl mb-2">{room.name}</h1>
+                <h1 className="game-show-title text-3xl md:text-4xl mb-2 break-words">{room.name}</h1>
                 <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-3 py-1.5 backdrop-blur-md">
-                    <span className="text-white/70 text-xs md:text-sm">Room Code</span>
-                    <span className="font-black tracking-widest text-lg md:text-xl">{room.code}</span>
+                  <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-white/10 border border-white/20 px-2.5 md:px-3 py-1 md:py-1.5 backdrop-blur-md">
+                    <span className="text-white/70 text-xs md:text-sm break-words">Room Code</span>
+                    <span className="font-black tracking-widest text-base md:text-lg lg:text-xl break-words">{room.code}</span>
                   </div>
                   {isController && (
-                    <span className="inline-flex items-center gap-2 rounded-full bg-christmas-gold/25 border border-christmas-gold/40 px-3 py-1.5 backdrop-blur-md text-xs md:text-sm">
-                      <span className="font-semibold">HOST</span>
-                      <span className="text-white/70">controls enabled</span>
+                    <span className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-christmas-gold/25 border border-christmas-gold/40 px-2.5 md:px-3 py-1 md:py-1.5 backdrop-blur-md text-xs md:text-sm">
+                      <span className="font-semibold break-words">HOST</span>
+                      <span className="text-white/70 break-words hidden sm:inline">controls enabled</span>
                     </span>
                   )}
-                  <span className="text-white/60 text-xs md:text-sm">
+                  <span className="text-white/60 text-xs md:text-sm break-words">
                     {players.length}/{room.maxPlayers} {t('tv.players', lang)}
                   </span>
                 </div>
@@ -455,79 +455,83 @@ export default function TVPage() {
           </div>
 
           {/* 3-pillar layout: Players | Lobby/Game Select | Leaderboard */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-5 flex-1 min-h-0">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-5">
             {/* Players (left) */}
             <div className="card xl:col-span-2 h-full flex flex-col min-h-0">
               <div className="mb-2 shrink-0">
-                <h2 className="text-lg md:text-xl font-bold">
+                <h2 className="text-lg md:text-xl font-bold break-words">
                   {t('tv.players', lang)} ({players.length}/{room.maxPlayers})
                 </h2>
                 <div className="text-xs text-white/60 whitespace-normal break-words max-w-full">
                   {lang === 'cs' ? 'Připoj se mobilem a pak host spustí hru.' : 'Join on your phone, then the host starts the game.'}
                 </div>
               </div>
-              <div className="space-y-1.5 md:space-y-2 flex-1 min-h-0">
-                {sortedPlayers.map((p: any) => (
-                  <div key={p.uid} className="rounded-lg md:rounded-xl border border-white/10 bg-white/5 p-1.5 md:p-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm md:text-base font-bold">
-                          <span className="mr-1 text-base md:text-lg">{p.avatar}</span>
-                          {p.name}
-                        </p>
-                        <p className="text-xs text-white/60">
-                          {p.ready ? '✅' : '⏳'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs md:text-sm font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
+              <div className="space-y-2 md:space-y-2 flex-1 min-h-0 overflow-hidden">
+                <div className="h-full overflow-auto pr-1">
+                  {sortedPlayers.map((p: any) => (
+                    <div key={p.uid} className="rounded-lg md:rounded-xl border border-white/10 bg-white/5 p-3 md:p-2 mb-2 md:mb-2 min-h-[60px] md:min-h-[50px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm md:text-base font-bold break-words">
+                            <span className="mr-1.5 text-base md:text-lg shrink-0">{p.avatar}</span>
+                            <span className="truncate">{p.name}</span>
+                          </p>
+                          <p className="text-xs md:text-sm text-white/60 mt-0.5">
+                            {p.ready ? '✅' : '⏳'}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm md:text-sm font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {sortedPlayers.length === 0 && (
-                  <p className="text-sm text-white/60">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
-                )}
+                  ))}
+                  {sortedPlayers.length === 0 && (
+                    <p className="text-xs md:text-sm text-white/60 break-words">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Lobby / Game Select (middle) */}
-            <div className="xl:col-span-8 h-full flex flex-col min-h-0">
+            <div className="xl:col-span-8 flex flex-col">
               <MiniGamesTVHub roomId={roomId} room={room} players={players} lang={lang} isController={isController} />
             </div>
 
             {/* Leaderboard (right) */}
             <div className="card xl:col-span-2 h-full flex flex-col min-h-0">
               <div className="mb-2 shrink-0">
-                <h2 className="text-lg md:text-xl font-bold">{t('common.leaderboard', lang)}</h2>
+                <h2 className="text-lg md:text-xl font-bold break-words">{t('common.leaderboard', lang)}</h2>
                 <div className="text-xs text-white/60 whitespace-normal break-words max-w-full">
                   {lang === 'cs' ? 'Celkem' : 'Overall'}
                 </div>
               </div>
 
               {lobbyLeaders.length === 0 ? (
-                <p className="text-xs md:text-sm text-white/60">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
+                <p className="text-xs md:text-sm text-white/60 break-words">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
               ) : (
-                <div className="space-y-1 md:space-y-1.5 flex-1 min-h-0">
-                  {lobbyLeaders.slice(0, 8).map((p: any, idx: number) => (
-                    <div
-                      key={p.uid}
-                      className={`rounded-lg md:rounded-xl border p-1.5 md:p-2 flex items-center justify-between gap-2 ${
-                        idx === 0 ? 'border-christmas-gold/40 bg-christmas-gold/10' : 'border-white/10 bg-white/5'
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-bold text-xs md:text-sm">
-                          <span className="mr-1">{idx === 0 ? '🏆' : `#${idx + 1}`}</span>
-                          <span className="mr-1">{p.avatar}</span>
-                          {p.name}
-                        </p>
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <div className="h-full overflow-auto pr-1 space-y-2 md:space-y-1.5">
+                    {lobbyLeaders.slice(0, 8).map((p: any, idx: number) => (
+                      <div
+                        key={p.uid}
+                        className={`rounded-lg md:rounded-xl border p-3 md:p-2 flex items-center justify-between gap-2 min-h-[60px] md:min-h-[50px] ${
+                          idx === 0 ? 'border-christmas-gold/40 bg-christmas-gold/10' : 'border-white/10 bg-white/5'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-bold text-sm md:text-sm break-words">
+                            <span className="mr-1.5 shrink-0">{idx === 0 ? '🏆' : `#${idx + 1}`}</span>
+                            <span className="mr-1.5 shrink-0 text-base md:text-lg">{p.avatar}</span>
+                            <span className="truncate">{p.name}</span>
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-base md:text-base font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm md:text-base font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -566,8 +570,8 @@ export default function TVPage() {
     };
 
     return (
-      <main className="h-dvh flex flex-col px-4 py-6 md:py-8 overflow-hidden">
-        <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 flex flex-col">
+      <main className="min-h-dvh flex flex-col px-4 py-6 md:py-8">
+        <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
           {/* Header */}
           <div className="card mb-6 relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />

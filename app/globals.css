@@ -12,6 +12,8 @@
     height: 100%;
     width: 100%;
     overflow-x: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 
   body {
@@ -35,30 +37,36 @@
       /* Deep, warm base - like a dark wood-paneled room */
       linear-gradient(180deg, #1a0f0a 0%, #2d1810 30%, #1a0f0a 60%, #0f0805 100%);
   }
+
+  /* Ensure text wraps properly on mobile */
+  p, span, div, h1, h2, h3, h4, h5, h6, label, button {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
 }
 
 @layer components {
   .btn-primary {
-    @apply px-6 py-3 rounded-full bg-gradient-to-r from-fire-orange to-fire-gold text-white font-bold text-lg shadow-lg shadow-fire-orange/40 hover:shadow-xl hover:shadow-fire-orange/50 transform hover:-translate-y-0.5 transition-all duration-200;
+    @apply px-4 md:px-6 py-2.5 md:py-3 rounded-full bg-gradient-to-r from-fire-orange to-fire-gold text-white font-bold text-sm md:text-lg shadow-lg shadow-fire-orange/40 hover:shadow-xl hover:shadow-fire-orange/50 transform hover:-translate-y-0.5 transition-all duration-200;
     box-shadow: 0 8px 20px rgba(255, 140, 0, 0.25), 0 0 30px rgba(255, 193, 7, 0.15);
   }
   
   .btn-secondary {
-    @apply px-6 py-3 rounded-full bg-wood-dark/40 backdrop-blur-md text-white font-semibold text-lg border border-wood-light/30 hover:bg-wood-dark/50 hover:border-fire-gold/50 transition-all duration-200;
+    @apply px-4 md:px-6 py-2.5 md:py-3 rounded-full bg-wood-dark/40 backdrop-blur-md text-white font-semibold text-sm md:text-lg border border-wood-light/30 hover:bg-wood-dark/50 hover:border-fire-gold/50 transition-all duration-200;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
   
   .card {
-    @apply bg-wood-dark/30 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-wood-light/20;
+    @apply bg-wood-dark/30 backdrop-blur-xl rounded-xl md:rounded-2xl p-4 md:p-6 shadow-2xl border border-wood-light/20;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 140, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
   
   .input-field {
-    @apply w-full px-4 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder-white/55 focus:outline-none focus:border-christmas-gold focus:bg-white/20 transition-all;
+    @apply w-full px-3 md:px-4 py-2.5 md:py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder-white/55 focus:outline-none focus:border-christmas-gold focus:bg-white/20 transition-all text-sm md:text-base;
   }
   
   .game-show-title {
-    @apply text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-fire-gold via-fire-orange via-white to-fire-gold drop-shadow-2xl;
+    @apply text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-fire-gold via-fire-orange via-white to-fire-gold drop-shadow-2xl;
     filter: drop-shadow(0 0 20px rgba(255, 193, 7, 0.4)) drop-shadow(0 0 40px rgba(255, 140, 0, 0.2));
     text-shadow: 0 0 30px rgba(255, 193, 7, 0.3);
   }

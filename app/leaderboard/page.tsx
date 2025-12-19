@@ -257,8 +257,8 @@ export default function GlobalLeaderboardPage() {
   }
 
   return (
-    <main className="h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col overflow-hidden">
-      <div className="max-w-6xl mx-auto w-full flex-1 min-h-0 flex flex-col">
+    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+      <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col">
         <div className="mb-4 md:mb-6 text-center shrink-0">
           <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-white/10 border border-white/20 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-white/80 backdrop-blur-md">
             <span>🏆</span>
@@ -344,27 +344,27 @@ export default function GlobalLeaderboardPage() {
 
         {/* Full Leaderboard */}
         {aggregatedPlayers.length > 0 ? (
-          <div className="card flex-1 min-h-0 overflow-hidden">
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 md:mb-6 text-center">{t('common.leaderboard', lang)}</h2>
-            <div className="space-y-2 md:space-y-3 overflow-auto pr-1" style={{ maxHeight: '100%' }}>
+          <div className="card">
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 md:mb-6 text-center break-words">{t('common.leaderboard', lang)}</h2>
+            <div className="space-y-2 md:space-y-3">
               {aggregatedPlayers.map((player, index) => (
                 <div
                   key={`${player.name}-${player.avatar}-${index}`}
-                  className={`flex items-center gap-2 md:gap-4 p-3 md:p-4 rounded-xl md:rounded-2xl border border-white/10 ${
+                  className={`flex items-center gap-2 md:gap-4 p-4 md:p-5 lg:p-6 rounded-xl md:rounded-2xl border border-white/10 min-h-[80px] md:min-h-[100px] ${
                     index < 3 ? 'bg-christmas-gold/15' : 'bg-white/5'
                   }`}
                 >
-                  <div className={`text-xl md:text-2xl lg:text-3xl font-bold w-8 md:w-10 lg:w-12 text-center ${
+                  <div className={`text-xl md:text-2xl lg:text-3xl font-bold w-8 md:w-10 lg:w-12 text-center shrink-0 ${
                     index === 0 ? 'text-christmas-gold' :
                     index === 1 ? 'text-gray-300' :
                     index === 2 ? 'text-christmas-bronze' : 'text-white/50'
                   }`}>
                     {index + 1}
                   </div>
-                  <span className="text-2xl md:text-3xl">{player.avatar}</span>
+                  <span className="text-2xl md:text-3xl shrink-0">{player.avatar}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-base md:text-lg lg:text-xl font-semibold truncate">{player.name}</p>
-                    <p className="text-xs text-white/60 mb-1.5 md:mb-2">
+                    <p className="text-base md:text-lg lg:text-xl font-semibold truncate break-words">{player.name}</p>
+                    <p className="text-xs md:text-sm text-white/60 mb-1.5 md:mb-2 break-words">
                       {player.gamesPlayed} {player.gamesPlayed === 1 ? 'game' : 'games'} played
                     </p>
                     {/* Visual score breakdown */}
@@ -372,7 +372,7 @@ export default function GlobalLeaderboardPage() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-lg md:text-xl lg:text-2xl font-bold">{player.totalScore}</p>
-                    <p className="text-xs text-white/60">{t('common.score', lang)}</p>
+                    <p className="text-xs md:text-sm text-white/60 break-words">{t('common.score', lang)}</p>
                   </div>
                 </div>
               ))}

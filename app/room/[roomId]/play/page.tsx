@@ -100,28 +100,28 @@ export default function PlayPage() {
 
   if (!player) {
     return (
-      <main className="min-h-dvh px-4 py-10 md:py-16">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-lg">
           <div className="card relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
             <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
 
             <div className="relative">
-              <div className="mb-6 text-center">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md">
+              <div className="mb-4 md:mb-6 text-center">
+                <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-white/10 border border-white/20 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-white/80 backdrop-blur-md">
                   <span>🎮</span>
-                  <span>{t('player.setup', lang)}</span>
+                  <span className="break-words">{t('player.setup', lang)}</span>
                 </div>
               </div>
 
-              <h1 className="game-show-title mb-2 text-center">{room.name}</h1>
-              <p className="text-center text-white/75 mb-8">
+              <h1 className="game-show-title mb-2 text-center break-words">{room.name}</h1>
+              <p className="text-center text-white/75 mb-6 md:mb-8 text-sm md:text-base break-words">
                 {t('player.setupSubtitle', lang)}
               </p>
 
-              <div className="space-y-5">
+              <div className="space-y-4 md:space-y-5">
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-white/80">
+                  <label className="block text-xs md:text-sm font-semibold mb-1.5 md:mb-2 text-white/80 break-words">
                     {t('player.enterName', lang)}
                   </label>
                   
@@ -136,7 +136,7 @@ export default function PlayPage() {
                               setName(prevName);
                               setNameInputMode('manual');
                             }}
-                            className={`px-4 py-2 rounded-lg border text-sm transition ${
+                            className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg border text-xs md:text-sm transition break-words ${
                               name === prevName
                                 ? 'bg-christmas-gold/25 border-christmas-gold/40 text-white'
                                 : 'bg-white/5 border-white/20 text-white/80 hover:bg-white/10'
@@ -184,7 +184,7 @@ export default function PlayPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-white/80">
+                  <label className="block text-xs md:text-sm font-semibold mb-1.5 md:mb-2 text-white/80 break-words">
                     {t('player.selectAvatar', lang)}
                   </label>
                   <div className="grid grid-cols-5 gap-2">
@@ -193,7 +193,7 @@ export default function PlayPage() {
                         key={`${avatar}-${idx}`}
                         type="button"
                         onClick={() => setSelectedAvatar(avatar)}
-                        className={`text-4xl p-3 rounded-2xl border transition ${
+                        className={`text-3xl md:text-4xl p-2 md:p-3 rounded-xl md:rounded-2xl border transition ${
                           selectedAvatar === avatar
                             ? 'bg-christmas-gold/25 border-christmas-gold/40'
                             : 'bg-white/5 border-white/20 hover:bg-white/10'
@@ -206,12 +206,12 @@ export default function PlayPage() {
                   </div>
                 </div>
 
-                <button onClick={handleJoin} disabled={joining} className="btn-primary w-full">
+                <button onClick={handleJoin} disabled={joining} className="btn-primary w-full text-sm md:text-base break-words">
                   {joining ? t('common.loading', lang) : `🎟️ ${t('player.join', lang)}`}
                 </button>
 
                 <div className="mt-2 text-center">
-                  <Link href={`/room/${roomId}/tv`} className="btn-secondary inline-block text-sm">
+                  <Link href={`/room/${roomId}/tv`} className="btn-secondary inline-block text-xs md:text-sm break-words">
                     📺 {t('player.openTv', lang)}
                   </Link>
                 </div>
@@ -236,15 +236,15 @@ export default function PlayPage() {
 
   if (roomMode === 'leaderboard') {
     return (
-      <main className="min-h-dvh px-4 py-8 md:py-12">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-4xl">
           <div className="card">
-            <h1 className="game-show-title mb-4 text-center">🏆 Leaderboard</h1>
-            <p className="text-center text-white/70 mb-6">
+            <h1 className="game-show-title mb-3 md:mb-4 text-center break-words">🏆 Leaderboard</h1>
+            <p className="text-center text-white/70 mb-4 md:mb-6 text-sm md:text-base break-words">
               This room is configured for leaderboard view. Open the TV view to see standings.
             </p>
             <div className="text-center">
-              <Link href={`/room/${roomId}/tv`} className="btn-primary inline-block">
+              <Link href={`/room/${roomId}/tv`} className="btn-primary inline-block text-sm md:text-base break-words">
                 📺 Open TV View
               </Link>
             </div>
@@ -255,13 +255,13 @@ export default function PlayPage() {
   }
 
   return (
-    <main className="min-h-dvh px-4 py-8">
-      <div className="mx-auto max-w-xl">
-        <div className="card text-center">
-          <p className="text-white/70">Unknown room mode</p>
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+        <div className="mx-auto max-w-xl">
+          <div className="card text-center">
+            <p className="text-white/70 text-sm md:text-base break-words">Unknown room mode</p>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
   );
 }
 
@@ -273,10 +273,10 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
   // Safety check for trackId
   if (!trackId) {
     return (
-      <main className="min-h-dvh px-4 py-8">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-xl">
           <div className="card text-center">
-            <p className="text-white/70">{t('common.error', lang)}: Missing race track</p>
+            <p className="text-white/70 text-sm md:text-base break-words">{t('common.error', lang)}: Missing race track</p>
           </div>
         </div>
       </main>
@@ -356,7 +356,7 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
     const isWinner = myRank === 0;
 
     return (
-      <main className="min-h-dvh px-4 py-10">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="max-w-xl mx-auto">
           <div className="card text-center relative overflow-hidden">
             {/* Celebration background */}
@@ -367,20 +367,20 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
               {/* Winner celebration */}
               {isWinner ? (
                 <>
-                  <div className="text-8xl mb-4 animate-bounce-slow">{player.avatar}</div>
-                  <div className="text-6xl mb-4 animate-spin-slow">👑</div>
-                  <h1 className="game-show-title mb-2 text-5xl">
+                  <div className="text-6xl md:text-8xl mb-3 md:mb-4 animate-bounce-slow">{player.avatar}</div>
+                  <div className="text-5xl md:text-6xl mb-3 md:mb-4 animate-spin-slow">👑</div>
+                  <h1 className="game-show-title mb-2 text-3xl md:text-4xl lg:text-5xl break-words">
                     {lang === 'cs' ? '🎉 VÝBORNĚ! 🎉' : '🎉 YOU WON! 🎉'}
                   </h1>
-                  <p className="text-white/80 mb-4 text-xl">
+                  <p className="text-white/80 mb-3 md:mb-4 text-base md:text-lg lg:text-xl break-words">
                     {lang === 'cs' ? 'Jsi vítěz Amazing Race!' : "You're the Amazing Race winner!"}
                   </p>
                 </>
               ) : (
                 <>
-                  <div className="text-6xl mb-4">🏁</div>
-                  <h1 className="game-show-title mb-2">{lang === 'cs' ? 'Hotovo!' : 'Race Complete!'}</h1>
-                  <p className="text-white/70 mb-4">
+                  <div className="text-5xl md:text-6xl mb-3 md:mb-4">🏁</div>
+                  <h1 className="game-show-title mb-2 text-2xl md:text-3xl lg:text-4xl break-words">{lang === 'cs' ? 'Hotovo!' : 'Race Complete!'}</h1>
+                  <p className="text-white/70 mb-3 md:mb-4 text-sm md:text-base break-words">
                     {lang === 'cs' 
                       ? `Dokončil jsi Amazing Race na ${myRank + 1}. místě!` 
                       : `You finished Amazing Race in ${myRank + 1}${myRank === 0 ? 'st' : myRank === 1 ? 'nd' : myRank === 2 ? 'rd' : 'th'} place!`}
@@ -390,9 +390,9 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
 
               {/* Top 3 preview */}
               {finishedRanked.length > 0 && (
-                <div className="mb-6 p-4 rounded-2xl border border-white/10 bg-white/5">
-                  <p className="text-sm text-white/70 mb-3">{lang === 'cs' ? 'Top 3:' : 'Top 3:'}</p>
-                  <div className="space-y-2">
+                <div className="mb-4 md:mb-6 p-3 md:p-4 rounded-xl md:rounded-2xl border border-white/10 bg-white/5">
+                  <p className="text-xs md:text-sm text-white/70 mb-2 md:mb-3 break-words">{lang === 'cs' ? 'Top 3:' : 'Top 3:'}</p>
+                  <div className="space-y-1.5 md:space-y-2">
                     {finishedRanked.slice(0, 3).map((p: any, idx: number) => {
                       const score = overallScoring && overallScoring.length > 0 
                         ? p.overallPoints ?? 0
@@ -400,18 +400,18 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
                       return (
                         <div
                           key={p?.uid}
-                          className={`flex items-center justify-between p-2 rounded-xl ${
+                          className={`flex items-center justify-between p-2 rounded-lg md:rounded-xl gap-2 ${
                             p?.uid === player.uid ? 'bg-christmas-gold/20 border border-christmas-gold/50' : 'bg-white/5'
                           }`}
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">
+                          <div className="flex items-center gap-1.5 md:gap-2 min-w-0 flex-1">
+                            <span className="text-base md:text-lg shrink-0">
                               {idx === 0 ? '👑' : idx === 1 ? '🥈' : '🥉'}
                             </span>
-                            <span className="text-xl">{p?.avatar}</span>
-                            <span className="font-semibold">{p?.name}</span>
+                            <span className="text-lg md:text-xl shrink-0">{p?.avatar}</span>
+                            <span className="font-semibold text-sm md:text-base truncate break-words">{p?.name}</span>
                           </div>
-                          <span className="text-xl font-bold text-christmas-gold">{score}</span>
+                          <span className="text-lg md:text-xl font-bold text-christmas-gold shrink-0">{score}</span>
                         </div>
                       );
                     })}
@@ -419,11 +419,11 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Link href={`/room/${roomId}/tv`} className="btn-secondary text-center">
+              <div className="flex flex-col sm:flex-row gap-2 md:gap-3 justify-center">
+                <Link href={`/room/${roomId}/tv`} className="btn-secondary text-center text-sm md:text-base break-words">
                   📺 {t('race.backToTv', lang)}
                 </Link>
-                <Link href={`/room/${roomId}/results`} className="btn-primary text-center">
+                <Link href={`/room/${roomId}/results`} className="btn-primary text-center text-sm md:text-base break-words">
                   🏆 {t('race.viewResults', lang)}
                 </Link>
               </div>
@@ -442,15 +442,15 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
             <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
             <div className="relative">
-              <div className="text-5xl mb-4">{player.avatar}</div>
-              <h1 className="game-show-title mb-4">{room.name}</h1>
-              <p className="text-white/75 mb-6">
+              <div className="text-4xl md:text-5xl mb-3 md:mb-4">{player.avatar}</div>
+              <h1 className="game-show-title mb-3 md:mb-4 break-words">{room.name}</h1>
+              <p className="text-white/75 mb-4 md:mb-6 text-sm md:text-base break-words">
                 {t('race.waitingForStart', lang) || 'Waiting for the host to start the race...'}
               </p>
-              <p className="text-sm text-white/60 mb-6">
+              <p className="text-xs md:text-sm text-white/60 mb-4 md:mb-6 break-words">
                 {t('race.waitingDesc', lang) || 'The race will begin once the host starts it from the TV view.'}
               </p>
-              <Link href={`/room/${roomId}/tv`} className="btn-secondary inline-block">
+              <Link href={`/room/${roomId}/tv`} className="btn-secondary inline-block text-sm md:text-base break-words">
                 📺 {t('race.openTv', lang)}
               </Link>
             </div>
@@ -462,11 +462,11 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
 
   if (!stage) {
     return (
-      <main className="min-h-dvh px-4 py-8">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-xl">
           <div className="card text-center">
-            <p className="text-white/70 mb-4">{t('common.loading', lang)}</p>
-            <p className="text-sm text-white/50">
+            <p className="text-white/70 mb-3 md:mb-4 text-sm md:text-base break-words">{t('common.loading', lang)}</p>
+            <p className="text-xs md:text-sm text-white/50 break-words">
               {trackId ? `Track: ${trackId}, Stage: ${stageIndex + 1}` : 'Initializing stage...'}
             </p>
           </div>
@@ -476,45 +476,45 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
   }
 
   return (
-    <main className="min-h-dvh px-4 py-6 md:py-10">
+    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
       <div className="max-w-xl mx-auto">
-        <div className="card mb-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold">{room.name}</h1>
-              <p className="text-white/70">
+        <div className="card mb-3 md:mb-4">
+          <div className="flex items-start justify-between gap-3 md:gap-4">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg md:text-xl font-bold break-words truncate">{room.name}</h1>
+              <p className="text-white/70 text-xs md:text-sm break-words">
                 {t('common.score', lang)}: <span className="font-bold text-christmas-gold">{player.score ?? 0}</span>
               </p>
             </div>
-            <div className="flex gap-2">
-              <Link href={`/room/${roomId}/tv`} className="btn-secondary text-sm">
+            <div className="flex gap-2 shrink-0">
+              <Link href={`/room/${roomId}/tv`} className="btn-secondary text-xs md:text-sm break-words">
                 📺 {t('race.tv', lang)}
               </Link>
             </div>
           </div>
 
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-sm text-white/70 mb-2">
-              <span>
+          <div className="mt-3 md:mt-4">
+            <div className="flex items-center justify-between text-xs md:text-sm text-white/70 mb-1.5 md:mb-2">
+              <span className="break-words">
                 {t('race.stage', lang)} {stageIndex + 1}/{totalStages}
               </span>
-              <span>{pct}%</span>
+              <span className="shrink-0">{pct}%</span>
             </div>
-            <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden">
-              <div className="h-3 bg-christmas-gold" style={{ width: `${pct}%` }} />
+            <div className="h-2.5 md:h-3 w-full bg-white/10 rounded-full overflow-hidden">
+              <div className="h-full bg-christmas-gold" style={{ width: `${pct}%` }} />
             </div>
           </div>
         </div>
 
         <div className="card">
-          <div className="mb-3">
-            <h2 className="text-3xl font-black">{stage.title[lang]}</h2>
-            <p className="text-white/70 mt-1">{stage.description[lang]}</p>
+          <div className="mb-2 md:mb-3">
+            <h2 className="text-2xl md:text-3xl font-black break-words">{stage.title[lang]}</h2>
+            <p className="text-white/70 mt-1 text-sm md:text-base break-words">{stage.description[lang]}</p>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 mb-5">
-            <p className="text-sm text-white/80 font-semibold mb-1">{t('race.rules', lang)}</p>
-            <p className="text-sm text-white/70">{stage.rules[lang]}</p>
+          <div className="rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4 mb-4 md:mb-5">
+            <p className="text-xs md:text-sm text-white/80 font-semibold mb-1 break-words">{t('race.rules', lang)}</p>
+            <p className="text-xs md:text-sm text-white/70 break-words">{stage.rules[lang]}</p>
           </div>
 
           <StageBody
@@ -607,8 +607,8 @@ function StageBody(props: {
     const showSecondHint = attempts >= 6 && secondHint;
 
     return (
-      <div className="space-y-4">
-        <p className="text-2xl font-semibold leading-snug">{riddle?.prompt?.[lang] ?? t('common.loading', lang)}</p>
+      <div className="space-y-3 md:space-y-4">
+        <p className="text-lg md:text-xl lg:text-2xl font-semibold leading-snug break-words">{riddle?.prompt?.[lang] ?? t('common.loading', lang)}</p>
 
         <input
           value={text}
@@ -619,7 +619,7 @@ function StageBody(props: {
         />
 
         <button
-          className="btn-primary w-full"
+          className="btn-primary w-full text-sm md:text-base break-words"
           disabled={busy || !text.trim()}
           onClick={async () => {
             playSound('click');
@@ -645,7 +645,7 @@ function StageBody(props: {
 
         {hint && (
           <button
-            className="btn-secondary w-full"
+            className="btn-secondary w-full text-sm md:text-base break-words"
             onClick={() => setShowHint((v) => !v)}
             type="button"
             disabled={busy}
@@ -654,23 +654,23 @@ function StageBody(props: {
           </button>
         )}
 
-        {hint && showHint && <div className="text-white/80 text-sm">{hint}</div>}
+        {hint && showHint && <div className="text-white/80 text-xs md:text-sm break-words">{hint}</div>}
 
         {showAdditionalClue && (
-          <div className="rounded-2xl border border-christmas-gold/30 bg-christmas-gold/10 p-4">
-            <p className="text-xs text-christmas-gold/80 uppercase tracking-widest mb-1">
+          <div className="rounded-xl md:rounded-2xl border border-christmas-gold/30 bg-christmas-gold/10 p-3 md:p-4">
+            <p className="text-xs text-christmas-gold/80 uppercase tracking-widest mb-1 break-words">
               {t('race.additionalClue', lang) || 'Additional Clue'}
             </p>
-            <div className="text-white/90 text-sm">{additionalClue}</div>
+            <div className="text-white/90 text-xs md:text-sm break-words">{additionalClue}</div>
           </div>
         )}
 
         {showSecondHint && (
-          <div className="rounded-2xl border border-christmas-gold/40 bg-christmas-gold/15 p-4">
-            <p className="text-xs text-christmas-gold/90 uppercase tracking-widest mb-1">
+          <div className="rounded-xl md:rounded-2xl border border-christmas-gold/40 bg-christmas-gold/15 p-3 md:p-4">
+            <p className="text-xs text-christmas-gold/90 uppercase tracking-widest mb-1 break-words">
               {t('race.secondHint', lang) || 'Extra Hint'}
             </p>
-            <div className="text-white/90 text-sm">{secondHint}</div>
+            <div className="text-white/90 text-xs md:text-sm break-words">{secondHint}</div>
           </div>
         )}
       </div>
@@ -688,28 +688,28 @@ function StageBody(props: {
     const options: string[] = clue?.options?.[lang] ?? [];
 
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-white/70">
+      <div className="space-y-3 md:space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs md:text-sm text-white/70 break-words">
             {t('race.emojiProgress', lang)}: <span className="font-bold text-christmas-gold">{correctCount}</span>/{needCorrect}
           </p>
           {locked && (
-            <p className="text-sm text-white/70">
+            <p className="text-xs md:text-sm text-white/70 shrink-0 break-words">
               {t('race.locked', lang)} {lockoutSeconds}s
             </p>
           )}
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-center">
-          <div className="text-6xl mb-2">{clue?.emoji ?? '❓'}</div>
-          <div className="text-xs text-white/60 uppercase tracking-widest">{clue?.category ?? ''}</div>
+        <div className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/5 p-4 md:p-6 text-center">
+          <div className="text-5xl md:text-6xl mb-2">{clue?.emoji ?? '❓'}</div>
+          <div className="text-xs text-white/60 uppercase tracking-widest break-words">{clue?.category ?? ''}</div>
         </div>
 
         <div className="space-y-2">
           {options.map((opt) => (
             <button
               key={opt}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-4 text-left disabled:opacity-50"
+              className="w-full rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-3 md:p-4 text-left disabled:opacity-50 text-xs md:text-sm break-words"
               disabled={busy || locked}
               onClick={async () => {
                 playSound('click');
@@ -747,36 +747,36 @@ function StageBody(props: {
     }
 
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-white/70">
+      <div className="space-y-3 md:space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs md:text-sm text-white/70 break-words">
             {t('race.question', lang)} {Math.min(current + 1, questionIds.length)}/{questionIds.length}
           </p>
-          <p className="text-sm">
+          <p className="text-xs md:text-sm shrink-0">
             ⏱️ <span className={remaining <= 5 ? 'text-christmas-red font-bold' : 'text-white/80'}>{remaining}s</span>
           </p>
         </div>
 
-        <p className="text-2xl font-semibold leading-snug">{q.prompt}</p>
+        <p className="text-lg md:text-xl lg:text-2xl font-semibold leading-snug break-words">{q.prompt}</p>
 
         <div className="space-y-2">
           {q.options.map((opt, idx) => (
             <button
               key={idx}
-              className={`w-full rounded-2xl border p-4 text-left transition disabled:opacity-50 ${
+              className={`w-full rounded-xl md:rounded-2xl border p-3 md:p-4 text-left transition disabled:opacity-50 text-xs md:text-sm break-words ${
                 selected === idx ? 'bg-christmas-gold/25 border-christmas-gold/40' : 'bg-white/5 border-white/10 hover:bg-white/10'
               }`}
               disabled={busy || remaining === 0}
               onClick={() => setSelected(idx)}
               type="button"
             >
-              <span className="text-white/70 mr-2">{String.fromCharCode(65 + idx)}.</span> {opt}
+              <span className="text-white/70 mr-2 shrink-0">{String.fromCharCode(65 + idx)}.</span> <span className="break-words">{opt}</span>
             </button>
           ))}
         </div>
 
         <button
-          className="btn-primary w-full"
+          className="btn-primary w-full text-sm md:text-base break-words"
           disabled={busy || selected === null || remaining === 0 || !questionId}
           onClick={async () => {
             if (!questionId) return;
@@ -808,13 +808,13 @@ function StageBody(props: {
     const puzzle = getCodePuzzleById(safeState.puzzleId ?? '');
     const hint = puzzle?.hint?.[lang];
     return (
-      <div className="space-y-4">
-        <pre className="whitespace-pre-wrap rounded-2xl border border-white/10 bg-white/5 p-4 text-white/85 text-sm">
+      <div className="space-y-3 md:space-y-4">
+        <pre className="whitespace-pre-wrap rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4 text-white/85 text-xs md:text-sm break-words overflow-auto">
           {puzzle?.prompt?.[lang] ?? t('common.loading', lang)}
         </pre>
 
         {locked && (
-          <p className="text-sm text-white/70">
+          <p className="text-xs md:text-sm text-white/70 break-words">
             {t('race.locked', lang)} {lockoutSeconds}s
           </p>
         )}
@@ -822,14 +822,14 @@ function StageBody(props: {
         <input
           value={text}
           onChange={(e) => setText(e.target.value.replace(/\D/g, '').slice(0, 4))}
-          className="input-field text-center text-3xl font-black tracking-[0.35em]"
+          className="input-field text-center text-2xl md:text-3xl font-black tracking-[0.35em]"
           placeholder="••••"
           maxLength={4}
           disabled={busy || locked}
         />
 
         <button
-          className="btn-primary w-full"
+          className="btn-primary w-full text-sm md:text-base break-words"
           disabled={busy || locked || text.trim().length !== 4}
           onClick={async () => {
             playSound('click');
@@ -854,11 +854,11 @@ function StageBody(props: {
         </button>
 
         {hint && (
-          <button className="btn-secondary w-full" onClick={() => setShowHint((v) => !v)} type="button">
+          <button className="btn-secondary w-full text-sm md:text-base break-words" onClick={() => setShowHint((v) => !v)} type="button">
             {showHint ? t('race.hideHint', lang) : t('race.showHint', lang)}
           </button>
         )}
-        {hint && showHint && <div className="text-white/80 text-sm">{hint}</div>}
+        {hint && showHint && <div className="text-white/80 text-xs md:text-sm break-words">{hint}</div>}
       </div>
     );
   }
@@ -866,24 +866,24 @@ function StageBody(props: {
   if (safeStage.type === 'photo_scavenger') {
     const prompt = getPhotoPromptById(safeState.promptId ?? '');
     return (
-      <div className="space-y-4">
-        <p className="text-xl font-semibold">{prompt?.prompt?.[lang] ?? t('common.loading', lang)}</p>
+      <div className="space-y-3 md:space-y-4">
+        <p className="text-lg md:text-xl font-semibold break-words">{prompt?.prompt?.[lang] ?? t('common.loading', lang)}</p>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <label className="block text-sm font-semibold text-white/80 mb-2">{t('race.photoOptional', lang)}</label>
+        <div className="rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4">
+          <label className="block text-xs md:text-sm font-semibold text-white/80 mb-1.5 md:mb-2 break-words">{t('race.photoOptional', lang)}</label>
           <input
             type="file"
             accept="image/*"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-white/70"
+            className="block w-full text-xs md:text-sm text-white/70"
             disabled={busy}
           />
-          <p className="mt-2 text-xs text-white/60">{t('race.photoBonusNote', lang)}</p>
+          <p className="mt-1.5 md:mt-2 text-xs text-white/60 break-words">{t('race.photoBonusNote', lang)}</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
           <button
-            className="btn-primary w-full"
+            className="btn-primary w-full text-sm md:text-base break-words"
             disabled={busy || !file}
             onClick={async () => {
               if (!file) return;
@@ -912,7 +912,7 @@ function StageBody(props: {
           </button>
 
           <button
-            className="btn-secondary w-full"
+            className="btn-secondary w-full text-sm md:text-base break-words"
             disabled={busy}
             onClick={async () => {
               setBusy(true);
@@ -932,7 +932,7 @@ function StageBody(props: {
         </div>
 
         {file && (
-          <p className="text-xs text-white/70">
+          <p className="text-xs text-white/70 break-words truncate">
             {t('race.photoSelected', lang)}: {file.name}
           </p>
         )}

@@ -57,19 +57,19 @@ export default function TriviaPage() {
 
   if (isCompleted) {
     return (
-      <main className="min-h-dvh px-4 py-10">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
-            <div className="text-6xl mb-4">🎉</div>
-            <h1 className="game-show-title mb-3">{t('trivia.completed', lang)}</h1>
-            <p className="text-white/80 mb-6">
-              {t('trivia.finalScore', lang)}: <span className="font-bold text-christmas-gold text-3xl">{progress?.score ?? 0}</span> {t('trivia.points', lang)}
+            <div className="text-5xl md:text-6xl mb-3 md:mb-4">🎉</div>
+            <h1 className="game-show-title mb-2 md:mb-3 break-words">{t('trivia.completed', lang)}</h1>
+            <p className="text-white/80 mb-4 md:mb-6 text-sm md:text-base break-words">
+              {t('trivia.finalScore', lang)}: <span className="font-bold text-christmas-gold text-2xl md:text-3xl">{progress?.score ?? 0}</span> {t('trivia.points', lang)}
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href={`/room/${roomId}/play`} className="btn-secondary text-center">
+            <div className="flex flex-col sm:flex-row gap-2 md:gap-3 justify-center">
+              <Link href={`/room/${roomId}/play`} className="btn-secondary text-center text-sm md:text-base break-words">
                 {t('common.back', lang)}
               </Link>
-              <Link href={`/room/${roomId}/results`} className="btn-primary text-center">
+              <Link href={`/room/${roomId}/results`} className="btn-primary text-center text-sm md:text-base break-words">
                 {t('trivia.viewLeaderboard', lang)}
               </Link>
             </div>
@@ -167,30 +167,30 @@ function TriviaQuestion({
   };
 
   return (
-    <main className="min-h-dvh px-4 py-6 md:py-10">
+    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
       <div className="max-w-xl mx-auto">
-        <div className="card mb-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold">{t('trivia.title', lang)}</h1>
-            <Link href={`/room/${roomId}/play`} className="btn-secondary text-sm">
+        <div className="card mb-3 md:mb-4">
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-lg md:text-xl font-bold break-words truncate flex-1">{t('trivia.title', lang)}</h1>
+            <Link href={`/room/${roomId}/play`} className="btn-secondary text-xs md:text-sm shrink-0 break-words">
               {t('common.back', lang)}
             </Link>
           </div>
-          <div className="mt-4">
-            <p className="text-sm text-white/70">
+          <div className="mt-3 md:mt-4">
+            <p className="text-xs md:text-sm text-white/70 break-words">
               {t('trivia.questionNumber', lang)} {questionIndex + 1} {t('trivia.of', lang)} {totalQuestions}
             </p>
           </div>
         </div>
 
         <div className="card">
-          <h2 className="text-2xl font-semibold mb-6">{question.question[lang]}</h2>
+          <h2 className="text-xl md:text-2xl font-semibold mb-4 md:mb-6 break-words">{question.question[lang]}</h2>
 
-          <div className="space-y-3">
+          <div className="space-y-2 md:space-y-3">
             {question.options[lang].map((opt: string, idx: number) => (
               <button
                 key={idx}
-                className={`w-full rounded-2xl border p-4 text-left transition disabled:opacity-50 ${
+                className={`w-full rounded-xl md:rounded-2xl border p-3 md:p-4 text-left transition disabled:opacity-50 text-xs md:text-sm break-words ${
                   selected === idx
                     ? 'bg-christmas-gold/25 border-christmas-gold/40'
                     : 'bg-white/5 border-white/10 hover:bg-white/10'
@@ -199,13 +199,13 @@ function TriviaQuestion({
                 onClick={() => setSelected(idx)}
                 type="button"
               >
-                <span className="text-white/70 mr-2">{String.fromCharCode(65 + idx)}.</span> {opt}
+                <span className="text-white/70 mr-2 shrink-0">{String.fromCharCode(65 + idx)}.</span> <span className="break-words">{opt}</span>
               </button>
             ))}
           </div>
 
           <button
-            className="btn-primary w-full mt-6"
+            className="btn-primary w-full mt-4 md:mt-6 text-sm md:text-base break-words"
             disabled={busy || selected === null}
             onClick={handleSubmit}
           >

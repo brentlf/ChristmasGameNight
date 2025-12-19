@@ -40,12 +40,12 @@ export default function Home() {
         </div>
 
         {/* Square tiles grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 md:gap-6 mb-6 md:mb-8 max-w-3xl mx-auto">
           {/* Christmas Game Night Tile */}
           <Link 
             href="/game-night"
             onClick={() => playSound('whoosh', 0.3)}
-            className="group relative aspect-square rounded-2xl overflow-hidden bg-wood-dark/40 backdrop-blur-xl border border-wood-light/30 hover:border-fire-gold/60 transition-all duration-500 hover:scale-105 animate-scale-in"
+            className="group relative aspect-[16/10] md:aspect-square rounded-lg md:rounded-2xl overflow-hidden bg-wood-dark/40 backdrop-blur-xl border border-wood-light/30 hover:border-fire-gold/60 transition-all duration-500 hover:scale-105 animate-scale-in"
             style={{ 
               boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 140, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
             }}
@@ -54,18 +54,18 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-br from-fire-orange/20 via-fire-gold/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             
             {/* Floating warm glows */}
-            <div className="absolute top-4 right-4 w-24 h-24 rounded-full bg-fire-gold/25 blur-2xl animate-candle-flicker" />
-            <div className="absolute bottom-4 left-4 w-32 h-32 rounded-full bg-fire-orange/20 blur-2xl animate-candle-flicker-delayed" />
+            <div className="absolute top-3 right-3 w-20 h-20 md:top-4 md:right-4 md:w-24 md:h-24 rounded-full bg-fire-gold/25 blur-2xl animate-candle-flicker" />
+            <div className="absolute bottom-3 left-3 w-24 h-24 md:bottom-4 md:left-4 md:w-32 md:h-32 rounded-full bg-fire-orange/20 blur-2xl animate-candle-flicker-delayed" />
             
             {/* Content */}
-            <div className="relative h-full flex flex-col items-center justify-center p-6 md:p-8 text-center z-10">
-              <div className="text-5xl md:text-6xl lg:text-7xl mb-3 md:mb-4 transform group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500 filter drop-shadow-[0_0_15px_rgba(255,193,7,0.5)]">
+            <div className="relative h-full flex flex-col items-center justify-center p-3 md:p-8 text-center z-10">
+              <div className="text-3xl md:text-6xl lg:text-7xl mb-1.5 md:mb-4 transform group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500 filter drop-shadow-[0_0_15px_rgba(255,193,7,0.5)]">
                 🎮
               </div>
-              <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1.5 md:mb-2 text-white group-hover:text-fire-gold transition-colors duration-300 drop-shadow-lg">
+              <h2 className="text-base md:text-2xl lg:text-3xl font-bold mb-0.5 md:mb-2 text-white group-hover:text-fire-gold transition-colors duration-300 drop-shadow-lg break-words">
                 {mounted ? t('landing.gameNightTile', language) : 'Christmas Game Night'}
               </h2>
-              <p className="text-white/75 text-xs md:text-sm lg:text-base group-hover:text-white/95 transition-colors duration-300">
+              <p className="text-white/75 text-xs md:text-sm lg:text-base group-hover:text-white/95 transition-colors duration-300 break-words">
                 {mounted ? t('landing.gameNightTileSub', language) : 'Amazing Race & Trivia'}
               </p>
               
@@ -78,7 +78,7 @@ export default function Home() {
           <Link 
             href="/traditions"
             onClick={() => playSound('whoosh', 0.3)}
-            className="group relative aspect-square rounded-2xl overflow-hidden bg-wood-dark/40 backdrop-blur-xl border border-wood-light/30 hover:border-fire-gold/60 transition-all duration-500 hover:scale-105 animate-scale-in"
+            className="group relative aspect-[16/10] md:aspect-square rounded-lg md:rounded-2xl overflow-hidden bg-wood-dark/40 backdrop-blur-xl border border-wood-light/30 hover:border-fire-gold/60 transition-all duration-500 hover:scale-105 animate-scale-in"
             style={{ 
               animationDelay: '0.15s', 
               animationFillMode: 'both',
@@ -89,18 +89,18 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-br from-christmas-green/25 via-fire-gold/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             
             {/* Floating warm glows */}
-            <div className="absolute top-4 left-4 w-28 h-28 rounded-full bg-christmas-green/25 blur-2xl animate-candle-flicker-delayed" />
-            <div className="absolute bottom-4 right-4 w-24 h-24 rounded-full bg-fire-gold/20 blur-2xl animate-candle-flicker" />
+            <div className="absolute top-3 left-3 w-24 h-24 md:top-4 md:left-4 md:w-28 md:h-28 rounded-full bg-christmas-green/25 blur-2xl animate-candle-flicker-delayed" />
+            <div className="absolute bottom-3 right-3 w-20 h-20 md:bottom-4 md:right-4 md:w-24 md:h-24 rounded-full bg-fire-gold/20 blur-2xl animate-candle-flicker" />
             
             {/* Content */}
-            <div className="relative h-full flex flex-col items-center justify-center p-6 md:p-8 text-center z-10">
-              <div className="text-5xl md:text-6xl lg:text-7xl mb-3 md:mb-4 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500 filter drop-shadow-[0_0_15px_rgba(22,163,74,0.5)]">
+            <div className="relative h-full flex flex-col items-center justify-center p-3 md:p-8 text-center z-10">
+              <div className="text-3xl md:text-6xl lg:text-7xl mb-1.5 md:mb-4 transform group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500 filter drop-shadow-[0_0_15px_rgba(22,163,74,0.5)]">
                 🎡
               </div>
-              <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1.5 md:mb-2 text-white group-hover:text-fire-gold transition-colors duration-300 drop-shadow-lg">
+              <h2 className="text-base md:text-2xl lg:text-3xl font-bold mb-0.5 md:mb-2 text-white group-hover:text-fire-gold transition-colors duration-300 drop-shadow-lg break-words">
                 {mounted ? t('landing.traditionsTile', language) : 'Christmas Traditions'}
               </h2>
-              <p className="text-white/75 text-xs md:text-sm lg:text-base group-hover:text-white/95 transition-colors duration-300">
+              <p className="text-white/75 text-xs md:text-sm lg:text-base group-hover:text-white/95 transition-colors duration-300 break-words">
                 {mounted ? t('landing.traditionsTileSub', language) : 'Explore & Learn'}
               </p>
               

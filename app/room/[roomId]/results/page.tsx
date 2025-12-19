@@ -143,13 +143,13 @@ export default function ResultsPage() {
   };
 
   return (
-    <main className="h-dvh px-4 py-6 md:py-8 flex flex-col overflow-hidden">
+    <main className="h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col overflow-hidden">
       <div className="max-w-6xl mx-auto w-full flex-1 min-h-0 flex flex-col">
         {/* Overall Scoring Info */}
         {overallScoring && overallScoring.length > 0 && (
-          <div className="card mb-6 shrink-0">
-            <h2 className="text-2xl font-bold mb-4 text-center">{t('results.overallScoring', lang)}</h2>
-            <p className="text-center text-white/70 mb-4">
+          <div className="card mb-4 md:mb-6 shrink-0">
+            <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-center break-words">{t('results.overallScoring', lang)}</h2>
+            <p className="text-center text-white/70 mb-3 md:mb-4 text-sm md:text-base break-words">
               {room?.overallScoringMode === 'placements' && t('scoring.placements', lang)}
               {room?.overallScoringMode === 'sumMiniGameScores' && t('scoring.sumMiniGameScores', lang)}
               {room?.overallScoringMode === 'hybrid' && t('scoring.hybrid', lang)}
@@ -170,13 +170,13 @@ export default function ResultsPage() {
         </div>
 
         {/* Actions */}
-        <div className="flex justify-center gap-4 mt-6 shrink-0">
+        <div className="flex justify-center gap-3 md:gap-4 mt-4 md:mt-6 shrink-0">
           {isController ? (
-            <button type="button" className="btn-primary" onClick={nextGame}>
+            <button type="button" className="btn-primary text-sm md:text-base break-words" onClick={nextGame}>
               {lang === 'cs' ? 'Další hra' : 'Next game'}
             </button>
           ) : (
-            <div className="text-center text-sm text-white/60">
+            <div className="text-center text-xs md:text-sm text-white/60 break-words px-2">
               {lang === 'cs' ? 'Host spustí další hru na TV.' : 'The host will start the next game on the TV.'}
             </div>
           )}

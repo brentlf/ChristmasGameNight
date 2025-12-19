@@ -58,7 +58,7 @@ export default function EmojiPage() {
 
   if (isCompleted) {
     return (
-      <main className="min-h-dvh px-4 py-10">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
             <div className="text-6xl mb-4">🎉</div>
@@ -173,7 +173,7 @@ function EmojiQuestion({
   };
 
   return (
-    <main className="min-h-dvh px-4 py-6 md:py-10">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
       <div className="max-w-xl mx-auto">
         <div className="card mb-4">
           <div className="flex items-center justify-between">

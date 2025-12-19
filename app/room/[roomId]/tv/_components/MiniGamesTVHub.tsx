@@ -101,7 +101,7 @@ function GameTile(props: {
         accentBorder,
         'transition-all duration-500',
         disabled ? 'opacity-60 cursor-not-allowed' : 'hover:scale-[1.03] hover:bg-wood-dark/50',
-        size === 'main' ? 'min-h-[110px] md:min-h-[120px]' : 'min-h-[95px] md:min-h-[105px]',
+        size === 'main' ? 'min-h-[130px] md:min-h-[120px]' : 'min-h-[110px] md:min-h-[105px]',
       ].join(' ')}
       style={{
         boxShadow:
@@ -118,31 +118,31 @@ function GameTile(props: {
       {/* Shimmer */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-fire-gold/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
 
-      <div className={['relative z-10 text-left', size === 'main' ? 'p-3 md:p-4' : 'p-2.5 md:p-3'].join(' ')}>
+      <div className={['relative z-10 text-left', size === 'main' ? 'p-4 md:p-4' : 'p-3 md:p-3'].join(' ')}>
         <div
           className={[
-            size === 'main' ? 'text-3xl md:text-4xl mb-1.5' : 'text-2xl md:text-3xl mb-1',
+            size === 'main' ? 'text-3xl md:text-4xl mb-2 md:mb-1.5' : 'text-2xl md:text-3xl mb-1.5 md:mb-1',
             'transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500',
             iconGlow,
           ].join(' ')}
         >
           {icon}
         </div>
-        <div className="space-y-0.5">
+        <div className="space-y-1 md:space-y-0.5">
           <h3
             className={[
-              size === 'main' ? 'text-lg md:text-xl' : 'text-base md:text-lg',
-              'font-black text-white group-hover:text-fire-gold transition-colors duration-300',
+              size === 'main' ? 'text-base md:text-xl' : 'text-sm md:text-lg',
+              'font-black text-white group-hover:text-fire-gold transition-colors duration-300 break-words',
             ].join(' ')}
           >
             {title}
           </h3>
-          <div className="text-xs font-semibold text-white/70 whitespace-normal break-words pr-1">{subtitle}</div>
+          <div className="text-xs md:text-xs font-semibold text-white/70 whitespace-normal break-words pr-1">{subtitle}</div>
         </div>
         <p
           className={[
-            'text-xs',
-            'text-white/75 mt-1 group-hover:text-white/95 transition-colors duration-300 whitespace-normal break-words line-clamp-2',
+            'text-xs md:text-xs',
+            'text-white/75 mt-1.5 md:mt-1 group-hover:text-white/95 transition-colors duration-300 whitespace-normal break-words line-clamp-2',
           ].join(' ')}
         >
           {description}
@@ -725,19 +725,19 @@ export default function MiniGamesTVHub(props: {
     if (!currentSession || !sessionId || !gameId || sessionStatus === 'between' || room.status === 'between_sessions') {
       // Host Session: always allow starting any mini-game from the TV hub.
       return (
-        <div className="flex-1 min-h-0 rounded-3xl border border-white/10 bg-white/5 p-2.5 md:p-3 relative overflow-hidden flex flex-col">
+        <div className="flex-1 rounded-3xl border border-white/10 bg-white/5 p-2.5 md:p-3 relative overflow-hidden flex flex-col">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/10 blur-3xl" />
           <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/10 blur-3xl" />
 
           <div className="relative flex items-center justify-between gap-2 md:gap-3 shrink-0">
             <div>
-              <h2 className="text-lg md:text-xl font-black">{lang === 'cs' ? 'Vyber další hru' : 'Choose the next game'}</h2>
-              <p className="text-white/70 mt-0.5 text-xs">
+              <h2 className="text-lg md:text-xl font-black break-words">{lang === 'cs' ? 'Vyber další hru' : 'Choose the next game'}</h2>
+              <p className="text-white/70 mt-0.5 text-xs break-words">
                 {lang === 'cs' ? 'Jedna místnost → mnoho session.' : 'One room → many sessions.'}
               </p>
             </div>
             {isController && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={async () => {
@@ -752,7 +752,7 @@ export default function MiniGamesTVHub(props: {
                       setBusy(false);
                     }
                   }}
-                  className="btn-secondary text-sm"
+                  className="btn-secondary text-xs md:text-sm break-words"
                   disabled={busy}
                 >
                   {lang === 'cs' ? '✨ Nová noc' : '✨ New night'}
@@ -761,7 +761,7 @@ export default function MiniGamesTVHub(props: {
             )}
           </div>
 
-          <div className="relative mt-2 md:mt-3 space-y-2 md:space-y-2.5 flex-1 min-h-0">
+          <div className="relative mt-2 md:mt-3 space-y-2 md:space-y-2.5">
             {/* Main Events (top row) */}
             <div>
               <div className="mb-1.5 flex items-center justify-between">
@@ -871,7 +871,7 @@ export default function MiniGamesTVHub(props: {
           </div>
 
           {!isController && (
-            <p className="relative text-xs md:text-sm text-white/60 mt-3 md:mt-4 shrink-0">
+            <p className="relative text-xs md:text-sm text-white/60 mt-3 md:mt-4 shrink-0 break-words">
               {lang === 'cs' ? 'Host spustí hru z TV.' : 'The host starts the game from the TV.'}
             </p>
           )}

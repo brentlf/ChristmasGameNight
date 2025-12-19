@@ -11,6 +11,11 @@ export const metadata: Metadata = {
   title: 'Christmas Game Night',
   description: 'Family Game Show',
   icons: [{ rel: 'icon', url: '/icon.svg', type: 'image/svg+xml' }],
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+  },
 }
 
 export default function RootLayout({
@@ -26,7 +31,7 @@ export default function RootLayout({
           <TopLeftNav />
           <AudioPolicyClient />
           <AudioControls />
-          <div className="relative min-h-dvh pt-16 sm:pt-20 md:pt-4">
+          <div className="relative min-h-dvh pt-12 sm:pt-14 md:pt-4">
             {children}
           </div>
           <Toaster position="top-center" />

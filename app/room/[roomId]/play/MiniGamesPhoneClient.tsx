@@ -139,7 +139,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   // Lobby / between sessions
   if (!currentSession || !sessionId || !gameId || status === 'between' || room.status === 'between_sessions') {
     return (
-      <main className="min-h-dvh px-4 py-10 md:py-16">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-xl">
           <div className="card text-center relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
@@ -173,7 +173,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   // Team setup for Family Feud
   if (status === 'team_setup') {
     return (
-      <main className="min-h-dvh px-4 py-10 md:py-12">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-3xl">
           <div className="card text-center">
             <div className="text-5xl mb-4">🎯</div>
@@ -195,7 +195,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   // Intro (players can locally dismiss; controller can skip globally)
   if (status === 'intro' && localIntroDismissedSessionId !== sessionId) {
     return (
-      <main className="min-h-dvh px-4 py-10 md:py-12">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-3xl">
           <GameIntro
             gameId={gameId}
@@ -269,66 +269,66 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
     }
 
     return (
-      <main className="min-h-dvh px-4 py-6 md:py-10">
-        <div className="max-w-xl mx-auto space-y-4">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+        <div className="max-w-xl mx-auto space-y-3 md:space-y-4">
           <div className="card">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-xl font-bold">{room.name}</h1>
-                <p className="text-white/70 text-sm">
+            <div className="flex items-start justify-between gap-3 md:gap-4">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg md:text-xl font-bold break-words truncate">{room.name}</h1>
+                <p className="text-white/70 text-xs md:text-sm break-words">
                   {lang === 'cs' ? 'Otázka' : 'Q'} {questionIndex! + 1}/{selectedIds.length}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <TimerRing endsAt={currentSession.questionEndsAt} startedAt={currentSession.questionStartedAt} size={46} />
+              <div className="flex items-center gap-2 shrink-0">
+                <TimerRing endsAt={currentSession.questionEndsAt} startedAt={currentSession.questionStartedAt} size={40} />
               </div>
             </div>
           </div>
 
           <div className="card">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-white/70">
+            <div className="flex items-center justify-between mb-2 md:mb-3 gap-2">
+              <p className="text-xs md:text-sm text-white/70 break-words">
                 {lang === 'cs' ? 'Odpovězeno' : 'Answered'}: <span className="font-bold text-christmas-gold">{answeredProgress(answeredCount, activeCount)}</span>
               </p>
               {myAnswered && (
-                <span className="text-xs px-2 py-1 rounded-full bg-white/10 border border-white/10 text-white/70">
+                <span className="text-xs px-2 py-1 rounded-full bg-white/10 border border-white/10 text-white/70 shrink-0 break-words">
                   {lang === 'cs' ? 'Zamčeno' : 'Locked'}
                 </span>
               )}
             </div>
 
             {myAnswered ? (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-center">
-                <div className="text-4xl mb-3">⏳</div>
-                <p className="text-white/90 font-semibold">{lang === 'cs' ? 'Čekáme na ostatní…' : 'Waiting for others…'}</p>
-                <p className="text-sm text-white/60 mt-1">
+              <div className="rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5 text-center">
+                <div className="text-3xl md:text-4xl mb-2 md:mb-3">⏳</div>
+                <p className="text-white/90 font-semibold text-sm md:text-base break-words">{lang === 'cs' ? 'Čekáme na ostatní…' : 'Waiting for others…'}</p>
+                <p className="text-xs md:text-sm text-white/60 mt-1 break-words">
                   {lang === 'cs' ? 'Odpovězeno' : 'Answered'} {answeredProgress(answeredCount, activeCount)}
                 </p>
               </div>
             ) : (
               <>
                 {content?.type === 'trivia' && content.item && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-white/70">{content.item.question[lang]}</p>
+                  <div className="space-y-2 md:space-y-3">
+                    <p className="text-xs md:text-sm text-white/70 break-words">{content.item.question[lang]}</p>
                     {content.item.options[lang].map((opt: string, idx: number) => (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => submit(idx)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-4 text-left"
+                        className="w-full rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-3 md:p-4 text-left text-xs md:text-sm break-words"
                       >
-                        <span className="text-white/60 mr-2">{String.fromCharCode(65 + idx)}.</span>
-                        {opt}
+                        <span className="text-white/60 mr-2 shrink-0">{String.fromCharCode(65 + idx)}.</span>
+                        <span className="break-words">{opt}</span>
                       </button>
                     ))}
                   </div>
                 )}
 
                 {content?.type === 'emoji' && content.item && (
-                  <div className="space-y-3">
-                    <div className="text-center mb-4">
-                      <div className="text-8xl mb-2">{content.item.emoji}</div>
-                      <p className="text-sm text-white/70">{lang === 'cs' ? 'Vyber odpověď:' : 'Pick an answer:'}</p>
+                  <div className="space-y-2 md:space-y-3">
+                    <div className="text-center mb-3 md:mb-4">
+                      <div className="text-6xl md:text-8xl mb-2">{content.item.emoji}</div>
+                      <p className="text-xs md:text-sm text-white/70 break-words">{lang === 'cs' ? 'Vyber odpověď:' : 'Pick an answer:'}</p>
                     </div>
                     {(() => {
                       const seed = generateSeed(roomId, questionIndex!);
@@ -338,7 +338,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
                           key={opt}
                           type="button"
                           onClick={() => submit(opt)}
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-4 text-left"
+                          className="w-full rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-3 md:p-4 text-left text-xs md:text-sm break-words"
                         >
                           {opt}
                         </button>
@@ -348,33 +348,33 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
                 )}
 
                 {content?.type === 'wyr' && content.item && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-white/70">{content.item.prompt[lang]}</p>
+                  <div className="space-y-2 md:space-y-3">
+                    <p className="text-xs md:text-sm text-white/70 break-words">{content.item.prompt[lang]}</p>
                     <button
                       type="button"
                       onClick={() => submit('A')}
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-5 text-left"
+                      className="w-full rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-4 md:p-5 text-left"
                     >
                       <div className="text-xs text-white/60 font-black mb-1">A</div>
-                      <div className="text-xl font-semibold">{content.item.optionA[lang]}</div>
+                      <div className="text-base md:text-lg lg:text-xl font-semibold break-words">{content.item.optionA[lang]}</div>
                     </button>
                     <button
                       type="button"
                       onClick={() => submit('B')}
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-5 text-left"
+                      className="w-full rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-4 md:p-5 text-left"
                     >
                       <div className="text-xs text-white/60 font-black mb-1">B</div>
-                      <div className="text-xl font-semibold">{content.item.optionB[lang]}</div>
+                      <div className="text-base md:text-lg lg:text-xl font-semibold break-words">{content.item.optionB[lang]}</div>
                     </button>
                   </div>
                 )}
 
                 {content?.type === 'guess_the_song' && content.item && (
-                  <div className="space-y-3">
-                    <div className="text-center mb-4">
-                      <div className="text-6xl mb-2">🎵</div>
-                      <p className="text-sm text-white/70">{content.item.questionText[lang]}</p>
-                      <p className="text-xs text-white/50 mt-2">
+                  <div className="space-y-2 md:space-y-3">
+                    <div className="text-center mb-3 md:mb-4">
+                      <div className="text-5xl md:text-6xl mb-2">🎵</div>
+                      <p className="text-xs md:text-sm text-white/70 break-words">{content.item.questionText[lang]}</p>
+                      <p className="text-xs text-white/50 mt-2 break-words">
                         {lang === 'cs' ? 'Sleduj TV pro přehrání úryvku.' : 'Watch TV for audio snippet.'}
                       </p>
                     </div>
@@ -383,10 +383,10 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
                         key={idx}
                         type="button"
                         onClick={() => submit(idx)}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-4 text-left"
+                        className="w-full rounded-xl md:rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition p-3 md:p-4 text-left text-xs md:text-sm break-words"
                       >
-                        <span className="text-white/60 mr-2">{String.fromCharCode(65 + idx)}.</span>
-                        {opt}
+                        <span className="text-white/60 mr-2 shrink-0">{String.fromCharCode(65 + idx)}.</span>
+                        <span className="break-words">{opt}</span>
                       </button>
                     ))}
                   </div>
@@ -408,37 +408,37 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
       const userTeam = teamMapping[player.uid];
       
       return (
-        <main className="min-h-dvh px-4 py-10">
+        <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
           <div className="max-w-xl mx-auto">
             <div className="card text-center">
-              <div className="text-6xl mb-4">🎯</div>
-              <h1 className="text-3xl font-black mb-2">
+              <div className="text-5xl md:text-6xl mb-3 md:mb-4">🎯</div>
+              <h1 className="text-2xl md:text-3xl font-black mb-2 break-words">
                 {lang === 'cs' ? 'Konec kola' : 'Round End'}
               </h1>
-              <div className="mt-6 space-y-4">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="text-white/70 text-sm mb-2">{lang === 'cs' ? 'Skóre týmů' : 'Team Scores'}</div>
+              <div className="mt-4 md:mt-6 space-y-3 md:space-y-4">
+                <div className="rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4">
+                  <div className="text-white/70 text-xs md:text-sm mb-2 break-words">{lang === 'cs' ? 'Skóre týmů' : 'Team Scores'}</div>
                   <div className="flex justify-around">
                     <div>
-                      <div className="text-xs text-white/60">{lang === 'cs' ? 'Tým A' : 'Team A'}</div>
-                      <div className="text-3xl font-black text-christmas-red">{teamScores.A}</div>
+                      <div className="text-xs text-white/60 break-words">{lang === 'cs' ? 'Tým A' : 'Team A'}</div>
+                      <div className="text-2xl md:text-3xl font-black text-christmas-red">{teamScores.A}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-white/60">{lang === 'cs' ? 'Tým B' : 'Team B'}</div>
-                      <div className="text-3xl font-black text-blue-400">{teamScores.B}</div>
+                      <div className="text-xs text-white/60 break-words">{lang === 'cs' ? 'Tým B' : 'Team B'}</div>
+                      <div className="text-2xl md:text-3xl font-black text-blue-400">{teamScores.B}</div>
                     </div>
                   </div>
                 </div>
                 {userTeam && (
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <div className="text-white/70 text-sm">{lang === 'cs' ? 'Tvůj tým' : 'Your team'}</div>
-                    <div className="text-2xl font-black mt-1">
+                  <div className="rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4">
+                    <div className="text-white/70 text-xs md:text-sm break-words">{lang === 'cs' ? 'Tvůj tým' : 'Your team'}</div>
+                    <div className="text-xl md:text-2xl font-black mt-1 break-words">
                       {lang === 'cs' ? `Tým ${userTeam}` : `Team ${userTeam}`}: {teamScores[userTeam] || 0}
                     </div>
                   </div>
                 )}
               </div>
-              <p className="text-xs text-white/50 mt-4">
+              <p className="text-xs text-white/50 mt-3 md:mt-4 break-words">
                 {lang === 'cs' ? 'Další kolo hned…' : 'Next round in a moment…'}
               </p>
             </div>
@@ -727,7 +727,7 @@ function PictionaryDrawerPhone(props: {
   }, [canvasEl, roundIndex]);
 
   return (
-    <main className="min-h-dvh px-4 py-6 md:py-10">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
       <div className="max-w-xl mx-auto space-y-4">
         <div className="card">
           <div className="flex items-start justify-between gap-4">
@@ -877,7 +877,7 @@ function PictionaryGuesserPhone(props: {
   }, [live?.seq, live?.events, live?.round, roundIndex]);
 
   return (
-    <main className="min-h-dvh px-4 py-6 md:py-10">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
       <div className="max-w-xl mx-auto space-y-4">
         <div className="card">
           <div className="flex items-start justify-between gap-4">
@@ -1184,7 +1184,7 @@ function FamilyFeudPhoneRound(props: {
   }
 
   return (
-    <main className="min-h-dvh px-4 py-6 md:py-10">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
       <div className="max-w-xl mx-auto space-y-4">
         <div className="card">
           <div className="flex items-start justify-between gap-4">

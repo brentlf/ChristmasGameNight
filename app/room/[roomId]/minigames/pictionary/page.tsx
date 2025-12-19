@@ -58,7 +58,7 @@ export default function PictionaryPage() {
     }
 
     return (
-      <main className="min-h-dvh px-4 py-10">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
             <h1 className="text-2xl font-bold mb-4">🎨 Pictionary</h1>
@@ -82,7 +82,7 @@ export default function PictionaryPage() {
     } else {
       const isController = isControllerAuthed || room.controllerUid === player.uid;
       return (
-        <main className="min-h-dvh px-4 py-10">
+        <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
           <div className="max-w-xl mx-auto">
             <div className="card text-center">
               <h1 className="text-2xl font-bold mb-4">🎨 Pictionary</h1>
@@ -102,7 +102,7 @@ export default function PictionaryPage() {
   // Game completed
   if (gameState.status === 'completed') {
     return (
-      <main className="min-h-dvh px-4 py-10">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
             <div className="text-6xl mb-4">🎉</div>
@@ -181,7 +181,7 @@ function PictionaryInitialization({ roomId, room, player, lang }: { roomId: stri
 
   if (!isController) {
     return (
-      <main className="min-h-dvh px-4 py-10">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
             <h1 className="text-2xl font-bold mb-4">🎨 Pictionary</h1>
@@ -536,7 +536,7 @@ function PictionaryDrawer({
 
   // Normal view
   return (
-    <main className="min-h-dvh px-4 py-6 md:py-10">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
       <div className="max-w-xl mx-auto">
         <div className="card mb-4">
           <div className="flex items-center justify-between">
@@ -695,7 +695,7 @@ function PictionaryGuesser({
   };
 
   return (
-    <main className="min-h-dvh px-4 py-6 md:py-10">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
       <div className="max-w-xl mx-auto">
         <div className="card mb-4">
           <div className="flex items-center justify-between">

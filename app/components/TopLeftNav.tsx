@@ -113,17 +113,17 @@ export default function TopLeftNav() {
   if (!showBack && !showHome) return null
 
   return (
-    <div className="fixed left-2 top-2 sm:left-4 sm:top-4 z-50 max-w-[calc(100vw-1rem)]">
-      <div className="flex flex-wrap items-center gap-1 sm:gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-lg px-2 py-2 max-w-full">
+    <div className="fixed left-2 top-2 sm:left-4 sm:top-4 z-50 max-w-[calc(100vw-1rem)] sm:max-w-none">
+      <div className="flex flex-wrap items-center gap-1 sm:gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-lg px-2 py-1.5 sm:py-2 max-w-full">
         {(showReturnToActiveRoom || showBackToPlay) && activeRoomId && (
           <Link
             href={`/room/${activeRoomId}/play`}
             onClick={() => playSound('click')}
-            className="inline-flex items-center justify-center rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
+            className="inline-flex items-center justify-center rounded-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white hover:bg-white/20 transition"
             aria-label={showBackToPlay ? (lang === 'cs' ? 'Zpět do hry' : 'Back to Game') : t('nav.returnToActiveRoom', lang)}
             title={showBackToPlay ? (lang === 'cs' ? 'Zpět do hry' : 'Back to Game') : t('nav.returnToActiveRoom', lang)}
           >
-            <IconDoorReturn className="h-5 w-5" />
+            <IconDoorReturn className="h-4 w-4 sm:h-5 sm:w-5" />
           </Link>
         )}
 
@@ -142,7 +142,7 @@ export default function TopLeftNav() {
             className="hidden md:inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
             aria-label={t('nav.back', lang)}
           >
-            <IconArrowLeft className="h-5 w-5" />
+            <IconArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             <span className="hidden sm:inline">{t('nav.back', lang)}</span>
           </button>
         )}
@@ -154,7 +154,7 @@ export default function TopLeftNav() {
             className="hidden md:inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
             aria-label={t('nav.home', lang)}
           >
-            <IconHome className="h-5 w-5" />
+            <IconHome className="h-4 w-4 sm:h-5 sm:w-5" />
             <span className="hidden sm:inline">{t('nav.home', lang)}</span>
           </Link>
         )}
@@ -171,7 +171,7 @@ export default function TopLeftNav() {
             setLang('en')
             if (typeof window !== 'undefined') window.location.reload()
           }}
-          className={`inline-flex items-center rounded-full px-3 py-2 text-sm font-semibold transition ${
+          className={`inline-flex items-center rounded-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold transition ${
             lang === 'en' ? 'bg-christmas-gold/25 border border-christmas-gold/40 text-white' : 'text-white/80 hover:bg-white/20'
           }`}
           aria-label="Switch language to English"
@@ -186,7 +186,7 @@ export default function TopLeftNav() {
             setLang('cs')
             if (typeof window !== 'undefined') window.location.reload()
           }}
-          className={`inline-flex items-center rounded-full px-3 py-2 text-sm font-semibold transition ${
+          className={`inline-flex items-center rounded-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold transition ${
             lang === 'cs' ? 'bg-christmas-gold/25 border border-christmas-gold/40 text-white' : 'text-white/80 hover:bg-white/20'
           }`}
           aria-label="Switch language to Czech"
@@ -200,7 +200,7 @@ export default function TopLeftNav() {
           <Link
             href="/leaderboard"
             onClick={() => playSound('click')}
-            className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
+            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white hover:bg-white/20 transition"
             aria-label={lang === 'cs' ? 'Žebříček' : 'Leaderboard'}
             title={lang === 'cs' ? 'Žebříček' : 'Leaderboard'}
           >
@@ -213,7 +213,7 @@ export default function TopLeftNav() {
         <Link
           href="/traditions"
           onClick={() => playSound('click')}
-          className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
+          className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white hover:bg-white/20 transition"
           aria-label={t('nav.traditions', lang)}
         >
           🎡
