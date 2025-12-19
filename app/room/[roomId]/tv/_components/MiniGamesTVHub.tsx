@@ -725,7 +725,7 @@ export default function MiniGamesTVHub(props: {
     if (!currentSession || !sessionId || !gameId || sessionStatus === 'between' || room.status === 'between_sessions') {
       // Host Session: always allow starting any mini-game from the TV hub.
       return (
-        <div className="flex-1 rounded-3xl border border-white/10 bg-white/5 p-2.5 md:p-3 relative overflow-hidden flex flex-col">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-2.5 md:p-3 relative overflow-hidden flex flex-col h-full">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/10 blur-3xl" />
           <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/10 blur-3xl" />
 

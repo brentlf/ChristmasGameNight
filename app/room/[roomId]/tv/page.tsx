@@ -34,14 +34,26 @@ function isLocalhost(hostname: string) {
 
 function ExpandableQRCode({ value, smallSize = 160 }: { value: string; smallSize?: number }) {
   const [open, setOpen] = useState(false);
+  const [qrSize, setQrSize] = useState(420);
 
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
+    const updateSize = () => {
+      if (typeof window !== 'undefined') {
+        const maxSize = Math.min(420, window.innerWidth - 80, window.innerHeight - 200);
+        setQrSize(Math.max(200, maxSize));
+      }
+    };
+    updateSize();
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', updateSize);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', updateSize);
+    };
   }, [open]);
 
   if (!value) return null;
@@ -50,31 +62,31 @@ function ExpandableQRCode({ value, smallSize = 160 }: { value: string; smallSize
     open && typeof document !== 'undefined'
       ? createPortal(
           <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-6"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-3 md:p-6 overflow-y-auto"
             onClick={() => setOpen(false)}
             role="dialog"
             aria-modal="true"
             aria-label="Expanded QR code"
           >
             <div
-              className="relative w-full max-w-2xl rounded-3xl border border-white/15 bg-black/60 backdrop-blur-md p-6"
+              className="relative w-full max-w-2xl rounded-2xl md:rounded-3xl border border-white/15 bg-black/60 backdrop-blur-md p-4 md:p-6 my-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div className="min-w-0">
-                  <p className="text-sm text-white/70">Scan to join</p>
-                  <p className="text-xs text-white/50 mt-1">Tip: press ESC to minimize</p>
+              <div className="flex items-start justify-between gap-3 md:gap-4 mb-3 md:mb-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs md:text-sm text-white/70 break-words">Scan to join</p>
+                  <p className="text-xs text-white/50 mt-1 break-words">Tip: press ESC to minimize</p>
                 </div>
-                <button type="button" className="btn-secondary" onClick={() => setOpen(false)}>
+                <button type="button" className="btn-secondary text-xs md:text-sm shrink-0" onClick={() => setOpen(false)}>
                   Minimise
                 </button>
               </div>
 
-              <div className="mx-auto w-fit rounded-2xl bg-white p-4">
-                <QRCodeSVG value={value} size={420} />
+              <div className="mx-auto w-fit rounded-xl md:rounded-2xl bg-white p-3 md:p-4 max-w-full overflow-hidden">
+                <QRCodeSVG value={value} size={qrSize} />
               </div>
 
-              <p className="mt-4 text-xs text-white/50 break-all text-center">{value}</p>
+              <p className="mt-3 md:mt-4 text-xs text-white/50 break-all text-center">{value}</p>
             </div>
           </div>,
           document.body
@@ -411,23 +423,22 @@ export default function TVPage() {
     });
 
     return (
-      <main className="min-h-dvh flex flex-col px-4 py-6 md:py-8">
-        <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
+      <main className="min-h-dvh flex flex-col px-4 py-6 md:py-8 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto w-full flex flex-col gap-4 md:gap-5">
           {/* Header */}
-          <div className="card mb-4 md:mb-5 relative overflow-hidden shrink-0">
+          <div className="card relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
             <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
 
             <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-5">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-3 py-1.5 text-xs md:text-sm text-white/80 backdrop-blur-md mb-2 md:mb-3">
+              <div className="flex flex-col gap-2 md:gap-3">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-3 py-1.5 text-xs md:text-sm text-white/80 backdrop-blur-md w-fit">
                   <span>📺</span>
                   <span>TV Hub</span>
                   <span className="text-white/40">•</span>
                   <span className="text-white/70">Scan to join</span>
                 </div>
-
-                <h1 className="game-show-title text-3xl md:text-4xl mb-2 break-words">{room.name}</h1>
+                <h1 className="game-show-title text-3xl md:text-4xl break-words">{room.name}</h1>
                 <div className="flex flex-wrap items-center gap-2 md:gap-3">
                   <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-white/10 border border-white/20 px-2.5 md:px-3 py-1 md:py-1.5 backdrop-blur-md">
                     <span className="text-white/70 text-xs md:text-sm break-words">Room Code</span>
@@ -444,12 +455,11 @@ export default function TVPage() {
                   </span>
                 </div>
               </div>
-
-              <div className="shrink-0">
+              <div className="flex flex-col items-center md:items-end gap-2 shrink-0">
                 <div className="inline-flex items-center justify-center rounded-2xl md:rounded-3xl border border-white/20 bg-white/5 p-3 md:p-4 backdrop-blur-md">
                   <ExpandableQRCode value={joinUrl} smallSize={120} />
                 </div>
-                <p className="text-xs md:text-sm mt-2 text-white/70">{t('tv.scanToJoin', lang)}</p>
+                <p className="text-xs md:text-sm text-white/70 text-center md:text-right">{t('tv.scanToJoin', lang)}</p>
               </div>
             </div>
           </div>
@@ -457,81 +467,73 @@ export default function TVPage() {
           {/* 3-pillar layout: Players | Lobby/Game Select | Leaderboard */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-5">
             {/* Players (left) */}
-            <div className="card xl:col-span-2 h-full flex flex-col min-h-0">
-              <div className="mb-2 shrink-0">
+            <div className="card xl:col-span-2 flex flex-col gap-2 h-full">
+              <div className="flex flex-col gap-1.5">
                 <h2 className="text-lg md:text-xl font-bold break-words">
                   {t('tv.players', lang)} ({players.length}/{room.maxPlayers})
                 </h2>
-                <div className="text-xs text-white/60 whitespace-normal break-words max-w-full">
+                <div className="text-xs text-white/60 break-words">
                   {lang === 'cs' ? 'Připoj se mobilem a pak host spustí hru.' : 'Join on your phone, then the host starts the game.'}
                 </div>
               </div>
-              <div className="space-y-2 md:space-y-2 flex-1 min-h-0 overflow-hidden">
-                <div className="h-full overflow-auto pr-1">
+              {sortedPlayers.length === 0 ? (
+                <p className="text-xs md:text-sm text-white/60 break-words">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
+              ) : (
+                <div className="flex flex-col gap-2">
                   {sortedPlayers.map((p: any) => (
-                    <div key={p.uid} className="rounded-lg md:rounded-xl border border-white/10 bg-white/5 p-3 md:p-2 mb-2 md:mb-2 min-h-[60px] md:min-h-[50px]">
+                    <div key={p.uid} className="rounded-lg md:rounded-xl border border-white/10 bg-white/5 p-3 md:p-2 min-h-[60px] md:min-h-[50px]">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm md:text-base font-bold break-words">
                             <span className="mr-1.5 text-base md:text-lg shrink-0">{p.avatar}</span>
                             <span className="truncate">{p.name}</span>
                           </p>
-                          <p className="text-xs md:text-sm text-white/60 mt-0.5">
-                            {p.ready ? '✅' : '⏳'}
-                          </p>
+                          <p className="text-xs md:text-sm text-white/60">{p.ready ? '✅' : '⏳'}</p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm md:text-sm font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
+                          <p className="text-sm font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
                         </div>
                       </div>
                     </div>
                   ))}
-                  {sortedPlayers.length === 0 && (
-                    <p className="text-xs md:text-sm text-white/60 break-words">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
-                  )}
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Lobby / Game Select (middle) */}
-            <div className="xl:col-span-8 flex flex-col">
+            <div className="xl:col-span-8 h-full">
               <MiniGamesTVHub roomId={roomId} room={room} players={players} lang={lang} isController={isController} />
             </div>
 
             {/* Leaderboard (right) */}
-            <div className="card xl:col-span-2 h-full flex flex-col min-h-0">
-              <div className="mb-2 shrink-0">
+            <div className="card xl:col-span-2 flex flex-col gap-2 h-full">
+              <div className="flex flex-col gap-1.5">
                 <h2 className="text-lg md:text-xl font-bold break-words">{t('common.leaderboard', lang)}</h2>
-                <div className="text-xs text-white/60 whitespace-normal break-words max-w-full">
-                  {lang === 'cs' ? 'Celkem' : 'Overall'}
-                </div>
+                <div className="text-xs text-white/60 break-words">{lang === 'cs' ? 'Celkem' : 'Overall'}</div>
               </div>
-
               {lobbyLeaders.length === 0 ? (
                 <p className="text-xs md:text-sm text-white/60 break-words">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
               ) : (
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  <div className="h-full overflow-auto pr-1 space-y-2 md:space-y-1.5">
-                    {lobbyLeaders.slice(0, 8).map((p: any, idx: number) => (
-                      <div
-                        key={p.uid}
-                        className={`rounded-lg md:rounded-xl border p-3 md:p-2 flex items-center justify-between gap-2 min-h-[60px] md:min-h-[50px] ${
-                          idx === 0 ? 'border-christmas-gold/40 bg-christmas-gold/10' : 'border-white/10 bg-white/5'
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-bold text-sm md:text-sm break-words">
-                            <span className="mr-1.5 shrink-0">{idx === 0 ? '🏆' : `#${idx + 1}`}</span>
-                            <span className="mr-1.5 shrink-0 text-base md:text-lg">{p.avatar}</span>
-                            <span className="truncate">{p.name}</span>
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-base md:text-base font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
-                        </div>
+                <div className="flex flex-col gap-2 md:gap-1.5">
+                  {lobbyLeaders.slice(0, 8).map((p: any, idx: number) => (
+                    <div
+                      key={p.uid}
+                      className={`rounded-lg md:rounded-xl border p-3 md:p-2 flex items-center justify-between gap-2 min-h-[60px] md:min-h-[50px] ${
+                        idx === 0 ? 'border-christmas-gold/40 bg-christmas-gold/10' : 'border-white/10 bg-white/5'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-bold text-sm break-words">
+                          <span className="mr-1.5 shrink-0">{idx === 0 ? '🏆' : `#${idx + 1}`}</span>
+                          <span className="mr-1.5 shrink-0 text-base md:text-lg">{p.avatar}</span>
+                          <span className="truncate">{p.name}</span>
+                        </p>
                       </div>
-                    ))}
-                  </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-base font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
