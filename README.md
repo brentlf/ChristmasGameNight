@@ -148,11 +148,52 @@ Leaderboard sorting:
 └── README.md
 ```
 
-## Editing Race Content
+## Editing Game Content
+
+### Quick Start
+
+For comprehensive guides on updating content, see:
+- **[CONTENT_MANAGEMENT.md](./CONTENT_MANAGEMENT.md)** - Complete guide for updating all game content
+- **[content/CONTENT_TEMPLATES.md](./content/CONTENT_TEMPLATES.md)** - Quick copy-paste templates
+- **[content/CONTENT_STRUCTURE.md](./content/CONTENT_STRUCTURE.md)** - Technical structure documentation
+
+### Race Content
 
 All race content (EN + CS) lives in:
 
 - `content/raceTracks/christmas_race_v1.ts`
+
+### Mini-Game Content
+
+Mini-game content files:
+- `content/trivia_christmas.ts` - Trivia questions
+- `content/family_feud_christmas.ts` - Family Feud questions
+- `content/guess_the_song_christmas.ts` - Song identification
+- `content/pictionary_christmas.ts` - Drawing prompts
+- `content/would_you_rather_christmas.ts` - Would You Rather questions
+- `content/emoji_movies_christmas.ts` - Emoji movie puzzles
+
+### Content Management Tools
+
+```bash
+# Validate all content
+npm run validate-content
+
+# Check audio files
+npm run check-audio
+
+# Find unused audio files
+npm run find-unused-audio
+
+# Get next ID for a game type
+npm run content:next-id <game-type>
+
+# Count items in a game type
+npm run content:count <game-type>
+
+# List all IDs for a game type
+npm run content:list-ids <game-type>
+```
 
 ## Troubleshooting
 

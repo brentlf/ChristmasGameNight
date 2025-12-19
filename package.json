@@ -7,7 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate:intros": "node scripts/generate-intros.mjs"
+    "generate:intros": "node scripts/generate-intros.mjs",
+    "validate-content": "node scripts/validate-content.mjs",
+    "check-audio": "node scripts/check-audio-files.mjs",
+    "find-unused-audio": "node scripts/find-unused-audio.mjs",
+    "content:next-id": "node scripts/content-helper.mjs next-id",
+    "content:count": "node scripts/content-helper.mjs count",
+    "content:list-ids": "node scripts/content-helper.mjs list-ids"
   },
   "dependencies": {
     "firebase": "^10.14.1",
