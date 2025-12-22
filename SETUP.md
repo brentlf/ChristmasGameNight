@@ -89,5 +89,5 @@ Open [http://localhost:3000](http://localhost:3000)
 
 - Customize game content in `content/games.ts`
 - Adjust styling in `app/globals.css` and `tailwind.config.ts`
-- Deploy to Vercel or Firebase Hosting (see README.md)
+- Deploy to Vercel (see README.md)
 

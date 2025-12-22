@@ -69,7 +69,6 @@
 
 ### Optional: Deployment
 - Deploy to Vercel (recommended)
-- Or Firebase Hosting
 - See README.md for instructions
 
 ## 📁 Project Structure
