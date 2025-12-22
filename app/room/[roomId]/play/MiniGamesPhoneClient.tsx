@@ -22,7 +22,7 @@ import { getPictionaryItemById } from '@/lib/miniGameContent';
 import { submitPictionaryGuess, writePictionaryLive, type PictionarySegment } from '@/lib/sessions/pictionaryClient';
 import { usePictionaryLive } from '@/lib/hooks/usePictionaryLive';
 import { useGameContent } from '@/lib/hooks/useGameContent';
-import { claimBingo } from '@/lib/sessions/sessionEngine';
+// claimBingo is called directly from client with proper Firestore rules
 
 // TypeScript declarations for Speech Recognition API
 interface SpeechRecognition extends EventTarget {
@@ -1405,12 +1405,12 @@ function BingoPhoneCard(props: {
   lang: 'en' | 'cs';
 }) {
   const { roomId, sessionId, player, lang } = props;
-  const { playSound } = useAudio();
+  const { playSound, vibrate } = useAudio();
   const [card, setCard] = useState<{ size: number; cells: Array<string | 'FREE'>; marked: boolean[] } | null>(null);
   const [drawnBalls, setDrawnBalls] = useState<string[]>([]);
+  const [bingoWinners, setBingoWinners] = useState<string[]>([]);
   const [claiming, setClaiming] = useState(false);
   const [sessionStatus, setSessionStatus] = useState<string>('in_game');
-  const [manualInput, setManualInput] = useState('');
 
   // Load card
   useEffect(() => {
@@ -1440,75 +1440,21 @@ function BingoPhoneCard(props: {
         if (session && session.gameId === 'bingo') {
           setDrawnBalls(session.drawnBalls || []);
           setSessionStatus(session.status || 'in_game');
+          setBingoWinners(Array.isArray(session.bingoWinners) ? session.bingoWinners : []);
         }
       }
     });
     return () => unsubscribe();
   }, [roomId]);
 
-  // Manual number input handler - mark cells by typing the number
-  const handleManualMark = async () => {
-    if (!card || !manualInput.trim() || sessionStatus !== 'in_game') return;
-    
-    const input = manualInput.trim().toUpperCase();
-    // Support formats like "B-12", "B12", "12" (will match any column)
-    let targetValue: string | null = null;
-    
-    // Try exact match first (e.g., "B-12")
-    if (card.cells.includes(input as any)) {
-      targetValue = input;
-    } else {
-      // Try without dash (e.g., "B12")
-      const withoutDash = input.replace('-', '');
-      if (card.cells.includes(withoutDash as any)) {
-        targetValue = withoutDash;
-      } else {
-        // Try matching just the number part (e.g., "12")
-        const numberMatch = input.match(/\d+/);
-        if (numberMatch) {
-          const num = numberMatch[0];
-          // Find cell with this number in any column
-          for (const cellValue of card.cells) {
-            if (typeof cellValue === 'string' && cellValue.endsWith(`-${num}`)) {
-              targetValue = cellValue;
-              break;
-            }
-          }
-        }
-      }
-    }
-    
-    if (!targetValue) {
-      toast.error(lang === 'cs' ? 'Číslo nenalezeno na kartě' : 'Number not found on card');
-      playSound('ui.error');
-      setManualInput('');
-      return;
-    }
-    
-    // Find and toggle the cell
-    const idx = card.cells.indexOf(targetValue);
-    if (idx === -1) {
-      toast.error(lang === 'cs' ? 'Chyba při hledání čísla' : 'Error finding number');
-      playSound('ui.error');
-      setManualInput('');
-      return;
-    }
-    
-    const newMarked = [...card.marked];
-    newMarked[idx] = !newMarked[idx];
-    
-    try {
-      playSound('ui.click', 0.05);
-      const cardRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'cards', player.uid);
-      await updateDoc(cardRef, { marked: newMarked } as any);
-      setCard({ ...card, marked: newMarked });
-      setManualInput('');
-      toast.success(lang === 'cs' ? 'Označeno' : 'Marked');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update card');
-      playSound('ui.error');
-    }
-  };
+  const hasClaimed = bingoWinners.includes(player.uid);
+  const myPlace = hasClaimed ? bingoWinners.indexOf(player.uid) + 1 : null;
+
+  // Don't let the local "claiming" spinner get stuck forever if the room transitions back to in_game.
+  useEffect(() => {
+    if (sessionStatus !== 'claiming') setClaiming(false);
+  }, [sessionStatus]);
+
 
   const handleToggleCell = async (row: number, col: number) => {
     if (!card || sessionStatus !== 'in_game') return;
@@ -1531,13 +1477,18 @@ function BingoPhoneCard(props: {
 
   const handleClaimBingo = async () => {
     if (claiming || sessionStatus !== 'in_game') return;
+    if (hasClaimed) return;
     setClaiming(true);
     try {
       playSound('ui.lock_in', { device: 'phone' });
       vibrate(10, { device: 'phone' });
+      
+      // Import claimBingo dynamically to ensure it's available
+      const { claimBingo } = await import('@/lib/sessions/sessionEngine');
       const result = await claimBingo({ roomId, sessionId, uid: player.uid });
+      
       if (result.valid) {
-        playSound('game.round_win', { device: 'phone', gain: 0.35 });
+        playSound('bingo.bingo', { device: 'phone', gain: 0.5 });
         vibrate([10, 20, 10], { device: 'phone' });
         toast.success(lang === 'cs' ? 'Bingo! Čekáme na ověření...' : 'Bingo! Waiting for verification...');
       } else {
@@ -1634,40 +1585,6 @@ function BingoPhoneCard(props: {
             })}
           </div>
 
-          {/* Manual Number Input */}
-          {sessionStatus === 'in_game' && (
-            <div className="mb-4 space-y-2">
-              <label className="block text-sm font-semibold text-white/80 mb-1">
-                {lang === 'cs' ? 'Označit číslo:' : 'Mark number:'}
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={manualInput}
-                  onChange={(e) => setManualInput(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleManualMark();
-                  }}
-                  placeholder={lang === 'cs' ? 'Např. B-12 nebo 12' : 'e.g. B-12 or 12'}
-                  className="input-field flex-1"
-                  maxLength={10}
-                />
-                <button
-                  type="button"
-                  onClick={handleManualMark}
-                  disabled={!manualInput.trim()}
-                  className="btn-secondary px-4"
-                >
-                  {lang === 'cs' ? 'Označit' : 'Mark'}
-                </button>
-              </div>
-              <p className="text-xs text-white/50">
-                {lang === 'cs' 
-                  ? 'Zadej číslo (např. B-12, B12 nebo 12) a klikni na Označit, nebo klikni přímo na buňku v mřížce.' 
-                  : 'Type a number (e.g. B-12, B12, or 12) and click Mark, or click directly on a cell in the grid.'}
-              </p>
-            </div>
-          )}
 
           {/* Bingo Claim Button - Always available when in game */}
           {sessionStatus === 'in_game' && (
@@ -1675,12 +1592,14 @@ function BingoPhoneCard(props: {
               type="button"
               className="btn-primary w-full text-xl font-black py-4"
               onClick={handleClaimBingo}
-              disabled={claiming}
+              disabled={claiming || hasClaimed}
             >
               {claiming
                 ? lang === 'cs'
                   ? 'Ověřuje se...'
                   : 'Verifying...'
+                : hasClaimed
+                ? (lang === 'cs' ? `✅ Bingo (#${myPlace})` : `✅ Bingo (#${myPlace})`)
                 : lang === 'cs'
                 ? '🎉 BINGO!'
                 : '🎉 BINGO!'}
@@ -1691,7 +1610,11 @@ function BingoPhoneCard(props: {
             <div className="text-center py-4">
               <div className="text-2xl mb-2">⏳</div>
               <div className="text-white/70">
-                {lang === 'cs' ? 'Čekáme na ověření...' : 'Waiting for verification...'}
+                {hasClaimed
+                  ? (lang === 'cs'
+                      ? `Tvoje umístění: #${myPlace}.`
+                      : `Your place: #${myPlace}.`)
+                  : (lang === 'cs' ? 'Čekáme na ověření...' : 'Waiting for verification...')}
               </div>
             </div>
           )}

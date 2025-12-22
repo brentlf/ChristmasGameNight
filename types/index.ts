@@ -44,6 +44,10 @@ export interface RoomCurrentSession {
   // Bingo-specific
   drawnBalls?: string[]; // Array of drawn ball strings (e.g., "B-12")
   bingoWinnerUid?: string; // UID of the winner when bingo is claimed
+  // Multi-winner bingo support (optional; kept flexible for backward compatibility)
+  bingoWinners?: string[]; // ordered list: [1st, 2nd, 3rd]
+  bingoMode?: 'first' | 'top3'; // default: 'first'
+  bingoLastWinnerUid?: string; // latest claimer (for TV celebration)
   startedAt?: number; // ms since epoch - when the game started
 }
 

@@ -81,10 +81,10 @@ export function Drum({ spinning, spinPhase }: { spinning: boolean; spinPhase: 'f
           const rampProgress = elapsed / rampDuration;
           // Smooth ease-in for ramp-up
           const easedProgress = rampProgress * rampProgress; // Quadratic ease-in
-          a = 6.0 * easedProgress; // Ease from 0 to full speed
+          a = 8.5 * easedProgress; // Ease from 0 to full speed
         } else {
           // Full speed phase (0.4s → 3.5s): maintain full speed
-          a = 6.0; // radians/sec
+          a = 8.5; // radians/sec
         }
         
         agitatorRef.current.rotation.y += a * delta;
@@ -350,20 +350,22 @@ export function Drum({ spinning, spinPhase }: { spinning: boolean; spinPhase: 'f
 
   return (
     <group>
-      {/* Transparent Light Blue Glass Drum Sphere - realistic glass material */}
+      {/* Realistic Glass Drum Sphere - high-quality glass material with enhanced visibility */}
       <mesh ref={drumRef} position={[0, 1.4, 0]} castShadow receiveShadow>
         <sphereGeometry args={[1.2, 32, 32]} />
         <meshPhysicalMaterial
-          color="#87ceeb"
+          color="#ffffff"
           transparent={true}
-          opacity={0.25}
-          roughness={0.05}
+          opacity={0.15}
+          roughness={0.0}
           metalness={0.0}
-          transmission={0.9}
-          thickness={0.6}
-          ior={1.35}
-          clearcoat={1}
-          clearcoatRoughness={0.05}
+          transmission={1.0}
+          thickness={0.5}
+          ior={1.5}
+          clearcoat={1.0}
+          clearcoatRoughness={0.0}
+          envMapIntensity={2.5}
+          side={THREE.DoubleSide}
         />
       </mesh>
       
@@ -491,13 +493,13 @@ export function DisplayBall({ ballValue, revealing }: { ballValue: string | null
 export function MachineBase() {
   return (
     <group>
-      {/* Light Blue Rectangular Base - receives shadows */}
+      {/* Red Rectangular Base - receives shadows */}
       <mesh position={[0, -0.5, 0]} receiveShadow>
         <boxGeometry args={[1.8, 0.6, 1.2]} />
         <meshStandardMaterial
-          color="#87ceeb"
-          metalness={0.1}
-          roughness={0.5}
+          color="#dc2626"
+          metalness={0.2}
+          roughness={0.4}
         />
       </mesh>
       
@@ -530,13 +532,13 @@ export function MachineBase() {
         </mesh>
       </group>
       
-      {/* Central Shaft - extends from base into drum, agitator sits on top */}
+      {/* Red Central Shaft/Tube - extends from base into drum, agitator sits on top */}
       <mesh position={[0, 0.1, 0]} castShadow>
         <cylinderGeometry args={[0.12, 0.15, 0.6, 16]} />
         <meshStandardMaterial
-          color="#87ceeb"
-          metalness={0.1}
-          roughness={0.5}
+          color="#dc2626"
+          metalness={0.2}
+          roughness={0.4}
         />
       </mesh>
     </group>
@@ -561,7 +563,7 @@ export function Scene({
   return (
     <>
       {/* Realistic lighting with shadows for depth */}
-      <ambientLight intensity={0.6} />
+      <ambientLight intensity={0.8} />
       <directionalLight
         position={[4, 6, 4]}
         intensity={2.2}
@@ -577,6 +579,18 @@ export function Scene({
       <directionalLight position={[-4, 2, -4]} intensity={0.8} />
       {/* Rim light behind camera */}
       <pointLight position={[0, 0, -3]} intensity={0.4} color="#ffffff" />
+      
+      {/* Additional lights to highlight the glass dome */}
+      {/* Top spotlight for glass highlights */}
+      <pointLight position={[0, 3, 0]} intensity={1.5} color="#ffffff" />
+      {/* Side lights to create rim highlights on glass */}
+      <pointLight position={[2.5, 1.4, 0]} intensity={1.2} color="#ffffff" />
+      <pointLight position={[-2.5, 1.4, 0]} intensity={1.2} color="#ffffff" />
+      <pointLight position={[0, 1.4, 2.5]} intensity={1.2} color="#ffffff" />
+      <pointLight position={[0, 1.4, -2.5]} intensity={1.2} color="#ffffff" />
+      {/* Diagonal accent lights for more glass reflections */}
+      <pointLight position={[2, 2.5, 2]} intensity={1.0} color="#ffffff" />
+      <pointLight position={[-2, 2.5, -2]} intensity={1.0} color="#ffffff" />
       
       <MachineBase />
       <Drum spinning={spinning} spinPhase={spinPhase} />

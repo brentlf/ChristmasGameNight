@@ -120,11 +120,10 @@ export async function applySessionToScoreboard(
 
       // Initialize or update scoreboard entry
       if (!scoreboard.players[playerIdentityId]) {
-        scoreboard.players[playerIdentityId] = {
+        const baseEntry: any = {
           playerIdentityId,
           uid: currentUid,
           displayName: playerData.displayName || playerData.name || 'Unknown',
-          displayTag: playerData.displayTag,
           avatar: playerData.avatar || '🎮',
           totalPoints: 0,
           gamesPlayed: 0,
@@ -132,6 +131,11 @@ export async function applySessionToScoreboard(
           lastUpdatedAt: Date.now(),
           breakdown: {},
         };
+        // Firestore does not allow `undefined` values; only include displayTag when it exists.
+        if (typeof playerData.displayTag === 'string' && playerData.displayTag.length > 0) {
+          baseEntry.displayTag = playerData.displayTag;
+        }
+        scoreboard.players[playerIdentityId] = baseEntry as any;
       }
 
       const entry = scoreboard.players[playerIdentityId];
@@ -173,13 +177,27 @@ export async function applySessionToScoreboard(
     processedSessions.push(finalization.sessionId);
 
     // Update room with new scoreboard (processedSessions stored as array for Firestore)
-    const scoreboardUpdate: any = {
+    // Firestore doesn't allow `undefined` anywhere in the payload (even deep/nested).
+    const stripUndefinedDeep = (value: any): any => {
+      if (Array.isArray(value)) return value.map(stripUndefinedDeep);
+      if (value && typeof value === 'object') {
+        const out: any = {};
+        for (const [k, v] of Object.entries(value)) {
+          if (v === undefined) continue;
+          out[k] = stripUndefinedDeep(v);
+        }
+        return out;
+      }
+      return value;
+    };
+
+    const scoreboardUpdate: any = stripUndefinedDeep({
       scoreboard: {
         players: scoreboard.players,
         sessionHistory: scoreboard.sessionHistory,
         processedSessions: processedSessions, // Already an array
       },
-    };
+    });
 
     tx.update(roomRef, scoreboardUpdate);
   });

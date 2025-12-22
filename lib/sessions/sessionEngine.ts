@@ -11,6 +11,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import type { Firestore } from 'firebase/firestore';
 import type { MiniGameType, Room, SessionGameId, SessionStatus } from '@/types';
 import { selectRandomItems } from '@/lib/miniGameEngine';
 import { triviaChristmasPool } from '@/content/trivia_christmas';
@@ -1055,6 +1056,26 @@ function generateBingoCard(seed: number): { grid: (string | 'FREE')[][]; marked:
     return rng / 0x7fffffff;
   };
   
+  // For each column, create a pool of available numbers and shuffle them
+  // This ensures no duplicates within a column
+  const columnPools: number[][] = [];
+  for (let col = 0; col < 5; col++) {
+    const [min, max] = ranges[col];
+    const pool: number[] = [];
+    for (let num = min; num <= max; num++) {
+      pool.push(num);
+    }
+    // Shuffle the pool using seeded random
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    columnPools[col] = pool;
+  }
+  
+  // Track which number index we're using for each column
+  const columnIndices = [0, 0, 0, 0, 0];
+  
   for (let row = 0; row < 5; row++) {
     grid[row] = [];
     marked[row] = [];
@@ -1064,8 +1085,9 @@ function generateBingoCard(seed: number): { grid: (string | 'FREE')[][]; marked:
         grid[row][col] = 'FREE';
         marked[row][col] = true; // Pre-marked
       } else {
-        const [min, max] = ranges[col];
-        const num = Math.floor(min + random() * (max - min + 1));
+        // Pick the next unique number from the shuffled pool for this column
+        const num = columnPools[col][columnIndices[col]];
+        columnIndices[col]++;
         grid[row][col] = `${letters[col]}-${num}`;
         marked[row][col] = false;
       }
@@ -1202,7 +1224,7 @@ export async function drawBingoBall(params: {
 }
 
 // Bingo: Validate a bingo pattern
-function validateBingoPattern(card: BingoCardDoc, drawnBalls: string[]): {
+export function validateBingoPattern(card: BingoCardDoc, drawnBalls: string[]): {
   valid: boolean;
   pattern?: 'horizontal' | 'vertical' | 'diagonal' | 'four_corners';
   winningCells?: Array<{ row: number; col: number }>;
@@ -1331,11 +1353,13 @@ export async function claimBingo(params: {
   roomId: string;
   sessionId: string;
   uid: string;
+  db?: Firestore; // Optional db instance for server-side use
 }): Promise<{ valid: boolean; pattern?: string; error?: string }> {
-  const { roomId, sessionId, uid } = params;
-  const roomRef = doc(db, 'rooms', roomId);
+  const { roomId, sessionId, uid, db: dbInstance } = params;
+  const firestoreDb = dbInstance || db; // Use provided db or fall back to client db
+  const roomRef = doc(firestoreDb, 'rooms', roomId);
   
-  return runTransaction(db, async (tx) => {
+  return runTransaction(firestoreDb, async (tx) => {
     const roomSnap = await tx.get(roomRef);
     if (!roomSnap.exists()) throw new Error('Room not found');
     const room = { id: roomSnap.id, ...(roomSnap.data() as any) } as Room;
@@ -1343,18 +1367,16 @@ export async function claimBingo(params: {
     const currentSession = room.currentSession;
     if (!currentSession || currentSession.gameId !== 'bingo') throw new Error('Not a bingo session');
     
-    // Check if already claimed
-    if (currentSession.bingoWinnerUid) {
-      return { valid: false, error: 'Bingo already claimed' };
+    // Disallow claims if the session is finished (results phase) or if a claim is currently being shown.
+    if (currentSession.status === 'finished') {
+      return { valid: false, error: 'Bingo already finished' };
     }
-    
-    // Check if in claiming state (prevent multiple simultaneous claims)
     if (currentSession.status === 'claiming') {
       return { valid: false, error: 'Another player is claiming bingo' };
     }
     
     // Get player's card
-    const cardRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'cards', uid);
+    const cardRef = doc(firestoreDb, 'rooms', roomId, 'sessions', sessionId, 'cards', uid);
     const cardSnap = await tx.get(cardRef);
     if (!cardSnap.exists()) throw new Error('Card not found');
     const card = cardSnap.data() as any;
@@ -1366,21 +1388,48 @@ export async function claimBingo(params: {
     const validation = validateBingoPattern(card as BingoCardDoc, drawnBalls);
     
     if (validation.valid) {
-      // Set status to claiming first (prevents other claims)
-      tx.update(roomRef, {
-        'currentSession.status': 'claiming',
-        'currentSession.bingoWinnerUid': uid,
-        'currentSession.revealData': {
+      const mode = (currentSession as any)?.bingoMode === 'top3' ? 'top3' : 'first';
+      const existingWinners: string[] = Array.isArray((currentSession as any)?.bingoWinners)
+        ? ((currentSession as any).bingoWinners as string[])
+        : [];
+
+      // Prevent duplicate claims by same player.
+      if (existingWinners.includes(uid)) {
+        return { valid: false, error: 'You already claimed bingo' };
+      }
+
+      // Determine placement and points.
+      const nextWinners = [...existingWinners, uid].slice(0, 3);
+      const placement = nextWinners.length; // 1..3
+      const pointsByPlace = [100, 60, 40];
+      const award = pointsByPlace[Math.max(0, Math.min(pointsByPlace.length - 1, placement - 1))];
+
+      // Set status to claiming so TV can either end now or continue.
+      // In top3 mode, TV can auto-resume; on 3rd place it can auto-finish.
+      const updatedSession = {
+        ...currentSession,
+        status: 'claiming' as const,
+        bingoMode: mode as 'first' | 'top3',
+        bingoWinners: nextWinners,
+        bingoLastWinnerUid: uid,
+        // Keep legacy single-winner field set to the FIRST winner only (don't overwrite).
+        bingoWinnerUid: (currentSession as any)?.bingoWinnerUid || uid,
+        revealData: {
           pattern: validation.pattern,
           winningCells: validation.winningCells,
+          placement,
+          uid,
         },
+      } as any;
+      tx.update(roomRef, {
+        currentSession: updatedSession,
       } as any);
       
-      // Award points (winner gets 100 points, normalized)
-      const scoresBaseRef = collection(db, 'rooms', roomId, 'sessions', sessionId, 'scores');
+      // Award points for this session (per-session scores doc)
+      const scoresBaseRef = collection(firestoreDb, 'rooms', roomId, 'sessions', sessionId, 'scores');
       tx.set(doc(scoresBaseRef, uid), {
         uid,
-        score: 100,
+        score: award,
         updatedAt: Date.now(),
       } as any, { merge: true });
       

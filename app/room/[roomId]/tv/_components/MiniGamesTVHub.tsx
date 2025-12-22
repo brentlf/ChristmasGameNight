@@ -2036,11 +2036,16 @@ function BingoTVRound(props: {
   const currentSession = room.currentSession;
   const drawnBalls = currentSession?.drawnBalls || [];
   const currentBall = drawnBalls.length > 0 ? drawnBalls[drawnBalls.length - 1] : null;
-  const winnerUid = currentSession?.bingoWinnerUid;
-  const winner = winnerUid ? players.find((p) => p.uid === winnerUid) : null;
+  const bingoWinners: string[] = Array.isArray((currentSession as any)?.bingoWinners)
+    ? (((currentSession as any).bingoWinners as string[]) || [])
+    : [];
+  const bingoMode = ((currentSession as any)?.bingoMode === 'top3' ? 'top3' : 'first') as 'first' | 'top3';
+  const lastWinnerUid = (currentSession as any)?.bingoLastWinnerUid || bingoWinners[bingoWinners.length - 1] || null;
+  const winner = lastWinnerUid ? players.find((p) => p.uid === lastWinnerUid) : null;
   const [isDrawing, setIsDrawing] = useState(false);
   const [busy, setBusy] = useState(false);
   const sessionStatus = currentSession?.status;
+  const autoAdvanceScheduledRef = useRef(false);
 
   const handleDrawBall = async () => {
     if (busy || isDrawing || sessionStatus !== 'in_game') return;
@@ -2059,7 +2064,7 @@ function BingoTVRound(props: {
   };
 
   const handleFinishGame = async () => {
-    if (busy || !winnerUid) return;
+    if (busy) return;
     setBusy(true);
     try {
       playSound('game.game_win', 0.25);
@@ -2071,9 +2076,56 @@ function BingoTVRound(props: {
     }
   };
 
-  // Show winner celebration
-  if (sessionStatus === 'claiming' && winner) {
+  useEffect(() => {
+    if (!isController) return;
+    if (sessionStatus !== 'claiming') {
+      autoAdvanceScheduledRef.current = false;
+      return;
+    }
+    if (!lastWinnerUid) return;
+    if (autoAdvanceScheduledRef.current) return;
+    autoAdvanceScheduledRef.current = true;
+
+    const t = setTimeout(() => {
+      // In top3 mode: auto-resume if we still need more winners; auto-finish at 3.
+      // In first mode: do nothing (host chooses end/continue).
+      if (bingoMode === 'top3') {
+        if (bingoWinners.length >= 3) {
+          handleFinishGame().catch(() => {});
+        } else {
+          // Resume the game so more players can claim.
+          updateDoc(doc(db, 'rooms', roomId), {
+            'currentSession.status': 'in_game',
+          } as any).catch(() => {});
+        }
+      }
+    }, 2500);
+
+    return () => clearTimeout(t);
+    // Intentionally exclude handleFinishGame (it closes over busy, and we guard via ref).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isController, sessionStatus, lastWinnerUid, bingoMode, bingoWinners.length, roomId, sessionId]);
+
+  const handleContinueTop3 = async () => {
+    if (!isController || busy) return;
+    setBusy(true);
+    try {
+      playSound('ui.click', 0.25);
+      await updateDoc(doc(db, 'rooms', roomId), {
+        'currentSession.bingoMode': 'top3',
+        'currentSession.status': 'in_game',
+      } as any);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to continue');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Show winner celebration while a claim is being shown (or after finishing)
+  if ((sessionStatus === 'claiming' || sessionStatus === 'finished') && winner) {
     const revealData = currentSession?.revealData as any;
+    const place = Number(revealData?.placement ?? bingoWinners.indexOf(winner.uid) + 1) || null;
     return (
       <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-8">
         <div className="text-center space-y-6">
@@ -2081,6 +2133,11 @@ function BingoTVRound(props: {
           <div className="text-6xl font-black text-christmas-gold mb-2">
             {lang === 'cs' ? 'BINGO!' : 'BINGO!'}
           </div>
+          {place ? (
+            <div className="text-xl text-white/70">
+              {lang === 'cs' ? `Místo: #${place}` : `Place: #${place}`}
+            </div>
+          ) : null}
           <div className="text-4xl font-bold text-white mb-4">
             {winner.name} {winner.avatar}
           </div>
@@ -2090,14 +2147,40 @@ function BingoTVRound(props: {
             </div>
           )}
           {isController && (
-            <button
-              type="button"
-              className="btn-primary mt-6 text-lg"
-              onClick={handleFinishGame}
-              disabled={busy}
-            >
-              {lang === 'cs' ? 'Ukončit hru' : 'Finish Game'}
-            </button>
+            <div className="flex flex-col items-center gap-3 mt-6">
+              {bingoMode === 'first' && bingoWinners.length === 1 ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn-primary text-lg"
+                    onClick={handleFinishGame}
+                    disabled={busy}
+                  >
+                    {lang === 'cs' ? 'Ukončit hru (výsledky)' : 'End game (results)'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary text-lg"
+                    onClick={handleContinueTop3}
+                    disabled={busy}
+                  >
+                    {lang === 'cs' ? 'Pokračovat na TOP 3' : 'Continue to Top 3'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* In top3 mode, we auto-advance; keep a manual finish button as a safety valve */}
+                  <button
+                    type="button"
+                    className="btn-primary text-lg"
+                    onClick={handleFinishGame}
+                    disabled={busy}
+                  >
+                    {lang === 'cs' ? 'Ukončit hru' : 'Finish game'}
+                  </button>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>

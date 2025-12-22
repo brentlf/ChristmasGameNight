@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getLanguage, t } from '@/lib/i18n';
 import Link from 'next/link';
-import type { Player, Room } from '@/types';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useRoom } from '@/lib/hooks/useRoom';
+import { useScoreboard } from '@/lib/hooks/useScoreboard';
+import type { Player, Room, ScoreboardPlayer } from '@/types';
 
 function AnimatedNumber(props: { value: number; durationMs?: number; className?: string }) {
   const { value, durationMs = 650, className } = props;
@@ -50,7 +53,7 @@ interface AggregatedPlayer {
   totalScore: number;
   gamesPlayed: number;
   rooms: string[];
-  lastSeenAt: number; // used to keep the most recent name/avatar for this identity
+  lastSeenAt: number;
   scoresByGame: {
     amazing_race: number;
     trivia: number;
@@ -59,49 +62,362 @@ interface AggregatedPlayer {
     pictionary: number;
     guess_the_song: number;
     family_feud: number;
+    bingo: number;
     leaderboard: number;
   };
 }
 
+type LeaderboardMode = 'global' | 'current' | 'select';
+
+const STORAGE_KEY_ACTIVE_ROOM_ID = 'cgn_active_room_id';
+
 export default function GlobalLeaderboardPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const modeParam = searchParams.get('mode') as LeaderboardMode | null;
+  const selectedRoomIdsFromUrl = useMemo(() => {
+    return searchParams.get('roomIds')?.split(',').filter(Boolean) || [];
+  }, [searchParams]);
+  
+  const [mode, setMode] = useState<LeaderboardMode>(modeParam || 'global');
+  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(selectedRoomIdsFromUrl);
   const [loading, setLoading] = useState(true);
   const [aggregatedPlayers, setAggregatedPlayers] = useState<AggregatedPlayer[]>([]);
+  const [availableRooms, setAvailableRooms] = useState<Array<{ id: string; name: string; code: string; createdAt: number }>>([]);
+  const [showSelector, setShowSelector] = useState(false);
   const lang = getLanguage();
   const [animateBars, setAnimateBars] = useState(false);
+  const isUpdatingUrlRef = useRef(false);
+  
+  // Sync state from URL on mount/URL change (but not from our own updates)
+  useEffect(() => {
+    if (isUpdatingUrlRef.current) {
+      isUpdatingUrlRef.current = false;
+      return;
+    }
+    if (modeParam && modeParam !== mode) {
+      setMode(modeParam);
+    }
+    const urlIdsStr = JSON.stringify(selectedRoomIdsFromUrl);
+    const stateIdsStr = JSON.stringify(selectedRoomIds);
+    if (urlIdsStr !== stateIdsStr) {
+      setSelectedRoomIds(selectedRoomIdsFromUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modeParam, selectedRoomIdsFromUrl]);
+  
+  // Auto-detect current room
+  const currentRoomId = useMemo(() => {
+    // 1. Check URL path (e.g., /room/[roomId]/...)
+    const roomIdMatch = pathname?.match(/\/room\/([^/]+)/);
+    if (roomIdMatch) return roomIdMatch[1];
+    
+    // 2. Check localStorage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEY_ACTIVE_ROOM_ID);
+      if (stored) return stored;
+    }
+    
+    return null;
+  }, [pathname]);
+  
+  const { room: currentRoom } = useRoom(currentRoomId);
+  const { scoreboard: currentRoomScoreboard } = useScoreboard(currentRoomId);
 
   useEffect(() => {
     const id = setTimeout(() => setAnimateBars(true), 50);
     return () => clearTimeout(id);
   }, []);
 
+  // Load available rooms for selector
   useEffect(() => {
+    if (mode !== 'select') return;
+    
+    async function loadRooms() {
+      try {
+        const roomsRef = collection(db, 'rooms');
+        const roomsSnap = await getDocs(roomsRef);
+        const rooms = roomsSnap.docs
+          .map(doc => {
+            const data = doc.data() as Room;
+            // Only show public rooms (no eventId/groupId)
+            if (data.eventId != null || data.groupId != null) return null;
+            return {
+              id: doc.id,
+              name: data.name || 'Unnamed Room',
+              code: data.code || '',
+              createdAt: data.createdAt || 0,
+            };
+          })
+          .filter(Boolean) as Array<{ id: string; name: string; code: string; createdAt: number }>;
+        setAvailableRooms(rooms);
+      } catch (error) {
+        console.error('Error loading rooms:', error);
+      }
+    }
+    
+    loadRooms();
+  }, [mode]);
+
+  // Update URL when mode/selection changes (only if different from current URL)
+  useEffect(() => {
+    const newParams = new URLSearchParams();
+    if (mode !== 'global') newParams.set('mode', mode);
+    if (selectedRoomIds.length > 0) newParams.set('roomIds', selectedRoomIds.join(','));
+    
+    // Compare with current URL params
+    const currentMode = searchParams.get('mode') || 'global';
+    const currentRoomIds = searchParams.get('roomIds')?.split(',').filter(Boolean) || [];
+    const currentParams = new URLSearchParams();
+    if (currentMode !== 'global') currentParams.set('mode', currentMode);
+    if (currentRoomIds.length > 0) currentParams.set('roomIds', currentRoomIds.join(','));
+    
+    // Only update if the query string is actually different
+    if (newParams.toString() !== currentParams.toString()) {
+      isUpdatingUrlRef.current = true;
+      const newQuery = newParams.toString();
+      router.replace(`/leaderboard${newQuery ? `?${newQuery}` : ''}`, { scroll: false });
+    }
+  }, [mode, selectedRoomIds, router, searchParams]);
+
+  // Fetch current leaderboard (auto-detect)
+  useEffect(() => {
+    if (mode !== 'current') return;
+    
+    async function fetchCurrent() {
+      try {
+        setLoading(true);
+        
+        if (currentRoomId && currentRoomScoreboard) {
+          const players = Object.values(currentRoomScoreboard.players || {});
+          const aggregated: AggregatedPlayer[] = players.map((sbPlayer) => ({
+            identityKey: sbPlayer.playerIdentityId || sbPlayer.uid,
+            name: sbPlayer.displayName,
+            avatar: sbPlayer.avatar,
+            totalScore: sbPlayer.totalPoints,
+            gamesPlayed: sbPlayer.gamesPlayed,
+            rooms: [currentRoom?.name || 'Room'],
+            lastSeenAt: sbPlayer.lastUpdatedAt,
+            scoresByGame: {
+              amazing_race: sbPlayer.breakdown.amazing_race || 0,
+              trivia: sbPlayer.breakdown.trivia || 0,
+              emoji: sbPlayer.breakdown.emoji || 0,
+              wyr: sbPlayer.breakdown.wyr || 0,
+              pictionary: sbPlayer.breakdown.pictionary || 0,
+              guess_the_song: sbPlayer.breakdown.guess_the_song || 0,
+              family_feud: sbPlayer.breakdown.family_feud || 0,
+              bingo: sbPlayer.breakdown.bingo || 0,
+              leaderboard: 0,
+            },
+          }));
+          
+          const sorted = aggregated
+            .filter((p) => Number(p.totalScore ?? 0) > 0)
+            .sort((a, b) => {
+              if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+              return a.name.localeCompare(b.name);
+            });
+          
+          setAggregatedPlayers(sorted);
+        } else {
+          setAggregatedPlayers([]);
+        }
+      } catch (error) {
+        console.error('Error fetching current leaderboard:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchCurrent();
+  }, [mode, currentRoomId, currentRoomScoreboard, currentRoom]);
+
+  // Fetch selected rooms leaderboard
+  useEffect(() => {
+    if (mode !== 'select' || selectedRoomIds.length === 0) {
+      if (mode === 'select') setLoading(false);
+      return;
+    }
+    
+    async function fetchSelected() {
+      try {
+        setLoading(true);
+        const playerMap = new Map<string, AggregatedPlayer>();
+        
+        // Aggregate from selected rooms
+        for (const roomId of selectedRoomIds) {
+          const roomRef = doc(db, 'rooms', roomId);
+          const roomSnap = await getDoc(roomRef);
+          if (!roomSnap.exists()) continue;
+          
+          const room = { id: roomSnap.id, ...roomSnap.data() } as Room & { id: string };
+          const scoreboard = room.scoreboard;
+          
+          if (scoreboard?.players) {
+            for (const sbPlayer of Object.values(scoreboard.players)) {
+              const identityKey = sbPlayer.playerIdentityId || sbPlayer.uid;
+              if (!playerMap.has(identityKey)) {
+                playerMap.set(identityKey, {
+                  identityKey,
+                  name: sbPlayer.displayName,
+                  avatar: sbPlayer.avatar,
+                  totalScore: 0,
+                  gamesPlayed: 0,
+                  rooms: [],
+                  lastSeenAt: sbPlayer.lastUpdatedAt,
+                  scoresByGame: {
+                    amazing_race: 0,
+                    trivia: 0,
+                    emoji: 0,
+                    wyr: 0,
+                    pictionary: 0,
+                    guess_the_song: 0,
+                    family_feud: 0,
+                    bingo: 0,
+                    leaderboard: 0,
+                  },
+                });
+              }
+              
+              const aggregated = playerMap.get(identityKey)!;
+              aggregated.totalScore += sbPlayer.totalPoints;
+              aggregated.gamesPlayed += sbPlayer.gamesPlayed;
+              if (!aggregated.rooms.includes(room.name)) {
+                aggregated.rooms.push(room.name);
+              }
+              
+              const b = sbPlayer.breakdown || {};
+              aggregated.scoresByGame.amazing_race += Number(b.amazing_race ?? 0);
+              aggregated.scoresByGame.trivia += Number(b.trivia ?? 0);
+              aggregated.scoresByGame.emoji += Number(b.emoji ?? 0);
+              aggregated.scoresByGame.wyr += Number(b.wyr ?? 0);
+              aggregated.scoresByGame.pictionary += Number(b.pictionary ?? 0);
+              aggregated.scoresByGame.guess_the_song += Number(b.guess_the_song ?? 0);
+              aggregated.scoresByGame.family_feud += Number(b.family_feud ?? 0);
+              aggregated.scoresByGame.bingo += Number(b.bingo ?? 0);
+            }
+          }
+        }
+        
+        const sorted = Array.from(playerMap.values())
+          .filter((p) => Number(p.totalScore ?? 0) > 0)
+          .sort((a, b) => {
+            if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+            return a.name.localeCompare(b.name);
+          });
+        
+        setAggregatedPlayers(sorted);
+      } catch (error) {
+        console.error('Error fetching selected leaderboard:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchSelected();
+  }, [mode, selectedRoomIds]);
+
+  // Fetch global leaderboard
+  useEffect(() => {
+    if (mode !== 'global') return;
+    
     async function fetchGlobalLeaderboard() {
       try {
-        // IMPORTANT: With multi-family events, most rooms are private.
-        // Only aggregate "legacy/public" rooms (rooms without eventId/groupId).
-        // Querying all rooms would fail with permission-denied because private rooms are not readable.
+        const CACHE_KEY = 'cgn_global_leaderboard_v1';
+        const CACHE_TTL_MS = 60_000;
+        try {
+          const cachedRaw = typeof window !== 'undefined' ? window.localStorage.getItem(CACHE_KEY) : null;
+          if (cachedRaw) {
+            const cached = JSON.parse(cachedRaw) as { ts: number; players: AggregatedPlayer[] };
+            if (cached?.ts && Date.now() - cached.ts < CACHE_TTL_MS && Array.isArray(cached.players)) {
+              setAggregatedPlayers(cached.players);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch {
+          // ignore cache parse errors
+        }
+
         const roomsRef = collection(db, 'rooms');
-        const qRooms = query(roomsRef, where('eventId', '==', null), where('groupId', '==', null));
-        const roomsSnapshot = await getDocs(qRooms);
+        const roomsSnapshot = await getDocs(roomsRef);
         
         const playerMap = new Map<string, AggregatedPlayer>();
 
-        // Process each room
         for (const roomDoc of roomsSnapshot.docs) {
           const room = { id: roomDoc.id, ...roomDoc.data() } as Room & { id: string };
+          if (room.eventId != null || room.groupId != null) continue;
           
-          // Count finished rooms and running rooms (in case scores are already recorded)
-          if (room.status !== 'finished' && room.status !== 'running') continue;
+          const roomScoreboard = room.scoreboard;
+          const scoreboardPlayers: ScoreboardPlayer[] = roomScoreboard?.players
+            ? Object.values(roomScoreboard.players)
+            : [];
 
-          // Get all players from this room
+          if (scoreboardPlayers.length > 0) {
+            for (const sbPlayer of scoreboardPlayers) {
+              const identityKey = sbPlayer.playerIdentityId || sbPlayer.uid;
+              const key = identityKey;
+              const lastSeenAt = Number(sbPlayer.lastUpdatedAt ?? 0);
+
+              if (!playerMap.has(key)) {
+                playerMap.set(key, {
+                  identityKey,
+                  name: sbPlayer.displayName,
+                  avatar: sbPlayer.avatar,
+                  totalScore: 0,
+                  gamesPlayed: 0,
+                  rooms: [],
+                  lastSeenAt,
+                  scoresByGame: {
+                    amazing_race: 0,
+                    trivia: 0,
+                    emoji: 0,
+                    wyr: 0,
+                    pictionary: 0,
+                    guess_the_song: 0,
+                    family_feud: 0,
+                    bingo: 0,
+                    leaderboard: 0,
+                  },
+                });
+              }
+
+              const aggregated = playerMap.get(key)!;
+              if (lastSeenAt >= (aggregated.lastSeenAt ?? 0)) {
+                aggregated.name = sbPlayer.displayName;
+                aggregated.avatar = sbPlayer.avatar;
+                aggregated.lastSeenAt = lastSeenAt;
+              }
+
+              const totalPoints = Number(sbPlayer.totalPoints ?? 0);
+              aggregated.totalScore += totalPoints;
+              aggregated.gamesPlayed += Number(sbPlayer.gamesPlayed ?? 0);
+
+              const b = sbPlayer.breakdown || {};
+              aggregated.scoresByGame.amazing_race += Number(b.amazing_race ?? 0);
+              aggregated.scoresByGame.trivia += Number(b.trivia ?? 0);
+              aggregated.scoresByGame.emoji += Number(b.emoji ?? 0);
+              aggregated.scoresByGame.wyr += Number(b.wyr ?? 0);
+              aggregated.scoresByGame.pictionary += Number(b.pictionary ?? 0);
+              aggregated.scoresByGame.guess_the_song += Number(b.guess_the_song ?? 0);
+              aggregated.scoresByGame.family_feud += Number(b.family_feud ?? 0);
+              aggregated.scoresByGame.bingo += Number(b.bingo ?? 0);
+
+              if (!aggregated.rooms.includes(room.name)) {
+                aggregated.rooms.push(room.name);
+              }
+            }
+            continue;
+          }
+
+          if (room.status !== 'finished') continue;
+
           const playersRef = collection(db, 'rooms', room.id, 'players');
           const playersSnapshot = await getDocs(playersRef);
 
           playersSnapshot.forEach((playerDoc) => {
             const player = { uid: playerDoc.id, ...playerDoc.data() } as Player;
-            
-            // Use stable identity as the key (NOT name/avatar), so a player can change their name
-            // between nights and still be aggregated as the same individual.
             const identityKey = player.playerIdentityId || player.uid;
             const key = identityKey;
             const playerLastSeenAt = Number(player.lastSeenAt ?? player.lastActiveAt ?? player.joinedAt ?? 0);
@@ -123,13 +439,13 @@ export default function GlobalLeaderboardPage() {
                   pictionary: 0,
                   guess_the_song: 0,
                   family_feud: 0,
+                  bingo: 0,
                   leaderboard: 0,
                 },
               });
             }
 
             const aggregated = playerMap.get(key)!;
-            // Keep the most recent name/avatar for display purposes (while keeping identity stable)
             if (playerLastSeenAt >= (aggregated.lastSeenAt ?? 0)) {
               aggregated.name = player.name;
               aggregated.avatar = player.avatar;
@@ -137,18 +453,15 @@ export default function GlobalLeaderboardPage() {
             }
             const playerScore = player.score ?? 0;
             
-            // Track score by game type
             if (room.roomMode === 'amazing_race') {
               aggregated.scoresByGame.amazing_race += playerScore;
               aggregated.totalScore += playerScore;
               aggregated.gamesPlayed += 1;
             } else if (room.roomMode === 'mini_games') {
-              // For mini games, track individual game scores from miniGameProgress
               let hasIndividualScores = false;
               let miniGameTotal = 0;
               
               if (player.miniGameProgress) {
-                // Check each game type - include even if score is 0 (game was played)
                 if (player.miniGameProgress.trivia !== undefined) {
                   const triviaScore = player.miniGameProgress.trivia?.score ?? 0;
                   aggregated.scoresByGame.trivia += triviaScore;
@@ -161,13 +474,6 @@ export default function GlobalLeaderboardPage() {
                   miniGameTotal += emojiScore;
                   hasIndividualScores = true;
                 }
-                // WYR doesn't count for points - it's just for fun/getting to know everyone
-                // if (player.miniGameProgress.wyr !== undefined) {
-                //   const wyrScore = player.miniGameProgress.wyr?.score ?? 0;
-                //   aggregated.scoresByGame.wyr += wyrScore;
-                //   miniGameTotal += wyrScore;
-                //   hasIndividualScores = true;
-                // }
                 if (player.miniGameProgress.pictionary !== undefined) {
                   const pictionaryScore = player.miniGameProgress.pictionary?.score ?? 0;
                   aggregated.scoresByGame.pictionary += pictionaryScore;
@@ -186,23 +492,25 @@ export default function GlobalLeaderboardPage() {
                   miniGameTotal += ffScore;
                   hasIndividualScores = true;
                 }
+                if (player.miniGameProgress.bingo !== undefined) {
+                  const bingoScore = player.miniGameProgress.bingo?.score ?? 0;
+                  aggregated.scoresByGame.bingo += bingoScore;
+                  miniGameTotal += bingoScore;
+                  hasIndividualScores = true;
+                }
               }
               
-              // Fallback: if no individual scores found, use totalMiniGameScore or playerScore
               if (!hasIndividualScores) {
                 const totalMiniGameScore = player.totalMiniGameScore ?? playerScore;
                 miniGameTotal = totalMiniGameScore;
-                // Distribute proportionally if we have enabled games
                 const enabledGames = room.miniGamesEnabled || [];
                 if (enabledGames.length > 0 && totalMiniGameScore > 0) {
-                  // Exclude wyr from scoring games
                   const scoringGames = enabledGames.filter(g => g !== 'wyr');
                   if (scoringGames.length > 0) {
                     const perGame = totalMiniGameScore / scoringGames.length;
                     enabledGames.forEach(game => {
                       if (game === 'trivia') aggregated.scoresByGame.trivia += perGame;
                       if (game === 'emoji') aggregated.scoresByGame.emoji += perGame;
-                      // wyr doesn't count for points
                       if (game === 'pictionary') aggregated.scoresByGame.pictionary += perGame;
                       if (game === 'guess_the_song') aggregated.scoresByGame.guess_the_song += perGame;
                       if (game === 'family_feud') aggregated.scoresByGame.family_feud += perGame;
@@ -211,7 +519,6 @@ export default function GlobalLeaderboardPage() {
                 }
               }
               
-              // Add the mini game total to the overall score
               aggregated.totalScore += miniGameTotal > 0 ? miniGameTotal : playerScore;
               aggregated.gamesPlayed += 1;
             } else if (room.roomMode === 'leaderboard') {
@@ -226,16 +533,21 @@ export default function GlobalLeaderboardPage() {
           });
         }
 
-        // Convert map to array and sort by total score
         const sorted = Array.from(playerMap.values())
-          // RULE: only show players with > 0 points all-time
           .filter((p) => Number(p.totalScore ?? 0) > 0)
           .sort((a, b) => {
-          if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
-          return a.name.localeCompare(b.name);
-        });
+            if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+            return a.name.localeCompare(b.name);
+          });
 
         setAggregatedPlayers(sorted);
+        try {
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), players: sorted }));
+          }
+        } catch {
+          // ignore cache write errors
+        }
       } catch (error) {
         console.error('Error fetching global leaderboard:', error);
       } finally {
@@ -244,27 +556,25 @@ export default function GlobalLeaderboardPage() {
     }
 
     fetchGlobalLeaderboard();
-  }, []);
+  }, [mode]);
 
   const top3 = aggregatedPlayers.slice(0, 3);
   const rest = aggregatedPlayers.slice(3);
 
-  // Helper function to get game breakdown data
   const getGameBreakdown = (player: AggregatedPlayer) => {
     const games = [
       { key: 'amazing_race', label: 'Amazing Race', emoji: '🎄', color: 'bg-christmas-green', value: player.scoresByGame.amazing_race },
       { key: 'trivia', label: 'Trivia', emoji: '⚡', color: 'bg-blue-500', value: player.scoresByGame.trivia },
       { key: 'emoji', label: 'Emoji', emoji: '🎬', color: 'bg-purple-500', value: player.scoresByGame.emoji },
-      // wyr doesn't count for points - excluded from breakdown
       { key: 'pictionary', label: 'Pictionary', emoji: '🎨', color: 'bg-orange-500', value: player.scoresByGame.pictionary },
       { key: 'guess_the_song', label: 'Guess the Song', emoji: '🎵', color: 'bg-sky-500', value: player.scoresByGame.guess_the_song },
       { key: 'family_feud', label: 'Family Feud', emoji: '🎯', color: 'bg-christmas-red', value: player.scoresByGame.family_feud },
+      { key: 'bingo', label: 'Bingo', emoji: '🎱', color: 'bg-pink-500', value: player.scoresByGame.bingo },
       { key: 'leaderboard', label: 'Leaderboard', emoji: '🏆', color: 'bg-christmas-gold', value: player.scoresByGame.leaderboard },
     ].filter(g => g.value > 0);
     return games;
   };
 
-  // Visual breakdown component
   const ScoreBreakdown = ({ player }: { player: AggregatedPlayer }) => {
     const games = getGameBreakdown(player);
     if (games.length === 0) return null;
@@ -274,7 +584,6 @@ export default function GlobalLeaderboardPage() {
         <div className="flex items-center gap-1.5 md:gap-2 mb-1.5 md:mb-2">
           <span className="text-xs text-white/60">Score Breakdown:</span>
         </div>
-        {/* Visual bar chart */}
         <div className="h-3 md:h-4 w-full rounded-full overflow-hidden bg-white/10 flex">
           {games.map((game) => {
             const percentage = (game.value / player.totalScore) * 100;
@@ -288,7 +597,6 @@ export default function GlobalLeaderboardPage() {
             );
           })}
         </div>
-        {/* Legend */}
         <div className="flex flex-wrap gap-1.5 md:gap-2 mt-1.5 md:mt-2">
           {games.map((game) => {
             const percentage = (game.value / player.totalScore) * 100;
@@ -309,6 +617,13 @@ export default function GlobalLeaderboardPage() {
     );
   };
 
+  const handleToggleRoom = (roomId: string) => {
+    const newIds = selectedRoomIds.includes(roomId)
+      ? selectedRoomIds.filter(id => id !== roomId)
+      : [...selectedRoomIds, roomId];
+    setSelectedRoomIds(newIds);
+  };
+
   if (loading) {
     return (
       <main className="h-dvh flex items-center justify-center">
@@ -321,9 +636,50 @@ export default function GlobalLeaderboardPage() {
     <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
       <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col">
         <div className="mb-4 md:mb-6 text-center shrink-0">
+          {/* Mode Selector */}
+          <div className="flex justify-center gap-2 mb-4 md:mb-6">
+            <button
+              onClick={() => setMode('global')}
+              className={`px-4 py-2 rounded-full text-sm md:text-base font-medium transition ${
+                mode === 'global'
+                  ? 'bg-christmas-gold text-white'
+                  : 'bg-white/10 text-white/70 hover:bg-white/20'
+              }`}
+            >
+              🌍 Global
+            </button>
+            <button
+              onClick={() => setMode('current')}
+              className={`px-4 py-2 rounded-full text-sm md:text-base font-medium transition ${
+                mode === 'current'
+                  ? 'bg-christmas-gold text-white'
+                  : 'bg-white/10 text-white/70 hover:bg-white/20'
+              }`}
+            >
+              📍 Current {currentRoomId && `(${currentRoom?.name || currentRoomId.slice(0, 6)}...)`}
+            </button>
+            <button
+              onClick={() => {
+                setMode('select');
+                setShowSelector(true);
+              }}
+              className={`px-4 py-2 rounded-full text-sm md:text-base font-medium transition ${
+                mode === 'select'
+                  ? 'bg-christmas-gold text-white'
+                  : 'bg-white/10 text-white/70 hover:bg-white/20'
+              }`}
+            >
+              🎯 Select
+            </button>
+          </div>
+          
           <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-white/10 border border-white/20 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-white/80 backdrop-blur-md">
             <span>🏆</span>
-            <span>Global</span>
+            <span>
+              {mode === 'global' && 'Global'}
+              {mode === 'current' && (currentRoomId ? 'Room' : 'Current')}
+              {mode === 'select' && 'Selected'}
+            </span>
             <span className="text-white/40">•</span>
             <span className="text-white/70 hidden sm:inline">Leaderboard</span>
           </div>
@@ -331,9 +687,65 @@ export default function GlobalLeaderboardPage() {
             {t('common.leaderboard', lang)}
           </h1>
           <p className="text-sm md:text-base lg:text-lg text-white/70 mt-2 md:mt-4">
-            All-time scores across all games
+            {mode === 'global' && 'All-time scores across all games'}
+            {mode === 'current' && (
+              currentRoomId 
+                ? `Room: ${currentRoom?.name || currentRoomId}` 
+                : 'No active room detected'
+            )}
+            {mode === 'select' && (
+              selectedRoomIds.length > 0
+                ? `${selectedRoomIds.length} room(s) selected`
+                : 'Select rooms to compare'
+            )}
           </p>
         </div>
+
+        {/* Selector Modal */}
+        {mode === 'select' && showSelector && (
+          <div className="card mb-4 md:mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl md:text-2xl font-bold">Select Rooms</h2>
+              <button
+                onClick={() => setShowSelector(false)}
+                className="text-white/70 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {availableRooms.length === 0 ? (
+                <p className="text-white/60 text-sm">No rooms available</p>
+              ) : (
+                availableRooms
+                  .sort((a, b) => b.createdAt - a.createdAt) // Sort by newest first
+                  .map(room => {
+                    const date = new Date(room.createdAt);
+                    const dateStr = date.toLocaleDateString(lang === 'cs' ? 'cs-CZ' : 'en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    });
+                    return (
+                      <label key={room.id} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-white/5 rounded">
+                        <input
+                          type="checkbox"
+                          checked={selectedRoomIds.includes(room.id)}
+                          onChange={() => handleToggleRoom(room.id)}
+                          className="w-4 h-4"
+                        />
+                        <div className="flex-1 flex items-center justify-between gap-2">
+                          <span>{room.name} ({room.code})</span>
+                          <span className="text-xs text-white/50">{dateStr}</span>
+                        </div>
+                      </label>
+                    );
+                  })
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Podium */}
         {aggregatedPlayers.length > 0 && (
@@ -428,7 +840,6 @@ export default function GlobalLeaderboardPage() {
                     <p className="text-xs md:text-sm text-white/60 mb-1.5 md:mb-2 break-words">
                       {player.gamesPlayed} {player.gamesPlayed === 1 ? 'game' : 'games'} played
                     </p>
-                    {/* Visual score breakdown */}
                     <ScoreBreakdown player={player} />
                   </div>
                   <div className="text-right shrink-0">
@@ -444,7 +855,9 @@ export default function GlobalLeaderboardPage() {
         ) : (
           <div className="card mb-6 md:mb-8 text-center flex-1 flex items-center justify-center">
             <p className="text-base md:text-lg lg:text-xl text-white/70">
-              No games completed yet. Play some games to see the leaderboard!
+              {mode === 'current' && !currentRoomId && 'No active room detected. Join a room first.'}
+              {mode === 'select' && selectedRoomIds.length === 0 && 'Select rooms to view their leaderboards.'}
+              {(mode === 'global' || (mode === 'current' && currentRoomId) || (mode === 'select' && selectedRoomIds.length > 0)) && 'No games completed yet. Play some games to see the leaderboard!'}
             </p>
           </div>
         )}

@@ -17,6 +17,7 @@ export type AudioEventName =
   | 'game.countdown_tick'
   | 'bingo.spin'
   | 'bingo.ball_pop'
+  | 'bingo.bingo'
   | 'race.checkpoint'
   | 'race.finish'
   | 'feud.strike'
@@ -170,6 +171,13 @@ export const AUDIO_EVENT_MAP: Record<AudioEventName, AudioEventDef> = {
     src: ['/audio/bingo/ball_pop.mp3', '/audio/bingo/ball_pop.wav', '/audio/ding.ogg'],
     cooldownMs: 250,
     gain: 0.9,
+    allow: ['tv', 'phone'],
+  },
+  'bingo.bingo': {
+    group: 'sfx',
+    src: ['/audio/bingo/Bingo.mp3', '/audio/bingo/Bingo.wav', '/audio/game/trophy.mp3', '/audio/cheer.ogg'],
+    cooldownMs: 2000,
+    gain: 1.0,
     allow: ['tv', 'phone'],
   },
 

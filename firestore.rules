@@ -25,11 +25,37 @@ service cloud.firestore {
       // - Controller can update anything.
       // - Any authed user can update `identityMap` (used by join/reconnect flows).
       // - Allow `scoreboard` updates (night aggregation) without requiring controller.
+      // - Allow players to claim bingo (update currentSession.status and currentSession.bingoWinnerUid)
       allow update: if isAuthed() && (
         (resource.data.controllerUid == request.auth.uid)
         || request.resource.data.diff(resource.data).changedKeys().hasOnly(['identityMap'])
         || request.resource.data.diff(resource.data).changedKeys().hasOnly(['scoreboard'])
         || request.resource.data.diff(resource.data).changedKeys().hasOnly(['scoreboard', 'identityMap'])
+        || (
+          // Allow bingo claiming: players can update currentSession when claiming bingo
+          // IMPORTANT: keep this narrow: only allow changing the top-level `currentSession` field.
+          resource.data.currentSession != null
+          && resource.data.currentSession.gameId == 'bingo'
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['currentSession'])
+          && request.resource.data.currentSession != null
+          && request.resource.data.currentSession.gameId == 'bingo'
+          // Player claims are only allowed from in_game -> claiming.
+          && resource.data.currentSession.status == 'in_game'
+          && request.resource.data.currentSession.status == 'claiming'
+          // The last winner must be the caller.
+          && request.resource.data.currentSession.bingoLastWinnerUid == request.auth.uid
+          // Only allow setting `bingoWinnerUid` on the first claim; after that it must remain unchanged.
+          && (
+            (
+              (resource.data.currentSession.bingoWinnerUid == null || resource.data.currentSession.bingoWinnerUid == '')
+              && request.resource.data.currentSession.bingoWinnerUid == request.auth.uid
+            )
+            || (
+              (resource.data.currentSession.bingoWinnerUid != null && resource.data.currentSession.bingoWinnerUid != '')
+              && request.resource.data.currentSession.bingoWinnerUid == resource.data.currentSession.bingoWinnerUid
+            )
+          )
+        )
       );
 
       allow delete: if isAuthed() && resource.data.controllerUid == request.auth.uid;
@@ -103,10 +129,14 @@ service cloud.firestore {
           allow delete: if isRoomController();
         }
 
-        // Per-session scores (controller-owned)
+        // Per-session scores (controller-owned, but players can update their own score)
         match /scores/{uid} {
           allow read: if isAuthed();
-          allow create, update, delete: if isRoomController();
+          allow create, update: if isAuthed() && (
+            isRoomController()
+            || request.auth.uid == uid  // Players can update their own score
+          );
+          allow delete: if isRoomController();
         }
 
         // Pictionary session realtime docs + subcollections
