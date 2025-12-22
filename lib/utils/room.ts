@@ -108,7 +108,7 @@ export async function createRoom(data: {
 
   const pinHash = data.pinEnabled && data.pin ? await sha256Hex(data.pin) : undefined;
 
-  const defaultMiniGames: MiniGameType[] = ['trivia', 'emoji', 'wyr', 'pictionary'];
+  const defaultMiniGames: MiniGameType[] = ['trivia', 'emoji', 'wyr', 'pictionary', 'guess_the_song', 'family_feud', 'bingo'];
   const effectiveMiniGamesEnabled =
     data.roomMode === 'mini_games' ? (data.miniGamesEnabled && data.miniGamesEnabled.length > 0 ? data.miniGamesEnabled : defaultMiniGames) : undefined;
 

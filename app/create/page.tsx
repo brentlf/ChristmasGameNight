@@ -38,7 +38,7 @@ function CreatePageInner() {
   const [overallScoringEnabled, setOverallScoringEnabled] = useState(true);
   const [overallScoringMode, setOverallScoringMode] = useState<'placements' | 'sumMiniGameScores' | 'hybrid'>('hybrid');
   // Host Session rooms allow starting any game from the TV hub, so we don't ask for per-room game selection.
-  const allMiniGames: MiniGameType[] = ['trivia', 'emoji', 'wyr', 'pictionary'];
+  const allMiniGames: MiniGameType[] = ['trivia', 'emoji', 'wyr', 'pictionary', 'guess_the_song', 'family_feud', 'bingo'];
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -227,6 +227,9 @@ function CreatePageInner() {
                   <span className="px-2 py-1 rounded bg-white/10 border border-white/10">🎬 Emoji</span>
                   <span className="px-2 py-1 rounded bg-white/10 border border-white/10">🎄 WYR</span>
                   <span className="px-2 py-1 rounded bg-white/10 border border-white/10">🎨 Pictionary</span>
+                  <span className="px-2 py-1 rounded bg-white/10 border border-white/10">🎵 Guess the Song</span>
+                  <span className="px-2 py-1 rounded bg-white/10 border border-white/10">🎯 Family Feud</span>
+                  <span className="px-2 py-1 rounded bg-white/10 border border-white/10">🎄 Bingo</span>
                   <span className="px-2 py-1 rounded bg-white/10 border border-white/10">🏁 Amazing Race</span>
                 </div>
               </div>
