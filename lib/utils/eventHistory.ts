@@ -78,10 +78,10 @@ export async function recordEventHistory(eventId: string): Promise<void> {
         const roomScoreboard = room.scoreboard;
         if (roomScoreboard && roomScoreboard.players) {
           // Sum breakdown across all players in the room
-          for (const player of Object.values(roomScoreboard.players)) {
+          for (const player of Object.values(roomScoreboard.players) as any[]) {
             if (player.breakdown) {
               for (const [gameId, points] of Object.entries(player.breakdown)) {
-                breakdownByGame[gameId] = (breakdownByGame[gameId] || 0) + points;
+                breakdownByGame[gameId] = (breakdownByGame[gameId] || 0) + (Number(points) || 0);
               }
             }
           }

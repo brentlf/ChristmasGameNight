@@ -831,7 +831,7 @@ function PictionaryGuesserPhone(props: {
 }) {
   const { roomId, sessionId, roundIndex, promptId, totalRounds, startedAt, endsAt, player, drawerLabel } = props;
   const lang = getLanguage();
-  const { playSound } = useAudio();
+  const { playSound, vibrate } = useAudio();
   const [guess, setGuess] = useState('');
   const [lastSentAt, setLastSentAt] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -1027,7 +1027,7 @@ function FamilyFeudPhoneRound(props: {
 }) {
   const { roomId, sessionId, roundIndex, questionId, player, userTeam, activeTeam, sessionStatus, totalRounds } = props;
   const lang = getLanguage();
-  const { playSound } = useAudio();
+  const { playSound, vibrate } = useAudio();
   const [answer, setAnswer] = useState('');
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);

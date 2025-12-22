@@ -1,6 +1,6 @@
 import { doc, getDoc, runTransaction, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Room, RoomScoreboard, ScoreboardPlayer, SessionFinalization, MiniGameType } from '@/types';
+import type { Room, RoomScoreboard, ScoreboardPlayer, SessionFinalization, MiniGameType, SessionGameId } from '@/types';
 import { collection, getDocs } from 'firebase/firestore';
 
 /**
@@ -151,7 +151,7 @@ export async function applySessionToScoreboard(
       }
 
       // Update breakdown
-      const gameId = finalization.gameId as MiniGameType;
+      const gameId = finalization.gameId as SessionGameId;
       if (gameId && gameId !== 'race') {
         entry.breakdown[gameId] = (entry.breakdown[gameId] || 0) + points;
       } else if (gameId === 'race') {

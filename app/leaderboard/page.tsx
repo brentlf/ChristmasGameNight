@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getLanguage, t } from '@/lib/i18n';
@@ -71,7 +71,7 @@ type LeaderboardMode = 'global' | 'current' | 'select';
 
 const STORAGE_KEY_ACTIVE_ROOM_ID = 'cgn_active_room_id';
 
-export default function GlobalLeaderboardPage() {
+function GlobalLeaderboardPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -873,5 +873,21 @@ export default function GlobalLeaderboardPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function GlobalLeaderboardPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="card text-center">
+            <div className="text-2xl">{getLanguage() === 'cs' ? 'Načítání...' : 'Loading...'}</div>
+          </div>
+        </div>
+      </main>
+    }>
+      <GlobalLeaderboardPageContent />
+    </Suspense>
   );
 }

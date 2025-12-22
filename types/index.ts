@@ -124,12 +124,14 @@ export interface Room {
   // For AI-enhanced mode, this also contains the full content objects (riddles, questions, clues)
   raceStageQuestions?: Record<string, {
     riddleId?: string;
+    riddleIds?: string[];
     clueIds?: string[];
     questionIds?: string[];
     puzzleId?: string;
     promptId?: string;
     // AI-generated content (full objects stored here)
     riddle?: any;
+    riddles?: any[];
     questions?: any[];
     clues?: any[];
   }>;

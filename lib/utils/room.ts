@@ -246,7 +246,6 @@ export async function joinRoom(roomId: string, playerName: string, avatar: strin
     identityMap[user.uid] = playerIdentityId;
 
     const playerDataBase: Omit<Player, 'uid'> = {
-      uid: user.uid, // Include for compatibility
       displayName,
       displayNameNormalized,
       playerIdentityId,
