@@ -377,17 +377,17 @@ export default function TraditionsPage() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-6 flex-1 min-h-0">
-          <div className="xl:col-span-8">
-            <div className="card relative overflow-hidden">
+          <div className="xl:col-span-8 flex flex-col min-h-0">
+            <div className="card relative overflow-hidden flex-1 min-h-0 flex flex-col">
               <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
               <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
 
-              <div className="relative">
+              <div className="relative flex-1 min-h-0 flex flex-col">
                 <h1 className="game-show-title mb-1.5 md:mb-2 text-center text-2xl md:text-3xl">{t('traditions.title', lang)}</h1>
                 <p className="text-center text-white/75 mb-4 md:mb-6 text-sm md:text-base">{t('traditions.subtitle', lang)}</p>
 
                 {/* Mode selector */}
-                <div className="flex gap-2 mb-4 md:mb-6 justify-center">
+                <div className="flex gap-2 mb-4 md:mb-6 justify-center shrink-0">
                   <button
                     onClick={handleSwitchToLocal}
                     className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm transition ${
@@ -419,33 +419,34 @@ export default function TraditionsPage() {
 
                 {/* Create/Join for synced mode */}
                 {mode === 'synced' && !wheel && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6 shrink-0">
                     <CreateWheelDialog onCreate={handleCreateWheel} lang={lang} />
                     <JoinWheelDialog onJoin={handleJoinWheel} lang={lang} />
                   </div>
                 )}
 
                 {/* Spinning Wheel */}
-                <div className="mb-4 md:mb-6 lg:mb-8">
+                <div className="flex-1 min-h-0 flex items-center justify-center mb-4 md:mb-6 lg:mb-8">
                   <TraditionWheel
                     traditions={wheelTraditions}
                     selectedTradition={pendingSelection || selectedTradition}
                     spinning={spinning}
                     lang={lang}
                     onSpinComplete={handleSpinComplete}
+                    wheelContainerClassName="relative w-full h-full max-w-none max-h-[min(70vh,48rem)] aspect-square"
                   />
                 </div>
 
                 {/* Selected tradition */}
                 {selectedTradition && !spinning && (
-                  <div className="rounded-xl md:rounded-2xl border border-christmas-gold/40 bg-christmas-gold/10 p-4 md:p-6 mb-4 md:mb-6 text-center animate-scale-in">
+                  <div className="rounded-xl md:rounded-2xl border border-christmas-gold/40 bg-christmas-gold/10 p-4 md:p-6 mb-4 md:mb-6 text-center animate-scale-in shrink-0">
                     <p className="text-xs md:text-sm text-white/70 mb-1.5 md:mb-2">{t('traditions.todaysTradition', lang)}</p>
                     <p className="text-lg md:text-xl lg:text-2xl font-bold text-christmas-gold">{selectedTradition[lang]}</p>
                   </div>
                 )}
 
                 {/* Spin button */}
-                <div className="text-center mb-4 md:mb-6">
+                <div className="text-center mb-4 md:mb-6 shrink-0">
                   <div className="flex flex-col sm:flex-row gap-2 md:gap-3 justify-center items-center">
                     <button
                       onClick={handleSpin}
@@ -475,7 +476,7 @@ export default function TraditionsPage() {
 
                 {/* Share link for synced mode */}
                 {mode === 'synced' && wheel && userUid === wheel.controllerUid && (
-                  <div className="rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4 mb-4 md:mb-6">
+                  <div className="rounded-xl md:rounded-2xl border border-white/10 bg-white/5 p-3 md:p-4 mb-4 md:mb-6 shrink-0">
                     <p className="text-xs md:text-sm font-semibold mb-1.5 md:mb-2">{t('traditions.shareLink', lang)}</p>
                     <div className="flex flex-col sm:flex-row gap-2">
                       <input
@@ -498,7 +499,7 @@ export default function TraditionsPage() {
                 )}
 
                 {/* Available traditions count */}
-                <div className="text-center text-white/70 mb-3 md:mb-4 text-xs md:text-sm">
+                <div className="text-center text-white/70 mb-3 md:mb-4 text-xs md:text-sm shrink-0">
                   {availableTraditions.length} {t('traditions.availableTraditions', lang).toLowerCase()}
                 </div>
               </div>
@@ -506,8 +507,8 @@ export default function TraditionsPage() {
           </div>
 
           {/* Used traditions (right column on desktop) */}
-          <div className="xl:col-span-4">
-            <div className="card h-full">
+          <div className="xl:col-span-4 flex flex-col min-h-0">
+            <div className="card h-full flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-3 md:mb-4">
                 <h2 className="text-lg md:text-xl lg:text-2xl font-bold">{t('traditions.usedTraditions', lang)}</h2>
                 {(mode === 'local' || (wheel && userUid === wheel.controllerUid)) && usedTraditions.length > 0 && (
@@ -522,7 +523,7 @@ export default function TraditionsPage() {
                   {lang === 'cs' ? 'Zatím žádné použité tradice.' : 'No used traditions yet.'}
                 </div>
               ) : (
-                <div className="space-y-2 md:space-y-3">
+                <div className="space-y-2 md:space-y-3 flex-1 min-h-0 overflow-auto pr-1">
                   {usedTraditions.map((tradition) => (
                     <div
                       key={tradition.id}

@@ -9,6 +9,11 @@ interface TraditionWheelProps {
   spinning: boolean;
   lang: 'en' | 'cs';
   onSpinComplete?: (selectedTradition: TraditionItem) => void;
+  /**
+   * Optional className applied to the wheel box (the square container that sizes the SVG wheel).
+   * Use this to let parent layouts (e.g. full-height pages) maximize the wheel.
+   */
+  wheelContainerClassName?: string;
 }
 
 export default function TraditionWheel({
@@ -17,6 +22,7 @@ export default function TraditionWheel({
   spinning,
   lang,
   onSpinComplete,
+  wheelContainerClassName,
 }: TraditionWheelProps) {
   const DEBUG = process.env.NODE_ENV !== 'production';
   const wheelRef = useRef<HTMLDivElement>(null);
@@ -200,7 +206,12 @@ export default function TraditionWheel({
       </div>
 
       {/* Wheel container */}
-      <div className="relative w-[90vw] h-[90vw] max-w-96 max-h-96 md:w-[28rem] md:h-[28rem]">
+      <div
+        className={
+          wheelContainerClassName ??
+          'relative w-[90vw] h-[90vw] max-w-96 max-h-96 md:w-[28rem] md:h-[28rem]'
+        }
+      >
         {/* Outer glow ring */}
         <div className="absolute inset-0 rounded-full bg-gradient-to-r from-christmas-gold/30 via-christmas-green/30 to-christmas-red/30 blur-2xl animate-pulse-slow" />
         
