@@ -1,18 +1,56 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getLanguage, t } from '@/lib/i18n';
 import Link from 'next/link';
 import type { Player, Room } from '@/types';
 
+function AnimatedNumber(props: { value: number; durationMs?: number; className?: string }) {
+  const { value, durationMs = 650, className } = props;
+  const [display, setDisplay] = useState<number>(value);
+
+  useEffect(() => {
+    const reduce =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      setDisplay(value);
+      return;
+    }
+
+    const start = display;
+    const end = value;
+    const t0 = performance.now();
+    let raf = 0;
+
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - t0) / durationMs);
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - p, 3);
+      const next = Math.round(start + (end - start) * eased);
+      setDisplay(next);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return <span className={className}>{display}</span>;
+}
+
 interface AggregatedPlayer {
+  identityKey: string;
   name: string;
   avatar: string;
   totalScore: number;
   gamesPlayed: number;
   rooms: string[];
+  lastSeenAt: number; // used to keep the most recent name/avatar for this identity
   scoresByGame: {
     amazing_race: number;
     trivia: number;
@@ -29,13 +67,22 @@ export default function GlobalLeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [aggregatedPlayers, setAggregatedPlayers] = useState<AggregatedPlayer[]>([]);
   const lang = getLanguage();
+  const [animateBars, setAnimateBars] = useState(false);
+
+  useEffect(() => {
+    const id = setTimeout(() => setAnimateBars(true), 50);
+    return () => clearTimeout(id);
+  }, []);
 
   useEffect(() => {
     async function fetchGlobalLeaderboard() {
       try {
-        // Get all rooms
+        // IMPORTANT: With multi-family events, most rooms are private.
+        // Only aggregate "legacy/public" rooms (rooms without eventId/groupId).
+        // Querying all rooms would fail with permission-denied because private rooms are not readable.
         const roomsRef = collection(db, 'rooms');
-        const roomsSnapshot = await getDocs(roomsRef);
+        const qRooms = query(roomsRef, where('eventId', '==', null), where('groupId', '==', null));
+        const roomsSnapshot = await getDocs(qRooms);
         
         const playerMap = new Map<string, AggregatedPlayer>();
 
@@ -53,16 +100,21 @@ export default function GlobalLeaderboardPage() {
           playersSnapshot.forEach((playerDoc) => {
             const player = { uid: playerDoc.id, ...playerDoc.data() } as Player;
             
-            // Use name+avatar as the key to aggregate across rooms
-            const key = `${player.name}|${player.avatar}`;
+            // Use stable identity as the key (NOT name/avatar), so a player can change their name
+            // between nights and still be aggregated as the same individual.
+            const identityKey = player.playerIdentityId || player.uid;
+            const key = identityKey;
+            const playerLastSeenAt = Number(player.lastSeenAt ?? player.lastActiveAt ?? player.joinedAt ?? 0);
             
             if (!playerMap.has(key)) {
               playerMap.set(key, {
+                identityKey,
                 name: player.name,
                 avatar: player.avatar,
                 totalScore: 0,
                 gamesPlayed: 0,
                 rooms: [],
+                lastSeenAt: playerLastSeenAt,
                 scoresByGame: {
                   amazing_race: 0,
                   trivia: 0,
@@ -77,6 +129,12 @@ export default function GlobalLeaderboardPage() {
             }
 
             const aggregated = playerMap.get(key)!;
+            // Keep the most recent name/avatar for display purposes (while keeping identity stable)
+            if (playerLastSeenAt >= (aggregated.lastSeenAt ?? 0)) {
+              aggregated.name = player.name;
+              aggregated.avatar = player.avatar;
+              aggregated.lastSeenAt = playerLastSeenAt;
+            }
             const playerScore = player.score ?? 0;
             
             // Track score by game type
@@ -169,7 +227,10 @@ export default function GlobalLeaderboardPage() {
         }
 
         // Convert map to array and sort by total score
-        const sorted = Array.from(playerMap.values()).sort((a, b) => {
+        const sorted = Array.from(playerMap.values())
+          // RULE: only show players with > 0 points all-time
+          .filter((p) => Number(p.totalScore ?? 0) > 0)
+          .sort((a, b) => {
           if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
           return a.name.localeCompare(b.name);
         });
@@ -221,7 +282,7 @@ export default function GlobalLeaderboardPage() {
               <div
                 key={game.key}
                 className={`${game.color} transition-all`}
-                style={{ width: `${percentage}%` }}
+                style={{ width: `${animateBars ? percentage : 0}%` }}
                 title={`${game.label}: ${game.value}`}
               />
             );
@@ -276,7 +337,7 @@ export default function GlobalLeaderboardPage() {
 
         {/* Podium */}
         {aggregatedPlayers.length > 0 && (
-          <div className="card mb-4 md:mb-6 relative overflow-hidden shrink-0">
+          <div className="card mb-4 md:mb-6 relative overflow-hidden shrink-0 cgn-animate-in">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
             <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-red/15 blur-3xl" />
 
@@ -291,7 +352,7 @@ export default function GlobalLeaderboardPage() {
                     </div>
                     <p className="text-lg md:text-xl lg:text-2xl font-bold mt-1.5 md:mt-2">{top3[1].name}</p>
                     <p className="text-base md:text-lg lg:text-xl text-christmas-gold">
-                      {top3[1].totalScore} {t('common.score', lang)}
+                      <AnimatedNumber value={top3[1].totalScore} className="tabular-nums" /> {t('common.score', lang)}
                     </p>
                     <p className="text-xs md:text-sm text-white/60 mt-0.5 md:mt-1">
                       {top3[1].gamesPlayed} {top3[1].gamesPlayed === 1 ? 'game' : 'games'}
@@ -309,7 +370,7 @@ export default function GlobalLeaderboardPage() {
                     </div>
                     <p className="text-lg md:text-xl lg:text-2xl font-bold mt-1.5 md:mt-2">{top3[0].name}</p>
                     <p className="text-base md:text-lg lg:text-xl text-christmas-gold">
-                      {top3[0].totalScore} {t('common.score', lang)}
+                      <AnimatedNumber value={top3[0].totalScore} className="tabular-nums" /> {t('common.score', lang)}
                     </p>
                     <p className="text-xs md:text-sm text-white/60 mt-0.5 md:mt-1">
                       {top3[0].gamesPlayed} {top3[0].gamesPlayed === 1 ? 'game' : 'games'}
@@ -327,7 +388,7 @@ export default function GlobalLeaderboardPage() {
                     </div>
                     <p className="text-lg md:text-xl lg:text-2xl font-bold mt-1.5 md:mt-2">{top3[2].name}</p>
                     <p className="text-base md:text-lg lg:text-xl text-christmas-gold">
-                      {top3[2].totalScore} {t('common.score', lang)}
+                      <AnimatedNumber value={top3[2].totalScore} className="tabular-nums" /> {t('common.score', lang)}
                     </p>
                     <p className="text-xs md:text-sm text-white/60 mt-0.5 md:mt-1">
                       {top3[2].gamesPlayed} {top3[2].gamesPlayed === 1 ? 'game' : 'games'}
@@ -344,13 +405,13 @@ export default function GlobalLeaderboardPage() {
 
         {/* Full Leaderboard */}
         {aggregatedPlayers.length > 0 ? (
-          <div className="card">
+          <div className="card cgn-animate-in">
             <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 md:mb-6 text-center break-words">{t('common.leaderboard', lang)}</h2>
             <div className="space-y-2 md:space-y-3">
               {aggregatedPlayers.map((player, index) => (
                 <div
                   key={`${player.name}-${player.avatar}-${index}`}
-                  className={`flex items-center gap-2 md:gap-4 p-4 md:p-5 lg:p-6 rounded-xl md:rounded-2xl border border-white/10 min-h-[80px] md:min-h-[100px] ${
+                  className={`flex items-center gap-2 md:gap-4 p-4 md:p-5 lg:p-6 rounded-xl md:rounded-2xl border border-white/10 min-h-[80px] md:min-h-[100px] cgn-animate-in ${
                     index < 3 ? 'bg-christmas-gold/15' : 'bg-white/5'
                   }`}
                 >
@@ -371,7 +432,9 @@ export default function GlobalLeaderboardPage() {
                     <ScoreBreakdown player={player} />
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-lg md:text-xl lg:text-2xl font-bold">{player.totalScore}</p>
+                    <p className="text-lg md:text-xl lg:text-2xl font-bold tabular-nums">
+                      <AnimatedNumber value={player.totalScore} />
+                    </p>
                     <p className="text-xs md:text-sm text-white/60 break-words">{t('common.score', lang)}</p>
                   </div>
                 </div>

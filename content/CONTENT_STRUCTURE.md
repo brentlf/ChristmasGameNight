@@ -323,3 +323,5 @@ To add a third language (e.g., Slovak):
 - Arrays are small enough to search linearly (O(n) is acceptable)
 - Seeded random ensures consistent selection across clients
 
+
+

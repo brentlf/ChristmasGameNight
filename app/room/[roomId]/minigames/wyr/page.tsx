@@ -13,6 +13,7 @@ import { useWYRItem } from '@/lib/hooks/useGameContentItem';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { MiniGameAdvanceGate } from '../_components/MiniGameAdvanceGate';
+import { useAudio } from '@/lib/contexts/AudioContext';
 
 export default function WYRPage() {
   const params = useParams();
@@ -137,13 +138,18 @@ function WYRQuestion({
 }) {
   const [selected, setSelected] = useState<'A' | 'B' | null>(null);
   const [busy, setBusy] = useState(false);
+  const [locked, setLocked] = useState(false);
   const router = useRouter();
+  const { playSound, vibrate } = useAudio();
 
   if (!item) return null;
 
   const handleSubmit = async () => {
     if (!selected) return;
+    playSound('ui.lock_in', { device: 'phone' });
+    vibrate(10, { device: 'phone' });
     setBusy(true);
+    setLocked(true);
     try {
       await submitWYRChoice({
         roomId,
@@ -152,19 +158,23 @@ function WYRQuestion({
         choice: selected,
       });
       toast.success(t('common.submit', lang));
+      playSound('ui.success', { device: 'phone' });
       // Reset selection - the component will automatically update via Firestore listener
       setSelected(null);
     } catch (error: any) {
       toast.error(error.message || t('common.error', lang));
+      playSound('ui.error', { device: 'phone' });
+      vibrate(20, { device: 'phone' });
     } finally {
       setBusy(false);
+      setLocked(false);
     }
   };
 
   return (
       <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
       <div className="max-w-xl mx-auto">
-        <div className="card mb-4">
+        <div className="card mb-4 cgn-animate-in">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold">{t('wyr.title', lang)}</h1>
             <Link href={`/room/${roomId}/play`} className="btn-secondary text-sm">
@@ -178,12 +188,12 @@ function WYRQuestion({
           </div>
         </div>
 
-        <div className="card">
+        <div className="card cgn-animate-in">
           <h2 className="text-2xl font-semibold mb-8 text-center">{item.prompt[lang]}</h2>
 
           <div className="space-y-4">
             <button
-              className={`w-full rounded-2xl border p-6 text-left transition disabled:opacity-50 ${
+              className={`w-full rounded-2xl border p-6 text-left transition disabled:opacity-50 active:scale-[0.99] ${
                 selected === 'A'
                   ? 'bg-christmas-gold/25 border-christmas-gold/40'
                   : 'bg-white/5 border-white/10 hover:bg-white/10'
@@ -197,7 +207,7 @@ function WYRQuestion({
             </button>
 
             <button
-              className={`w-full rounded-2xl border p-6 text-left transition disabled:opacity-50 ${
+              className={`w-full rounded-2xl border p-6 text-left transition disabled:opacity-50 active:scale-[0.99] ${
                 selected === 'B'
                   ? 'bg-christmas-gold/25 border-christmas-gold/40'
                   : 'bg-white/5 border-white/10 hover:bg-white/10'
@@ -216,7 +226,10 @@ function WYRQuestion({
             disabled={busy || !selected}
             onClick={handleSubmit}
           >
-            {busy ? t('common.loading', lang) : t('common.next', lang)}
+            <span className="inline-flex items-center justify-center gap-2">
+              {locked && <span className="cgn-pop" aria-hidden="true">✅</span>}
+              {busy ? t('common.loading', lang) : locked ? (lang === 'cs' ? 'Zamčeno' : 'Locked') : t('common.next', lang)}
+            </span>
           </button>
         </div>
       </div>

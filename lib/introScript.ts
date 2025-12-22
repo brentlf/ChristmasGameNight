@@ -63,6 +63,16 @@ export const INTRO_SCRIPT: Record<Exclude<SessionGameId, 'race'>, IntroLine[]> =
       cs: 'Dva týmy soupeří. Hádejte odpovědi, abyste je odhalili. Tři chyby a druhý tým může ukrást!',
     },
   ],
+  bingo: [
+    {
+      en: 'Eyes on your card. The balls are about to roll.',
+      cs: 'Sledujte své bingo. Koule se začínají točit.',
+    },
+    {
+      en: 'Mark numbers as they\'re called. First to complete a line wins!',
+      cs: 'Označujte čísla, jak jsou volána. První, kdo dokončí řadu, vyhrává!',
+    },
+  ],
 };
 
 

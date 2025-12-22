@@ -20,6 +20,9 @@ import {
   setFamilyFeudTeams,
   startFamilyFeudRound,
   endFamilyFeudRound,
+  drawBingoBall,
+  claimBingo,
+  finishBingoGame,
 } from '@/lib/sessions/sessionEngine';
 import { getGuessTheSongItemById, getFamilyFeudItemById } from '@/lib/miniGameContent';
 import { useGameContent } from '@/lib/hooks/useGameContent';
@@ -27,9 +30,11 @@ import type { FamilyFeudQuestion } from '@/content/family_feud_christmas';
 import TimerRing from '@/app/components/TimerRing';
 import GameIntro from '@/app/components/GameIntro';
 import GameFinale from '@/app/components/GameFinale';
+import BingoBallMachine from '@/app/components/BingoBallMachine';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { rolloverRoomWithSamePlayers } from '@/lib/utils/room';
+import toast from 'react-hot-toast';
 
 function gameLabel(gameId: MiniGameType) {
   if (gameId === 'trivia') return '⚡ Trivia';
@@ -38,6 +43,7 @@ function gameLabel(gameId: MiniGameType) {
   if (gameId === 'pictionary') return '🎨 Pictionary';
   if (gameId === 'guess_the_song') return '🎵 Guess the Song';
   if (gameId === 'family_feud') return '🎯 Family Feud';
+  if (gameId === 'bingo') return '🎄 Christmas Bingo';
   return gameId;
 }
 
@@ -638,6 +644,18 @@ export default function MiniGamesTVHub(props: {
         />
       );
     }
+    if (gameId === 'bingo') {
+      return (
+        <BingoTVRound
+          roomId={roomId}
+          sessionId={sessionId!}
+          room={room}
+          players={players}
+          lang={lang}
+          isController={isController}
+        />
+      );
+    }
     if (!content || !gameId) return null;
     if (content.type === 'trivia' && content.item) {
       return (
@@ -936,16 +954,13 @@ export default function MiniGamesTVHub(props: {
                   onClick={() => requestStartGame('guess_the_song')}
                 />
                 <GameTile
-                  title={lang === 'cs' ? 'Kolo tradic' : 'Tradition Wheel'}
-                  subtitle={lang === 'cs' ? 'Mini hra' : 'Mini game'}
-                  description={lang === 'cs' ? 'Rychlé roztočení a vyber vánoční tradici.' : 'Quick spin to pick a festive tradition.'}
-                  icon="🎡"
-                  accent="green"
-                  disabled={busy}
-                  onClick={() => {
-                    if (typeof window === 'undefined') return;
-                    window.open('/traditions', '_blank', 'noopener,noreferrer');
-                  }}
+                  title={lang === 'cs' ? 'Vánoční bingo' : 'Christmas Bingo'}
+                  subtitle={lang === 'cs' ? 'Klasické bingo' : 'Classic bingo'}
+                  description={lang === 'cs' ? 'Sleduj koule a označuj čísla na své kartě.' : 'Watch the balls and mark numbers on your card.'}
+                  icon="🎄"
+                  accent="red"
+                  disabled={!isController || busy}
+                  onClick={() => requestStartGame('bingo')}
                 />
               </div>
             </div>
@@ -987,6 +1002,10 @@ export default function MiniGamesTVHub(props: {
                 await controllerStartPictionaryRound({ roomId, sessionId, roundIndex: 0 });
               } else if (gameId === 'family_feud') {
                 await startFamilyFeudRound({ roomId, sessionId, roundIndex: 0 });
+              } else if (gameId === 'bingo') {
+                await updateDoc(doc(db, 'rooms', roomId), {
+                  'currentSession.status': 'in_game',
+                } as any);
               } else {
                 await controllerStartQuestion({ roomId, sessionId, questionIndex: 0 });
               }
@@ -996,9 +1015,18 @@ export default function MiniGamesTVHub(props: {
       );
     }
 
-    if (sessionStatus === 'in_game' || sessionStatus === 'in_round' || sessionStatus === 'steal') {
+    if (sessionStatus === 'in_game' || sessionStatus === 'in_round' || sessionStatus === 'steal' || sessionStatus === 'claiming') {
       // Family Feud uses full-screen game board
       if (gameId === 'family_feud') {
+        return (
+          <div className="flex-1 min-h-0 w-full">
+            {renderQuestion()}
+          </div>
+        );
+      }
+      
+      // Bingo uses full-screen with ball machine
+      if (gameId === 'bingo') {
         return (
           <div className="flex-1 min-h-0 w-full">
             {renderQuestion()}
@@ -1026,7 +1054,7 @@ export default function MiniGamesTVHub(props: {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <TimerRing endsAt={currentSession.questionEndsAt} startedAt={currentSession.questionStartedAt} size={52} />
+              <TimerRing endsAt={currentSession.questionEndsAt} startedAt={currentSession.questionStartedAt} size={52} enableTickSound />
               {isController && (
                 <>
                   <button
@@ -1684,17 +1712,17 @@ function FamilyFeudTVRound(props: {
 
     // Answer revealed sound
     if (currentRevealedCount > prevRevealedCount.current && sessionStatus === 'in_round') {
-      playSound('success', 0.3); // Family Feud "Good answer!" sound
+      playSound('feud.reveal', 0.35);
     }
 
     // Strike sound
     if (currentStrikes > prevStrikes.current && sessionStatus === 'in_round') {
-      playSound('ding', 0.4); // Family Feud "X" buzz sound
+      playSound('feud.strike', 0.4);
     }
 
     // Steal opportunity sound
     if (sessionStatus === 'steal' && prevStrikes.current < 3) {
-      playSound('jingle', 0.25); // Dramatic sound for steal opportunity
+      playSound('feud.steal', 0.28);
     }
 
     prevRevealedCount.current = currentRevealedCount;
@@ -1703,7 +1731,7 @@ function FamilyFeudTVRound(props: {
 
   const handleEndRound = async () => {
     if (!isController) return;
-    playSound('whoosh', 0.2);
+    playSound('ui.transition', 0.25);
     await endFamilyFeudRound({ roomId, sessionId, roundIndex });
   };
 
@@ -1991,6 +2019,142 @@ function FamilyFeudTVRound(props: {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function BingoTVRound(props: {
+  roomId: string;
+  sessionId: string;
+  room: Room;
+  players: Player[];
+  lang: 'en' | 'cs';
+  isController: boolean;
+}) {
+  const { roomId, sessionId, room, players, lang, isController } = props;
+  const { playSound } = useAudio();
+  const currentSession = room.currentSession;
+  const drawnBalls = currentSession?.drawnBalls || [];
+  const currentBall = drawnBalls.length > 0 ? drawnBalls[drawnBalls.length - 1] : null;
+  const winnerUid = currentSession?.bingoWinnerUid;
+  const winner = winnerUid ? players.find((p) => p.uid === winnerUid) : null;
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const sessionStatus = currentSession?.status;
+
+  const handleDrawBall = async () => {
+    if (busy || isDrawing || sessionStatus !== 'in_game') return;
+    setBusy(true);
+    setIsDrawing(true);
+    try {
+      playSound('ui.click', 0.25);
+      await drawBingoBall({ roomId, sessionId });
+      playSound('bingo.spin', 0.22);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to draw ball');
+    } finally {
+      setBusy(false);
+      setTimeout(() => setIsDrawing(false), 1000);
+    }
+  };
+
+  const handleFinishGame = async () => {
+    if (busy || !winnerUid) return;
+    setBusy(true);
+    try {
+      playSound('game.game_win', 0.25);
+      await finishBingoGame({ roomId, sessionId });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to finish game');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Show winner celebration
+  if (sessionStatus === 'claiming' && winner) {
+    const revealData = currentSession?.revealData as any;
+    return (
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-8">
+        <div className="text-center space-y-6">
+          <div className="text-8xl mb-4 animate-bounce">🎉</div>
+          <div className="text-6xl font-black text-christmas-gold mb-2">
+            {lang === 'cs' ? 'BINGO!' : 'BINGO!'}
+          </div>
+          <div className="text-4xl font-bold text-white mb-4">
+            {winner.name} {winner.avatar}
+          </div>
+          {revealData?.pattern && (
+            <div className="text-xl text-white/70">
+              {lang === 'cs' ? `Výherní vzor: ${revealData.pattern}` : `Winning pattern: ${revealData.pattern}`}
+            </div>
+          )}
+          {isController && (
+            <button
+              type="button"
+              className="btn-primary mt-6 text-lg"
+              onClick={handleFinishGame}
+              disabled={busy}
+            >
+              {lang === 'cs' ? 'Ukončit hru' : 'Finish Game'}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 min-h-0 flex flex-col p-6 md:p-8">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <div className="text-2xl font-black text-white mb-1">
+            {lang === 'cs' ? '🎄 Vánoční Bingo' : '🎄 Christmas Bingo'}
+          </div>
+          <div className="text-white/70 text-sm">
+            {lang === 'cs' ? `Vylosováno: ${drawnBalls.length}/75` : `Drawn: ${drawnBalls.length}/75`}
+          </div>
+        </div>
+        {isController && sessionStatus === 'in_game' && (
+          <button
+            type="button"
+            className="btn-primary text-lg px-6 py-3"
+            onClick={handleDrawBall}
+            disabled={busy || isDrawing || drawnBalls.length >= 75}
+          >
+            {isDrawing
+              ? lang === 'cs'
+                ? 'Losuje se...'
+                : 'Drawing...'
+              : lang === 'cs'
+              ? 'Vylosovat kouli'
+              : 'Draw Next Ball'}
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 min-h-0 flex items-center justify-center">
+        <BingoBallMachine currentBall={currentBall} isDrawing={isDrawing} lang={lang} />
+      </div>
+
+      {/* Recently drawn balls */}
+      {drawnBalls.length > 0 && (
+        <div className="mt-6">
+          <div className="text-white/70 text-sm mb-3">
+            {lang === 'cs' ? 'Nedávno vylosované:' : 'Recently drawn:'}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {drawnBalls.slice(-5).reverse().map((ball, idx) => (
+              <div
+                key={idx}
+                className="px-4 py-2 rounded-xl bg-gradient-to-br from-yellow-400 to-yellow-500 border-2 border-yellow-600 text-blue-900 font-black text-lg shadow-lg"
+              >
+                {ball}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

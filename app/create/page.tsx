@@ -25,7 +25,7 @@ function CreatePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const lang = getLanguage();
-  const { playSound } = useAudio();
+  const { playSound, vibrate } = useAudio();
   const modeParam = searchParams.get('mode') as RoomMode | null;
   const [roomMode, setRoomMode] = useState<RoomMode>(modeParam || 'amazing_race');
   const [roomName, setRoomName] = useState('');
@@ -63,7 +63,7 @@ function CreatePageInner() {
       return;
     }
 
-    playSound('click');
+    playSound('ui.click');
     setLoading(true);
     try {
       const roomId = await createRoom({
@@ -79,10 +79,17 @@ function CreatePageInner() {
         miniGamesEnabled: roomMode === 'mini_games' ? allMiniGames : undefined,
       });
       
-      playSound('success');
+      playSound('ui.success');
       router.push(`/room/${roomId}/tv`);
     } catch (error: any) {
+      // Make Firestore permission issues actionable in dev.
+      console.error('[CreatePage] failed to create room', {
+        code: error?.code,
+        message: error?.message,
+        name: error?.name,
+      });
       toast.error(error.message || t('common.failedToCreateRoom', lang));
+      playSound('ui.error');
     } finally {
       setLoading(false);
     }

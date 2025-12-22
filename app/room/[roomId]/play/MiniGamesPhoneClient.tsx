@@ -14,7 +14,7 @@ import type { FamilyFeudQuestion } from '@/content/family_feud_christmas';
 import TimerRing from '@/app/components/TimerRing';
 import GameIntro from '@/app/components/GameIntro';
 import toast from 'react-hot-toast';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { generateSeed, shuffleSeeded } from '@/lib/utils/seededRandom';
 import { useAudio } from '@/lib/contexts/AudioContext';
@@ -22,6 +22,7 @@ import { getPictionaryItemById } from '@/lib/miniGameContent';
 import { submitPictionaryGuess, writePictionaryLive, type PictionarySegment } from '@/lib/sessions/pictionaryClient';
 import { usePictionaryLive } from '@/lib/hooks/usePictionaryLive';
 import { useGameContent } from '@/lib/hooks/useGameContent';
+import { claimBingo } from '@/lib/sessions/sessionEngine';
 
 // TypeScript declarations for Speech Recognition API
 interface SpeechRecognition extends EventTarget {
@@ -80,7 +81,7 @@ function answeredProgress(answered: number, total: number) {
 export default function MiniGamesPhoneClient(props: { roomId: string; room: Room; player: Player }) {
   const { roomId, room, player } = props;
   const lang = getLanguage();
-  const { playSound } = useAudio();
+  const { playSound, vibrate } = useAudio();
   const { players: allPlayers } = usePlayers(roomId);
 
   const currentSession = room.currentSession ?? null;
@@ -117,24 +118,51 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
         ready,
         lastActiveAt: Date.now(),
       } as any);
-      playSound('click');
+      playSound('ui.click');
     } catch (e: any) {
       toast.error(e?.message || t('common.error', lang));
+      playSound('ui.error');
     }
   };
 
   const submit = async (answer: string | number | null) => {
     if (!sessionId || questionIndex === null || !gameId) return;
     try {
-      playSound('click');
+      playSound('ui.lock_in', { device: 'phone' });
+      vibrate(10, { device: 'phone' });
       await submitSessionAnswer({ roomId, sessionId, uid: player.uid, questionIndex, answer });
-      playSound('success', 0.12);
+      playSound('ui.success', 0.18);
     } catch (e: any) {
       toast.error(e?.message || t('common.error', lang));
+      playSound('ui.error');
+      vibrate([20, 30, 20], { device: 'phone' });
     }
   };
 
   const content = useGameContent(gameId || null, questionIndex, selectedIds, roomId, sessionId);
+
+  // Phone feedback on reveal (correct/wrong) — one-shot per session/question.
+  const lastRevealFx = useRef<string>('');
+  useEffect(() => {
+    if (!sessionId || !gameId) return;
+    if (status !== 'reveal' && status !== 'round_reveal') return;
+    const key = `${sessionId}:${gameId}:${String(questionIndex ?? 'na')}`;
+    if (lastRevealFx.current === key) return;
+    lastRevealFx.current = key;
+
+    // Only score-based games include correctUids. WYR is "vote locked".
+    const r = currentSession?.revealData ?? {};
+    const correctUids: string[] = Array.isArray((r as any).correctUids) ? ((r as any).correctUids as string[]) : [];
+    if (!correctUids.length) return;
+    const isCorrect = correctUids.includes(player.uid);
+    if (isCorrect) {
+      playSound('game.correct', { device: 'phone' });
+      vibrate([10, 20, 10], { device: 'phone' });
+    } else {
+      playSound('game.wrong', { device: 'phone' });
+      vibrate([25, 30, 25], { device: 'phone' });
+    }
+  }, [currentSession?.revealData, gameId, playSound, player.uid, questionIndex, sessionId, status, vibrate]);
 
   // Lobby / between sessions
   if (!currentSession || !sessionId || !gameId || status === 'between' || room.status === 'between_sessions') {
@@ -212,7 +240,18 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   }
 
   // In-game
-  if (status === 'in_game' || status === 'in_round' || status === 'steal') {
+  if (status === 'in_game' || status === 'in_round' || status === 'steal' || status === 'claiming') {
+    if (gameId === 'bingo') {
+      return (
+        <BingoPhoneCard
+          roomId={roomId}
+          sessionId={sessionId!}
+          player={player}
+          lang={lang}
+        />
+      );
+    }
+    
     if (gameId === 'family_feud') {
       const roundIndex = currentSession?.roundIndex ?? 0;
       const questionId = selectedIds?.[roundIndex] ?? null;
@@ -682,7 +721,7 @@ function PictionaryDrawerPhone(props: {
     if (!p) return;
     drawing.current = true;
     lastPt.current = { x: p.x, y: p.y };
-    playSound('click', 0.05);
+    playSound('ui.click', 0.05);
   };
 
   const onMove = (e: any) => {
@@ -810,7 +849,8 @@ function PictionaryGuesserPhone(props: {
     setBusy(true);
     try {
       setLastSentAt(Date.now());
-      playSound('click', 0.1);
+      playSound('ui.lock_in', { device: 'phone' });
+      vibrate(10, { device: 'phone' });
 
       // Validate correctness server-side so the phone UI can show Correct/Incorrect without exposing the prompt.
       let correct: boolean | null = null;
@@ -831,13 +871,22 @@ function PictionaryGuesserPhone(props: {
         const next = [{ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, text: g, at: Date.now() }, ...prev];
         return next.slice(0, 8);
       });
-      if (correct === true) setFeedback(lang === 'cs' ? 'Správně! ✅' : 'Correct! ✅');
-      else if (correct === false) setFeedback(lang === 'cs' ? 'Špatně ❌' : 'Incorrect ❌');
+      if (correct === true) {
+        setFeedback(lang === 'cs' ? 'Správně! ✅' : 'Correct! ✅');
+        playSound('game.correct', { device: 'phone' });
+        vibrate([10, 20, 10], { device: 'phone' });
+      } else if (correct === false) {
+        setFeedback(lang === 'cs' ? 'Špatně ❌' : 'Incorrect ❌');
+        playSound('game.wrong', { device: 'phone' });
+        vibrate([25, 30, 25], { device: 'phone' });
+      }
       else setFeedback(lang === 'cs' ? 'Odesláno ✅' : 'Sent ✅');
       setGuess('');
     } catch (e: any) {
       setFeedback(lang === 'cs' ? 'Nepodařilo se odeslat' : 'Failed to send');
       toast.error(e?.message || t('common.error', lang));
+      playSound('ui.error');
+      vibrate([20, 30, 20], { device: 'phone' });
     } finally {
       setBusy(false);
     }
@@ -1040,14 +1089,14 @@ function FamilyFeudPhoneRound(props: {
 
       recognition.onstart = () => {
         setIsListening(true);
-        playSound('click', 0.1);
+        playSound('ui.click', 0.1);
       };
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = event.results[0][0].transcript.trim();
         setAnswer(transcript);
         setIsListening(false);
-        playSound('success', 0.15);
+        playSound('ui.success', 0.18);
       };
 
       recognition.onerror = (event: any) => {
@@ -1117,7 +1166,8 @@ function FamilyFeudPhoneRound(props: {
     
     setBusy(true);
     try {
-      playSound('click', 0.1);
+      playSound('ui.lock_in', { device: 'phone' });
+      vibrate(10, { device: 'phone' });
       let result;
       if (isStealMode) {
         result = await submitFamilyFeudSteal({
@@ -1138,11 +1188,13 @@ function FamilyFeudPhoneRound(props: {
       }
       
       if (result.correct) {
-        playSound('success', 0.2);
+        playSound('game.correct', { device: 'phone' });
+        vibrate([10, 20, 10], { device: 'phone' });
         setFeedback(lang === 'cs' ? 'Správně! ✅' : 'Correct! ✅');
         setAnswer('');
       } else {
-        playSound('ding', 0.15);
+        playSound(isStealMode ? 'feud.strike' : 'game.wrong', { device: 'phone' });
+        vibrate([25, 30, 25], { device: 'phone' });
         if (isStealMode && !('stole' in result ? result.stole : false)) {
           setFeedback(lang === 'cs' ? 'Ukradení selhalo ❌' : 'Steal failed ❌');
         } else {
@@ -1152,6 +1204,8 @@ function FamilyFeudPhoneRound(props: {
     } catch (e: any) {
       toast.error(e?.message || t('common.error', lang));
       setFeedback(lang === 'cs' ? 'Chyba' : 'Error');
+      playSound('ui.error');
+      vibrate([20, 30, 20], { device: 'phone' });
     } finally {
       setBusy(false);
     }
@@ -1336,6 +1390,309 @@ function FamilyFeudPhoneRound(props: {
               <p className="text-sm text-white/60 mt-1">
                 {lang === 'cs' ? 'Sleduj TV pro aktuální stav.' : 'Watch the TV for current status.'}
               </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function BingoPhoneCard(props: {
+  roomId: string;
+  sessionId: string;
+  player: Player;
+  lang: 'en' | 'cs';
+}) {
+  const { roomId, sessionId, player, lang } = props;
+  const { playSound } = useAudio();
+  const [card, setCard] = useState<{ size: number; cells: Array<string | 'FREE'>; marked: boolean[] } | null>(null);
+  const [drawnBalls, setDrawnBalls] = useState<string[]>([]);
+  const [claiming, setClaiming] = useState(false);
+  const [sessionStatus, setSessionStatus] = useState<string>('in_game');
+  const [manualInput, setManualInput] = useState('');
+
+  // Load card
+  useEffect(() => {
+    const cardRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'cards', player.uid);
+    const unsubscribe = onSnapshot(cardRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        // Firestore cannot store nested arrays; normalize to flat arrays.
+        const size = typeof data.size === 'number' ? data.size : 5;
+        const cells: Array<string | 'FREE'> = Array.isArray(data.cells)
+          ? (data.cells as Array<string | 'FREE'>)
+          : [];
+        const marked: boolean[] = Array.isArray(data.marked) ? (data.marked as boolean[]) : [];
+        setCard({ size, cells, marked });
+      }
+    });
+    return () => unsubscribe();
+  }, [roomId, sessionId, player.uid]);
+
+  // Load drawn balls and session status from room
+  useEffect(() => {
+    const roomRef = doc(db, 'rooms', roomId);
+    const unsubscribe = onSnapshot(roomRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const session = data.currentSession;
+        if (session && session.gameId === 'bingo') {
+          setDrawnBalls(session.drawnBalls || []);
+          setSessionStatus(session.status || 'in_game');
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [roomId]);
+
+  // Manual number input handler - mark cells by typing the number
+  const handleManualMark = async () => {
+    if (!card || !manualInput.trim() || sessionStatus !== 'in_game') return;
+    
+    const input = manualInput.trim().toUpperCase();
+    // Support formats like "B-12", "B12", "12" (will match any column)
+    let targetValue: string | null = null;
+    
+    // Try exact match first (e.g., "B-12")
+    if (card.cells.includes(input as any)) {
+      targetValue = input;
+    } else {
+      // Try without dash (e.g., "B12")
+      const withoutDash = input.replace('-', '');
+      if (card.cells.includes(withoutDash as any)) {
+        targetValue = withoutDash;
+      } else {
+        // Try matching just the number part (e.g., "12")
+        const numberMatch = input.match(/\d+/);
+        if (numberMatch) {
+          const num = numberMatch[0];
+          // Find cell with this number in any column
+          for (const cellValue of card.cells) {
+            if (typeof cellValue === 'string' && cellValue.endsWith(`-${num}`)) {
+              targetValue = cellValue;
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    if (!targetValue) {
+      toast.error(lang === 'cs' ? 'Číslo nenalezeno na kartě' : 'Number not found on card');
+      playSound('ui.error');
+      setManualInput('');
+      return;
+    }
+    
+    // Find and toggle the cell
+    const idx = card.cells.indexOf(targetValue);
+    if (idx === -1) {
+      toast.error(lang === 'cs' ? 'Chyba při hledání čísla' : 'Error finding number');
+      playSound('ui.error');
+      setManualInput('');
+      return;
+    }
+    
+    const newMarked = [...card.marked];
+    newMarked[idx] = !newMarked[idx];
+    
+    try {
+      playSound('ui.click', 0.05);
+      const cardRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'cards', player.uid);
+      await updateDoc(cardRef, { marked: newMarked } as any);
+      setCard({ ...card, marked: newMarked });
+      setManualInput('');
+      toast.success(lang === 'cs' ? 'Označeno' : 'Marked');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update card');
+      playSound('ui.error');
+    }
+  };
+
+  const handleToggleCell = async (row: number, col: number) => {
+    if (!card || sessionStatus !== 'in_game') return;
+    const idx = row * 5 + col;
+    if (card.cells[idx] === 'FREE') return; // Can't toggle FREE
+
+    const newMarked = [...card.marked];
+    newMarked[idx] = !newMarked[idx];
+
+    try {
+      playSound('ui.click', 0.05);
+      const cardRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'cards', player.uid);
+      await updateDoc(cardRef, { marked: newMarked } as any);
+      setCard({ ...card, marked: newMarked });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update card');
+      playSound('ui.error');
+    }
+  };
+
+  const handleClaimBingo = async () => {
+    if (claiming || sessionStatus !== 'in_game') return;
+    setClaiming(true);
+    try {
+      playSound('ui.lock_in', { device: 'phone' });
+      vibrate(10, { device: 'phone' });
+      const result = await claimBingo({ roomId, sessionId, uid: player.uid });
+      if (result.valid) {
+        playSound('game.round_win', { device: 'phone', gain: 0.35 });
+        vibrate([10, 20, 10], { device: 'phone' });
+        toast.success(lang === 'cs' ? 'Bingo! Čekáme na ověření...' : 'Bingo! Waiting for verification...');
+      } else {
+        playSound('game.wrong', { device: 'phone', gain: 0.35 });
+        vibrate([25, 30, 25], { device: 'phone' });
+        toast.error(result.error || (lang === 'cs' ? 'Neplatný vzor' : 'Invalid pattern'));
+        setClaiming(false);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to claim bingo');
+      playSound('ui.error');
+      vibrate([20, 30, 20], { device: 'phone' });
+      setClaiming(false);
+    }
+  };
+
+  if (!card) {
+    return (
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+        <div className="max-w-xl mx-auto">
+          <div className="card text-center">
+            <div className="text-2xl">{lang === 'cs' ? 'Načítání...' : 'Loading...'}</div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const currentBall = drawnBalls.length > 0 ? drawnBalls[drawnBalls.length - 1] : null;
+
+  return (
+    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+      <div className="max-w-xl mx-auto space-y-4">
+        <div className="card text-center">
+          <h1 className="text-2xl font-black mb-2">
+            {lang === 'cs' ? '🎄 Vánoční Bingo' : '🎄 Christmas Bingo'}
+          </h1>
+          {currentBall && (
+            <div className="text-lg text-white/70 mb-2">
+              {lang === 'cs' ? 'Poslední koule:' : 'Last ball:'}{' '}
+              <span className="font-black text-christmas-gold text-xl">{currentBall}</span>
+            </div>
+          )}
+          <div className="text-sm text-white/60">
+            {lang === 'cs' ? `Vylosováno: ${drawnBalls.length}/75` : `Drawn: ${drawnBalls.length}/75`}
+          </div>
+        </div>
+
+        <div className="card p-4">
+          {/* Bingo Card Grid */}
+          <div className="grid grid-cols-5 gap-2 mb-4">
+            {/* Header */}
+            {['B', 'I', 'N', 'G', 'O'].map((letter) => (
+              <div key={letter} className="text-center font-black text-lg text-christmas-gold">
+                {letter}
+              </div>
+            ))}
+
+            {/* Card cells (flat 25-length arrays; Firestore can't store nested arrays) */}
+            {Array.from({ length: 25 }).map((_, idx) => {
+              const rowIdx = Math.floor(idx / 5);
+              const colIdx = idx % 5;
+              const value = card.cells[idx];
+              const isMarked = Boolean(card.marked[idx]);
+              const isFree = value === 'FREE';
+              const isHighlighted = currentBall === value;
+
+              return (
+                <button
+                  key={`${rowIdx}-${colIdx}`}
+                  type="button"
+                  onClick={() => handleToggleCell(rowIdx, colIdx)}
+                  disabled={sessionStatus !== 'in_game' || isFree}
+                  className={`
+                      aspect-square rounded-lg border-2 font-black text-sm md:text-base relative
+                      transition-all duration-200
+                      ${isFree
+                        ? 'bg-christmas-gold/30 border-christmas-gold text-christmas-gold'
+                        : isMarked
+                        ? 'bg-christmas-green/40 border-christmas-green text-white'
+                        : 'bg-white/10 border-white/20 text-white/70'}
+                      ${isHighlighted ? 'ring-4 ring-christmas-gold animate-pulse' : ''}
+                      ${sessionStatus !== 'in_game' ? 'opacity-60' : 'hover:scale-105'}
+                    `}
+                >
+                  {isFree ? 'FREE' : String(value).split('-')[1]}
+                  {isMarked && !isFree && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-8 h-8 rounded-full bg-christmas-green border-2 border-white" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Manual Number Input */}
+          {sessionStatus === 'in_game' && (
+            <div className="mb-4 space-y-2">
+              <label className="block text-sm font-semibold text-white/80 mb-1">
+                {lang === 'cs' ? 'Označit číslo:' : 'Mark number:'}
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={manualInput}
+                  onChange={(e) => setManualInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleManualMark();
+                  }}
+                  placeholder={lang === 'cs' ? 'Např. B-12 nebo 12' : 'e.g. B-12 or 12'}
+                  className="input-field flex-1"
+                  maxLength={10}
+                />
+                <button
+                  type="button"
+                  onClick={handleManualMark}
+                  disabled={!manualInput.trim()}
+                  className="btn-secondary px-4"
+                >
+                  {lang === 'cs' ? 'Označit' : 'Mark'}
+                </button>
+              </div>
+              <p className="text-xs text-white/50">
+                {lang === 'cs' 
+                  ? 'Zadej číslo (např. B-12, B12 nebo 12) a klikni na Označit, nebo klikni přímo na buňku v mřížce.' 
+                  : 'Type a number (e.g. B-12, B12, or 12) and click Mark, or click directly on a cell in the grid.'}
+              </p>
+            </div>
+          )}
+
+          {/* Bingo Claim Button - Always available when in game */}
+          {sessionStatus === 'in_game' && (
+            <button
+              type="button"
+              className="btn-primary w-full text-xl font-black py-4"
+              onClick={handleClaimBingo}
+              disabled={claiming}
+            >
+              {claiming
+                ? lang === 'cs'
+                  ? 'Ověřuje se...'
+                  : 'Verifying...'
+                : lang === 'cs'
+                ? '🎉 BINGO!'
+                : '🎉 BINGO!'}
+            </button>
+          )}
+
+          {sessionStatus === 'claiming' && (
+            <div className="text-center py-4">
+              <div className="text-2xl mb-2">⏳</div>
+              <div className="text-white/70">
+                {lang === 'cs' ? 'Čekáme na ověření...' : 'Waiting for verification...'}
+              </div>
             </div>
           )}
         </div>

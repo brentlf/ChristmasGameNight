@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { getLanguage, t } from '@/lib/i18n';
 import type { Player, Room } from '@/types';
+import { ReconnectCode } from '@/app/components/ReconnectCode';
 
 export function MiniGameDashboard({
   roomId,
@@ -41,6 +42,9 @@ export function MiniGameDashboard({
             <div className="text-5xl mb-4">{player.avatar}</div>
             <h1 className="text-3xl font-black mb-2">{room.name}</h1>
             <p className="text-white/75 mb-6">{t('minigames.dashboard', lang)}</p>
+          </div>
+          <div className="mt-4">
+            <ReconnectCode player={player} roomId={roomId} />
           </div>
         </div>
 

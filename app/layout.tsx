@@ -3,7 +3,6 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import TopLeftNav from './components/TopLeftNav'
 import ChristmasBackdrop from './components/ChristmasBackdrop'
-import AudioControls from './components/AudioControls'
 import { AudioProvider } from '@/lib/contexts/AudioContext'
 import AudioPolicyClient from './components/AudioPolicyClient'
 
@@ -30,7 +29,6 @@ export default function RootLayout({
           <ChristmasBackdrop />
           <TopLeftNav />
           <AudioPolicyClient />
-          <AudioControls />
           <div className="relative min-h-dvh pt-12 sm:pt-14 md:pt-4">
             {children}
           </div>

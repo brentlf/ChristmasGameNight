@@ -13,6 +13,7 @@ import { useTriviaItem } from '@/lib/hooks/useGameContentItem';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { MiniGameAdvanceGate } from '../_components/MiniGameAdvanceGate';
+import { useAudio } from '@/lib/contexts/AudioContext';
 
 export default function TriviaPage() {
   const params = useParams();
@@ -137,13 +138,18 @@ function TriviaQuestion({
 }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [locked, setLocked] = useState(false);
   const router = useRouter();
+  const { playSound, vibrate, device } = useAudio();
 
   if (!question) return null;
 
   const handleSubmit = async () => {
     if (selected === null) return;
+    playSound('ui.lock_in', { device: 'phone' });
+    vibrate(10, { device: 'phone' });
     setBusy(true);
+    setLocked(true);
     try {
       const result = await submitTriviaAnswer({
         roomId,
@@ -154,22 +160,29 @@ function TriviaQuestion({
       });
       if (result.correct) {
         toast.success(t('trivia.correct', lang));
+        playSound('game.correct', { device: 'phone' });
+        vibrate([10, 20, 10], { device: 'phone' });
       } else {
         toast.error(t('trivia.incorrect', lang));
+        playSound('game.wrong', { device: 'phone' });
+        vibrate([25, 30, 25], { device: 'phone' });
       }
       // Reset selection - the component will automatically update via Firestore listener
       setSelected(null);
     } catch (error: any) {
       toast.error(error.message || t('common.error', lang));
+      playSound('ui.error', { device: 'phone' });
+      vibrate(20, { device: 'phone' });
     } finally {
       setBusy(false);
+      setLocked(false);
     }
   };
 
   return (
     <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
       <div className="max-w-xl mx-auto">
-        <div className="card mb-3 md:mb-4">
+        <div className="card mb-3 md:mb-4 cgn-animate-in">
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-lg md:text-xl font-bold break-words truncate flex-1">{t('trivia.title', lang)}</h1>
             <Link href={`/room/${roomId}/play`} className="btn-secondary text-xs md:text-sm shrink-0 break-words">
@@ -183,14 +196,14 @@ function TriviaQuestion({
           </div>
         </div>
 
-        <div className="card">
+        <div className="card cgn-animate-in">
           <h2 className="text-xl md:text-2xl font-semibold mb-4 md:mb-6 break-words">{question.question[lang]}</h2>
 
           <div className="space-y-2 md:space-y-3">
             {question.options[lang].map((opt: string, idx: number) => (
               <button
                 key={idx}
-                className={`w-full rounded-xl md:rounded-2xl border p-3 md:p-4 text-left transition disabled:opacity-50 text-xs md:text-sm break-words ${
+                className={`w-full rounded-xl md:rounded-2xl border p-3 md:p-4 text-left transition disabled:opacity-50 text-xs md:text-sm break-words active:scale-[0.99] ${
                   selected === idx
                     ? 'bg-christmas-gold/25 border-christmas-gold/40'
                     : 'bg-white/5 border-white/10 hover:bg-white/10'
@@ -209,7 +222,10 @@ function TriviaQuestion({
             disabled={busy || selected === null}
             onClick={handleSubmit}
           >
-            {busy ? t('common.loading', lang) : t('common.submit', lang)}
+            <span className="inline-flex items-center justify-center gap-2">
+              {locked && <span className="cgn-pop" aria-hidden="true">✅</span>}
+              {busy ? t('common.loading', lang) : locked ? (lang === 'cs' ? 'Zamčeno' : 'Locked') : t('common.submit', lang)}
+            </span>
           </button>
         </div>
       </div>

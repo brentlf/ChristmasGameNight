@@ -1,6 +1,6 @@
 /**
  * Generate per-mini-game intro videos at:
- *   public/intro/{trivia|emoji|wyr|pictionary}.mp4
+ *   public/intro/{trivia|emoji|wyr|pictionary|guess_the_song|family_feud|bingo}.mp4
  *
  * Pipeline:
  * 1) Use OpenAI Images API to generate a 16:9 background image per game.
@@ -32,6 +32,9 @@ const GAMES = [
   { id: 'emoji', title: 'Emoji Movie Guess', emoji: '🎬', vibe: 'playful colorful icons, emoji collage, neon accents' },
   { id: 'wyr', title: 'Would You Rather', emoji: '🎄', vibe: 'festive mischievous debate, cozy christmas lights, split choice motif' },
   { id: 'pictionary', title: 'Pictionary', emoji: '🎨', vibe: 'hand-drawn doodles, sketch lines, marker strokes, art table vibe' },
+  { id: 'guess_the_song', title: 'Guess the Christmas Song', emoji: '🎵', vibe: 'musical notes floating, festive sound waves, holiday melodies, warm concert hall atmosphere' },
+  { id: 'family_feud', title: 'Christmas Family Feud', emoji: '🎯', vibe: 'game show stage, survey board aesthetic, competitive energy, bright studio lights, festive red and green accents' },
+  { id: 'bingo', title: 'Christmas Bingo', emoji: '🎄', vibe: 'bingo cards, numbered balls, festive grid pattern, cozy game night atmosphere, warm holiday lights' },
 ];
 
 function ensureDir(p) {

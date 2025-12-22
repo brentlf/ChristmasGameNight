@@ -129,25 +129,23 @@ export default function GameNightPage() {
             </div>
 
             <div className="pt-4 md:pt-6 border-t border-white/10">
-              <Link href="/join" className="btn-secondary w-full text-center text-sm md:text-base">
-                🎟️ {t('landing.joinRoom', language)}
-              </Link>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <Link href="/join" className="btn-secondary flex-1 text-center text-sm md:text-base">
+                  🎟️ {t('landing.joinRoom', language)}
+                </Link>
+                <Link
+                  href="/active-rooms"
+                  className="btn-secondary flex-1 text-center text-sm md:text-base"
+                  title={t('gamenight.activeRooms', language)}
+                  aria-label={t('gamenight.activeRooms', language)}
+                >
+                  🏠 {t('gamenight.activeRooms', language)}
+                </Link>
+              </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Active Rooms Button - Bottom Right */}
-      <Link
-        href="/active-rooms"
-        className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-wood-dark/60 backdrop-blur-xl border border-wood-light/30 hover:border-fire-gold/60 px-3 md:px-5 py-2 md:py-3 text-white font-semibold transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl text-xs md:text-sm"
-        style={{ 
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 193, 7, 0.15)' 
-        }}
-      >
-        <span className="text-base md:text-lg">🏠</span>
-        <span className="hidden sm:inline">{t('gamenight.activeRooms', language)}</span>
-      </Link>
     </main>
   );
 }

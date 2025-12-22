@@ -66,6 +66,7 @@ const translations: Record<Language, Record<string, string>> = {
     'game.pictionary': 'Christmas Pictionary',
     'game.guessTheSong': 'Guess the Christmas Song',
     'game.familyFeud': 'Christmas Family Feud',
+    'game.bingo': 'Christmas Bingo',
     
     // Common
     'common.start': 'Start',
@@ -385,6 +386,7 @@ const translations: Record<Language, Record<string, string>> = {
     'game.pictionary': 'Vánoční Pictionary',
     'game.guessTheSong': 'Uhádni vánoční písničku',
     'game.familyFeud': 'Vánoční rodinný souboj',
+    'game.bingo': 'Vánoční bingo',
     
     // Common
     'common.start': 'Start',

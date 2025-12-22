@@ -6,10 +6,6 @@ service cloud.firestore {
         return request.auth != null;
       }
 
-      function isController() {
-        return isAuthed() && resource.data.controllerUid == request.auth.uid;
-      }
-
       // IMPORTANT: inside nested matches (sessions/*), `resource` refers to the nested doc,
       // not the room doc. Use this helper to check controller against the room.
       function isRoomController() {
@@ -17,56 +13,52 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/rooms/$(roomId)).data.controllerUid == request.auth.uid;
       }
 
-      // For family use we allow authenticated reads so join-by-code works.
-      // This allows both get (single document) and list (collection queries) operations
+      // Single-family / simple mode:
+      // - Any authenticated user can read rooms (enables join-by-code queries).
       allow read: if isAuthed();
 
       // Room creator becomes controller.
       allow create: if isAuthed()
-        && request.resource.data.controllerUid == request.auth.uid
-        && request.resource.data.raceTrackId == 'christmas_race_v1';
+        && request.resource.data.controllerUid == request.auth.uid;
 
-      // Controller can update anything.
-      // Additionally: allow any authed user to start the race (lobby -> running)
-      // by changing ONLY status + raceStartedAt.
-      // For Family Feud: allow players to update currentSession fields for gameplay
+      // Room updates:
+      // - Controller can update anything.
+      // - Any authed user can update `identityMap` (used by join/reconnect flows).
+      // - Allow `scoreboard` updates (night aggregation) without requiring controller.
       allow update: if isAuthed() && (
         (resource.data.controllerUid == request.auth.uid)
-        || (
-          resource.data.status == 'lobby'
-          && request.resource.data.status == 'running'
-          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'raceStartedAt'])
-        )
-        || (
-          // Family Feud: allow authenticated users to update currentSession for gameplay
-          resource.data.currentSession != null
-          && resource.data.currentSession.gameId == 'family_feud'
-          && request.resource.data.currentSession != null
-          && request.resource.data.currentSession.gameId == 'family_feud'
-          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['currentSession'])
-          && request.resource.data.currentSession.diff(resource.data.currentSession).changedKeys().hasOnly([
-            'revealedAnswerIds',
-            'teamScores',
-            'strikes',
-            'status',
-            'activeTeam'
-          ])
-        )
+        || request.resource.data.diff(resource.data).changedKeys().hasOnly(['identityMap'])
+        || request.resource.data.diff(resource.data).changedKeys().hasOnly(['scoreboard'])
+        || request.resource.data.diff(resource.data).changedKeys().hasOnly(['scoreboard', 'identityMap'])
       );
 
-      allow delete: if isController();
+      allow delete: if isAuthed() && resource.data.controllerUid == request.auth.uid;
       
       // Players subcollection
       match /players/{playerId} {
         allow read: if isAuthed();
         
-        // Allow create if user is creating their own player doc
+        // Allow create if user is creating their own player doc and can read room
         allow create: if isAuthed() && request.auth.uid == playerId;
         
         // Allow update if user is updating their own player doc or is controller
+        // Also allow updates to identity fields (displayName, displayTag, playerIdentityId, playerKey, lastSeenAt)
         allow update: if isAuthed() && (
           request.auth.uid == playerId
           || get(/databases/$(database)/documents/rooms/$(roomId)).data.controllerUid == request.auth.uid
+          || (
+            // Allow identity field updates for reconnect
+            request.resource.data.diff(resource.data).changedKeys().hasOnly([
+              'displayName',
+              'displayNameNormalized',
+              'displayTag',
+              'playerIdentityId',
+              'playerKey',
+              'playerKeyType',
+              'lastSeenAt',
+              'lastActiveAt'
+            ])
+          )
         );
         
         // Allow delete if user is deleting their own doc or is controller
@@ -76,11 +68,11 @@ service cloud.firestore {
         );
       }
 
-      // Optional TV event feed
+      // Optional TV event feed (legacy - kept for backward compatibility)
       match /events/{eventId} {
         allow read: if isAuthed();
         allow create: if isAuthed();
-        allow update, delete: if isController();
+        allow update, delete: if isRoomController();
       }
 
       // Mini-game sessions (one room -> many sessions)
@@ -128,17 +120,46 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).changedKeys().hasOnly(['round', 'seq', 'events', 'checkpoint', 'updatedAt']);
           allow delete: if isRoomController();
 
-          // Pictionary guesses live under the fixed `live` doc:
-          // rooms/{roomId}/sessions/{sessionId}/pictionary/live/guesses/{guessId}
+        // Pictionary guesses live under the fixed `live` doc:
+        // rooms/{roomId}/sessions/{sessionId}/pictionary/live/guesses/{guessId}
           match /guesses/{guessId} {
             allow read: if isAuthed();
             allow create: if isAuthed() && docId == 'live';
             allow update, delete: if isRoomController();
           }
         }
+
+        // Bingo cards (one per player)
+        match /cards/{uid} {
+          allow read: if isAuthed();
+          allow create, update: if isAuthed() && (
+            request.auth.uid == uid
+            || isRoomController()
+          );
+          allow delete: if isRoomController();
+        }
       }
     }
-  }
+
+    // Optional event/group collections (kept permissive for single-family mode).
+    // If you aren't using events, you can delete these matches entirely.
+    match /events/{eventId} {
+      function isAuthed() { return request.auth != null; }
+      allow read, write: if isAuthed();
+
+      match /{document=**} {
+        allow read, write: if isAuthed();
+      }
+    }
+
+    match /groups/{groupId} {
+      function isAuthed() { return request.auth != null; }
+      allow read, write: if isAuthed();
+
+      match /{document=**} {
+        allow read, write: if isAuthed();
+      }
+    }
 
   // Tradition Wheels
   match /traditionWheels/{wheelId} {
@@ -173,5 +194,5 @@ service cloud.firestore {
     allow update: if isAuthed() && request.auth.uid == userId;
     allow delete: if isAuthed() && request.auth.uid == userId;
   }
+  }
 }
-

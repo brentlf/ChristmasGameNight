@@ -107,6 +107,13 @@ export default function ResultsPage() {
     ? t('scoring.totalPoints', lang)
     : (lang === 'cs' ? 'bodů' : 'points');
 
+  // RULE: only show players who scored > 0 points for the results scope.
+  // (If you want race-only placements regardless of points, we can relax this for amazing_race.)
+  const rankedFiltered = sortedPlayers.filter((p: any) => {
+    const v = scoreKey === 'overallPoints' ? Number(p.overallPoints ?? 0) : Number(p.score ?? 0);
+    return v > 0;
+  });
+
   const nextGame = async () => {
     if (!isController) return;
     const ok = window.confirm(
@@ -160,7 +167,7 @@ export default function ResultsPage() {
         {/* Game Finale Component */}
         <div className="flex-1 min-h-0 overflow-hidden">
           <GameFinale
-            ranked={sortedPlayers}
+            ranked={rankedFiltered}
             gameTitle={lang === 'cs' ? '🏁 Amazing Race' : '🏁 Amazing Race'}
             lang={lang}
             scoreKey={scoreKey}

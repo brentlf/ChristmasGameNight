@@ -16,12 +16,15 @@
     "content:list-ids": "node scripts/content-helper.mjs list-ids"
   },
   "dependencies": {
+    "@react-three/drei": "^9.88.13",
+    "@react-three/fiber": "^8.15.19",
     "firebase": "^10.14.1",
     "next": "^14.0.4",
     "qrcode.react": "^3.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-hot-toast": "^2.4.1"
+    "react-hot-toast": "^2.4.1",
+    "three": "^0.160.0"
   },
   "overrides": {
     "undici": "6.22.0"

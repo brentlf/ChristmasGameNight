@@ -10,9 +10,9 @@ export type RoomStatus =
   | 'session_reveal'
   | 'session_results';
 export type RoomMode = 'amazing_race' | 'mini_games' | 'leaderboard';
-export type MiniGameType = 'trivia' | 'emoji' | 'wyr' | 'pictionary' | 'guess_the_song' | 'family_feud';
+export type MiniGameType = 'trivia' | 'emoji' | 'wyr' | 'pictionary' | 'guess_the_song' | 'family_feud' | 'bingo';
 
-export type SessionStatus = 'lobby' | 'intro' | 'team_setup' | 'in_game' | 'in_round' | 'steal' | 'round_reveal' | 'reveal' | 'between' | 'finished';
+export type SessionStatus = 'lobby' | 'intro' | 'team_setup' | 'in_game' | 'in_round' | 'steal' | 'round_reveal' | 'reveal' | 'between' | 'finished' | 'claiming';
 export type SessionGameId = MiniGameType | 'race';
 
 export interface RoomCurrentSession {
@@ -41,6 +41,10 @@ export interface RoomCurrentSession {
     B: number;
   };
   teamMapping?: Record<string, 'A' | 'B'>; // uid -> team
+  // Bingo-specific
+  drawnBalls?: string[]; // Array of drawn ball strings (e.g., "B-12")
+  bingoWinnerUid?: string; // UID of the winner when bingo is claimed
+  startedAt?: number; // ms since epoch - when the game started
 }
 
 export interface Room {
@@ -75,6 +79,7 @@ export interface Room {
     pictionary?: { selectedIds: string[] };
     guess_the_song?: { selectedIds: string[] };
     family_feud?: { selectedIds: string[] };
+    bingo?: { selectedIds: string[] }; // Not used for bingo, but kept for consistency
   };
   // Pictionary game state (for multiplayer rounds)
   pictionaryGameState?: {
@@ -124,6 +129,13 @@ export interface Room {
     questions?: any[];
     clues?: any[];
   }>;
+  // Night Scoreboard: persistent aggregation across all sessions in this room
+  scoreboard?: RoomScoreboard;
+  // Identity mapping: uid -> playerIdentityId (for reconnect support)
+  identityMap?: Record<string, string>; // uid -> playerIdentityId
+  // Multi-family event support
+  eventId?: string; // Event this room belongs to
+  groupId?: string; // Family group this room belongs to
 }
 
 export type RaceStageType =
@@ -138,10 +150,23 @@ export type RaceEventType = 'stage_completed' | 'bonus_awarded' | 'joined';
 
 export interface Player {
   uid: string;
-  name: string;
+  // Identity fields (UID is primary identity)
+  displayName: string; // Original name input (can be edited, can be duplicated)
+  displayNameNormalized?: string; // Lowercased, trimmed for uniqueness logic
+  displayTag?: string; // e.g. "(2)" appended for duplicates or emoji tag
+  // Stable identity for reconnect (defaults to uid if no reconnect)
+  playerIdentityId?: string; // Used for scoreboard aggregation across device switches
+  // Reconnect code (optional)
+  playerKey?: string; // 4-digit PIN or 3 emoji code
+  playerKeyType?: 'pin' | 'emoji';
+  
+  // Legacy name field (for backward compatibility)
+  name: string; // Deprecated: use displayName + displayTag for rendering
+  
   avatar: string;
   score: number;
   joinedAt: number; // ms since epoch
+  lastSeenAt?: number; // ms since epoch (updated on activity)
   stageIndex: number; // 0-based. stageIndex === totalStages means finished.
   stageState: Record<string, any>;
   finishedAt?: number; // ms since epoch
@@ -166,6 +191,7 @@ export interface Player {
     };
     guess_the_song?: { answers: number[]; score: number; completedAt?: number };
     family_feud?: { score: number; completedAt?: number };
+    bingo?: { score: number; completedAt?: number };
   };
   totalMiniGameScore?: number;
   // Overall scoring (meta layer)
@@ -267,6 +293,19 @@ export interface MiniGamePictionaryProgress {
   completedAt?: number;
 }
 
+// Bingo card structure
+export interface BingoCard {
+  // Firestore cannot store nested arrays, so the persisted shape is flat.
+  // Keep legacy fields optional for local/in-memory compatibility.
+  version?: 2;
+  size?: 5;
+  cells?: Array<string | 'FREE'>; // length 25
+  marked?: boolean[]; // length 25
+  // Legacy (should not be written to Firestore as nested arrays)
+  grid?: (string | 'FREE')[][];
+  markedGrid?: boolean[][];
+}
+
 // Tradition Wheel
 export interface TraditionItem {
   id: string;
@@ -282,4 +321,135 @@ export interface TraditionWheel {
   lastSpunAt?: number; // ms since epoch
   createdAt: number; // ms since epoch
   controllerUid: string;
+}
+
+// Multi-Family Event System Types
+
+export type EventStatus = 'lobby' | 'live' | 'ended';
+
+export interface Event {
+  eventId: string; // Human-friendly code like "XMAS-7H2K" (also serves as join code)
+  title: string;
+  createdAt: number; // ms since epoch
+  status: EventStatus;
+  defaultLang: 'en' | 'cs';
+  timezone: string; // e.g. "Europe/Amsterdam"
+  createdByDeviceId: string; // No auth required for creation
+  individualLeaderboardEnabled?: boolean; // Opt-in for event-wide individual leaderboard
+  // If this event was created automatically for a hosted room, link it here.
+  primaryRoomId?: string;
+}
+
+export interface EventGroup {
+  groupId: string; // e.g. "GRP-A1B2"
+  displayName: string; // e.g. "The Pretorius Family"
+  createdAt: number; // ms since epoch
+  joinCode?: string; // Short code per group, optional
+  createdByDeviceId: string;
+  currentRoomId?: string; // The active room used by the family
+}
+
+export interface PlayerIdentity {
+  identityId: string; // Stable player identity within this family
+  groupId: string;
+  displayName: string;
+  avatar: string;
+  createdAt: number; // ms since epoch
+  lastSeenAt: number; // ms since epoch
+  reconnectCode?: string; // PIN or emoji code for reclaiming identity
+}
+
+export interface EventMembership {
+  uid: string; // Firebase Auth UID (anonymous)
+  eventId: string;
+  groupId: string;
+  joinedAt: number; // ms since epoch
+}
+
+export interface EventScoreboard {
+  updatedAt: number; // ms since epoch
+  families: Record<string, EventScoreboardFamily>;
+  individuals?: Record<string, EventScoreboardIndividual>;
+  processedRoomSessions: Record<string, boolean>; // Key: "${roomId}_${sessionId}"
+}
+
+export interface EventScoreboardFamily {
+  groupId: string;
+  displayName: string;
+  totalPoints: number;
+  wins: number;
+  gamesPlayed: number;
+  lastUpdatedAt: number; // ms since epoch
+}
+
+export interface EventScoreboardIndividual {
+  identityId: string;
+  groupId: string;
+  displayName: string;
+  totalPoints: number;
+  wins: number;
+}
+
+export interface GroupHistory {
+  eventId: string;
+  title: string;
+  dateIso: string; // ISO date string
+  totalPoints: number;
+  rank?: number; // Final rank in the event
+  breakdownByGame: Record<string, number>;
+  createdAt: number; // ms since epoch
+}
+
+export interface PlayerHistory {
+  eventId: string;
+  totalPoints: number;
+  wins: number;
+  gamesPlayed: number;
+  breakdownByGame: Record<string, number>;
+  createdAt: number; // ms since epoch
+}
+
+// Night Scoreboard: room-level aggregation across all sessions
+export interface RoomScoreboard {
+  players: Record<string, ScoreboardPlayer>; // keyed by playerIdentityId
+  sessionHistory: Array<{
+    sessionId: string;
+    gameId: string;
+    endedAt: number; // ms since epoch
+    winners: string[]; // playerIdentityIds
+    pointsAwarded: Record<string, number>; // playerIdentityId -> points
+  }>;
+  processedSessions?: string[]; // sessionIds that have been processed (for idempotency) - stored as array in Firestore
+}
+
+export interface ScoreboardPlayer {
+  playerIdentityId: string; // stable identity key
+  uid: string; // current uid (may change on reconnect)
+  displayName: string;
+  displayTag?: string;
+  avatar: string;
+  totalPoints: number;
+  gamesPlayed: number;
+  wins: number;
+  lastUpdatedAt: number; // ms since epoch
+  breakdown: {
+    amazing_race?: number;
+    trivia?: number;
+    emoji?: number;
+    wyr?: number;
+    pictionary?: number;
+    guess_the_song?: number;
+    family_feud?: number;
+    bingo?: number;
+  };
+}
+
+// Session Finalization Contract
+export interface SessionFinalization {
+  sessionId: string;
+  gameId: string;
+  endedAt: number; // ms since epoch
+  pointsAwarded: Record<string, number>; // playerIdentityId -> points in this session
+  winners: string[]; // playerIdentityIds
+  participants: string[]; // playerIdentityIds who actively participated
 }

@@ -10,29 +10,47 @@ import { useAudio } from '@/lib/contexts/AudioContext';
 // Users can override via AudioControls (persisted in localStorage).
 export default function AudioPolicyClient() {
   const pathname = usePathname();
-  const { setBackgroundMusicEnabled, setBackgroundMusicVolume } = useAudio();
+  const { device, setSettings } = useAudio();
 
   useEffect(() => {
     try {
       const alreadySet = localStorage.getItem('cgn_audio_policy_set');
       if (alreadySet === '1') return;
 
-      const isTv = pathname.includes('/tv');
-      if (isTv) {
-        // TV gets subtle ambient by default.
-        setBackgroundMusicEnabled(true);
-        setBackgroundMusicVolume(0.12);
-      } else {
-        // Phones default to no background music.
-        setBackgroundMusicEnabled(false);
-        setBackgroundMusicVolume(0);
+      // If the required keys already exist, do not override.
+      const hasExplicit =
+        localStorage.getItem('audio_enabled') !== null ||
+        localStorage.getItem('music_enabled') !== null ||
+        localStorage.getItem('sfx_volume') !== null ||
+        localStorage.getItem('music_volume') !== null;
+      if (!hasExplicit) {
+        const isTv = pathname.includes('/tv') || device === 'tv';
+        if (isTv) {
+          setSettings({
+            audio_enabled: true,
+            music_enabled: true,
+            music_volume: 0.08,
+            sfx_volume: 0.35,
+            countdown_tick_enabled: true,
+            haptics_enabled: false,
+          });
+        } else {
+          setSettings({
+            audio_enabled: true,
+            music_enabled: false,
+            music_volume: 0,
+            sfx_volume: 0.25,
+            countdown_tick_enabled: false,
+            haptics_enabled: true,
+          });
+        }
       }
 
       localStorage.setItem('cgn_audio_policy_set', '1');
     } catch {
       // ignore
     }
-  }, [pathname, setBackgroundMusicEnabled, setBackgroundMusicVolume]);
+  }, [device, pathname, setSettings]);
 
   return null;
 }

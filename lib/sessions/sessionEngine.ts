@@ -5,6 +5,7 @@ import {
   getDoc,
   getDocs,
   increment,
+  runTransaction,
   setDoc,
   updateDoc,
   writeBatch,
@@ -25,6 +26,8 @@ import {
   getPictionaryItemById,
   getTriviaItemById,
 } from '@/lib/miniGameContent';
+import { computeSessionResults, applySessionToScoreboard } from '@/lib/utils/scoreboard';
+import { publishRoomSessionToEvent } from '@/lib/utils/eventScoreboard';
 
 export type SessionSelectedDoc = {
   gameId: SessionGameId;
@@ -55,6 +58,7 @@ function getIdPoolForGame(gameId: SessionGameId): string[] {
   if (gameId === 'pictionary') return pictionaryChristmasPool.map((q) => q.id);
   if (gameId === 'guess_the_song') return guessTheSongChristmasPool.map((q) => q.id);
   if (gameId === 'family_feud') return familyFeudChristmasPool.map((q) => q.id);
+  if (gameId === 'bingo') return []; // Bingo doesn't use a content pool
   // Pictionary + race are handled elsewhere (pictionary has its own live stream; race has a separate engine)
   return [];
 }
@@ -169,19 +173,27 @@ export async function startMiniGameSession(params: {
     } catch (error) {
       console.error('Error generating AI content, falling back to static:', error);
       // Fallback to static content
+      if (gameId === 'bingo') {
+        selectedIds = [];
+      } else {
+        const poolIds = getIdPoolForGame(gameId);
+        if (poolIds.length < effectiveQuestionCount) {
+          throw new Error(`Not enough content for ${gameId} (${poolIds.length} available)`);
+        }
+        selectedIds = selectRandomItems(poolIds, effectiveQuestionCount);
+      }
+    }
+  } else {
+    // Use static content (skip for bingo)
+    if (gameId === 'bingo') {
+      selectedIds = [];
+    } else {
       const poolIds = getIdPoolForGame(gameId);
       if (poolIds.length < effectiveQuestionCount) {
         throw new Error(`Not enough content for ${gameId} (${poolIds.length} available)`);
       }
       selectedIds = selectRandomItems(poolIds, effectiveQuestionCount);
     }
-  } else {
-    // Use static content
-    const poolIds = getIdPoolForGame(gameId);
-    if (poolIds.length < effectiveQuestionCount) {
-      throw new Error(`Not enough content for ${gameId} (${poolIds.length} available)`);
-    }
-    selectedIds = selectRandomItems(poolIds, effectiveQuestionCount);
   }
 
   const selectedRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'selected', 'selected');
@@ -228,6 +240,14 @@ export async function startMiniGameSession(params: {
     currentSessionData.revealedAnswerIds = [];
     currentSessionData.teamScores = { A: 0, B: 0 };
     currentSessionData.teamMapping = {};
+  }
+  
+  // Bingo-specific initialization
+  if (gameId === 'bingo') {
+    currentSessionData.drawnBalls = [];
+    currentSessionData.startedAt = Date.now();
+    // Generate bingo cards for all active players
+    await generateBingoCards(roomId, sessionId, activePlayerUids);
   }
   
   await updateDoc(roomRef, {
@@ -590,7 +610,30 @@ export async function controllerFinishSession(params: { roomId: string; sessionI
     return;
   }
 
-  // Read final scores for this session.
+  if (!gameId) {
+    throw new Error('Game ID missing from session');
+  }
+
+  // Compute session results using new finalization system
+  const finalization = await computeSessionResults({
+    roomId,
+    sessionId,
+    gameId,
+    activePlayerUids: activeUids,
+  });
+
+  // Apply to scoreboard (idempotent)
+  await applySessionToScoreboard(roomId, finalization);
+
+  // Publish to event scoreboard if room is part of an event
+  try {
+    await publishRoomSessionToEvent(roomId, sessionId);
+  } catch (error) {
+    console.warn('Failed to publish to event scoreboard:', error);
+    // Non-critical - continue even if event publishing fails
+  }
+
+  // Also update legacy player doc fields for backward compatibility
   const scoresSnap = await getDocs(collection(db, 'rooms', roomId, 'sessions', sessionId, 'scores'));
   const scoreMap = new Map<string, number>();
   scoresSnap.forEach((d) => {
@@ -603,13 +646,14 @@ export async function controllerFinishSession(params: { roomId: string; sessionI
 
   // Roll up per-session scores into per-player "night total" fields so:
   // - TV sidebar totals update live
-  // - /leaderboard (global) can aggregate from player docs
+  // - /leaderboard (global) can aggregate from player docs (backward compatibility)
   for (const uid of activeUids) {
     const score = Number(scoreMap.get(uid) ?? 0);
     const playerRef = doc(db, 'rooms', roomId, 'players', uid);
     const update: any = {
       totalMiniGameScore: increment(score),
       lastActiveAt: now,
+      lastSeenAt: now,
     };
     if (gameId) {
       update[`miniGameProgress.${gameId}.score`] = increment(score);
@@ -988,6 +1032,372 @@ export async function endFamilyFeudRound(params: {
     // Next round
     await startFamilyFeudRound({ roomId, sessionId, roundIndex: roundIndex + 1 });
   }
+}
+
+// Bingo: Generate a random bingo card (5x5 grid, center is FREE)
+function generateBingoCard(seed: number): { grid: (string | 'FREE')[][]; marked: boolean[][] } {
+  const letters = ['B', 'I', 'N', 'G', 'O'];
+  const ranges = [
+    [1, 15],   // B: 1-15
+    [16, 30],  // I: 16-30
+    [31, 45],  // N: 31-45
+    [46, 60],  // G: 46-60
+    [61, 75],  // O: 61-75
+  ];
+  
+  const grid: (string | 'FREE')[][] = [];
+  const marked: boolean[][] = [];
+  
+  // Simple seeded random (linear congruential generator)
+  let rng = seed;
+  const random = () => {
+    rng = (rng * 1103515245 + 12345) & 0x7fffffff;
+    return rng / 0x7fffffff;
+  };
+  
+  for (let row = 0; row < 5; row++) {
+    grid[row] = [];
+    marked[row] = [];
+    for (let col = 0; col < 5; col++) {
+      if (row === 2 && col === 2) {
+        // Center is FREE
+        grid[row][col] = 'FREE';
+        marked[row][col] = true; // Pre-marked
+      } else {
+        const [min, max] = ranges[col];
+        const num = Math.floor(min + random() * (max - min + 1));
+        grid[row][col] = `${letters[col]}-${num}`;
+        marked[row][col] = false;
+      }
+    }
+  }
+  
+  return { grid, marked };
+}
+
+function flatten5x5<T>(grid: T[][]): T[] {
+  const out: T[] = [];
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) out.push(grid[r][c]);
+  }
+  return out;
+}
+
+function unflatten5x5<T>(arr: T[]): T[][] {
+  const out: T[][] = [];
+  for (let r = 0; r < 5; r++) {
+    out[r] = [];
+    for (let c = 0; c < 5; c++) out[r][c] = arr[r * 5 + c];
+  }
+  return out;
+}
+
+type BingoCardDoc =
+  | {
+      version: 2;
+      size: 5;
+      cells: Array<string | 'FREE'>; // length 25
+      marked: boolean[]; // length 25
+      createdAt?: number;
+    }
+  | {
+      // legacy in-memory shape (not valid to store in Firestore as nested arrays, but kept for compatibility)
+      grid: (string | 'FREE')[][];
+      marked: boolean[][];
+      createdAt?: number;
+    };
+
+function normalizeBingoCardDoc(data: any): { cells: Array<string | 'FREE'>; marked: boolean[] } {
+  if (Array.isArray(data?.cells) && Array.isArray(data?.marked)) {
+    return { cells: data.cells as Array<string | 'FREE'>, marked: data.marked as boolean[] };
+  }
+  if (Array.isArray(data?.grid) && Array.isArray(data?.marked)) {
+    // best-effort legacy normalization
+    const cells = flatten5x5<string | 'FREE'>(data.grid);
+    const marked = flatten5x5<boolean>(data.marked);
+    return { cells, marked };
+  }
+  return { cells: [], marked: [] };
+}
+
+// Bingo: Generate cards for all players
+async function generateBingoCards(roomId: string, sessionId: string, playerUids: string[]): Promise<void> {
+  const batch = writeBatch(db);
+  const now = Date.now();
+  
+  for (let i = 0; i < playerUids.length; i++) {
+    const uid = playerUids[i];
+    // Use sessionId + uid + index as seed for deterministic but unique cards
+    const seed = (sessionId + uid + i).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const card = generateBingoCard(seed);
+    
+    const cardRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'cards', uid);
+    batch.set(cardRef, {
+      version: 2,
+      size: 5,
+      // Firestore does NOT support nested arrays, so store as flat 25-length arrays.
+      cells: flatten5x5(card.grid),
+      marked: flatten5x5(card.marked),
+      createdAt: now,
+    } as any);
+  }
+  
+  await batch.commit();
+}
+
+// Bingo: Draw next ball
+export async function drawBingoBall(params: {
+  roomId: string;
+  sessionId: string;
+}): Promise<{ ball: string; drawnCount: number }> {
+  const { roomId, sessionId } = params;
+  const roomRef = doc(db, 'rooms', roomId);
+  
+  return runTransaction(db, async (tx) => {
+    const roomSnap = await tx.get(roomRef);
+    if (!roomSnap.exists()) throw new Error('Room not found');
+    const room = { id: roomSnap.id, ...(roomSnap.data() as any) } as Room;
+    
+    const currentSession = room.currentSession;
+    if (!currentSession || currentSession.gameId !== 'bingo') throw new Error('Not a bingo session');
+    
+    const drawnBalls = currentSession.drawnBalls || [];
+    if (drawnBalls.length >= 75) {
+      throw new Error('All balls have been drawn');
+    }
+    
+    // Generate all possible balls
+    const letters = ['B', 'I', 'N', 'G', 'O'];
+    const ranges = [
+      [1, 15],   // B: 1-15
+      [16, 30],  // I: 16-30
+      [31, 45],  // N: 31-45
+      [46, 60],  // G: 46-60
+      [61, 75],  // O: 61-75
+    ];
+    
+    const allBalls: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const [min, max] = ranges[i];
+      for (let num = min; num <= max; num++) {
+        allBalls.push(`${letters[i]}-${num}`);
+      }
+    }
+    
+    // Get available balls (not yet drawn)
+    const availableBalls = allBalls.filter((ball) => !drawnBalls.includes(ball));
+    
+    // Randomly select one
+    const randomIndex = Math.floor(Math.random() * availableBalls.length);
+    const newBall = availableBalls[randomIndex];
+    
+    const newDrawnBalls = [...drawnBalls, newBall];
+    
+    tx.update(roomRef, {
+      'currentSession.drawnBalls': newDrawnBalls,
+    } as any);
+    
+    return { ball: newBall, drawnCount: newDrawnBalls.length };
+  });
+}
+
+// Bingo: Validate a bingo pattern
+function validateBingoPattern(card: BingoCardDoc, drawnBalls: string[]): {
+  valid: boolean;
+  pattern?: 'horizontal' | 'vertical' | 'diagonal' | 'four_corners';
+  winningCells?: Array<{ row: number; col: number }>;
+} {
+  const normalized = normalizeBingoCardDoc(card);
+  const grid = unflatten5x5(normalized.cells);
+  const marked = normalized.marked; // flat boolean array of length 25
+  const drawnSet = new Set(drawnBalls);
+  
+  // Helper: check if a cell is marked by the player (using flat index)
+  const isMarked = (row: number, col: number): boolean => {
+    const idx = row * 5 + col;
+    return Boolean(marked[idx]);
+  };
+  
+  // Helper: check if a marked cell is valid (either FREE or in drawnBalls)
+  const isValidMarked = (row: number, col: number): boolean => {
+    if (!isMarked(row, col)) return true; // Unmarked cells are fine
+    const value = grid[row][col];
+    return value === 'FREE' || drawnSet.has(value);
+  };
+  
+  // Check horizontal lines
+  for (let row = 0; row < 5; row++) {
+    let allMarked = true;
+    const cells: Array<{ row: number; col: number }> = [];
+    for (let col = 0; col < 5; col++) {
+      cells.push({ row, col });
+      if (!isMarked(row, col)) {
+        allMarked = false;
+        break;
+      }
+      // Also verify the marked cell is valid (FREE or in drawnBalls)
+      if (!isValidMarked(row, col)) {
+        return { valid: false }; // Invalid marking (cheating attempt)
+      }
+    }
+    if (allMarked) {
+      return { valid: true, pattern: 'horizontal', winningCells: cells };
+    }
+  }
+  
+  // Check vertical lines
+  for (let col = 0; col < 5; col++) {
+    let allMarked = true;
+    const cells: Array<{ row: number; col: number }> = [];
+    for (let row = 0; row < 5; row++) {
+      cells.push({ row, col });
+      if (!isMarked(row, col)) {
+        allMarked = false;
+        break;
+      }
+      // Also verify the marked cell is valid (FREE or in drawnBalls)
+      if (!isValidMarked(row, col)) {
+        return { valid: false }; // Invalid marking (cheating attempt)
+      }
+    }
+    if (allMarked) {
+      return { valid: true, pattern: 'vertical', winningCells: cells };
+    }
+  }
+  
+  // Check diagonal (top-left to bottom-right)
+  let allMarked = true;
+  const cells1: Array<{ row: number; col: number }> = [];
+  for (let i = 0; i < 5; i++) {
+    cells1.push({ row: i, col: i });
+    if (!isMarked(i, i)) {
+      allMarked = false;
+      break;
+    }
+    // Also verify the marked cell is valid (FREE or in drawnBalls)
+    if (!isValidMarked(i, i)) {
+      return { valid: false }; // Invalid marking (cheating attempt)
+    }
+  }
+  if (allMarked) {
+    return { valid: true, pattern: 'diagonal', winningCells: cells1 };
+  }
+  
+  // Check diagonal (top-right to bottom-left)
+  allMarked = true;
+  const cells2: Array<{ row: number; col: number }> = [];
+  for (let i = 0; i < 5; i++) {
+    cells2.push({ row: i, col: 4 - i });
+    if (!isMarked(i, 4 - i)) {
+      allMarked = false;
+      break;
+    }
+    // Also verify the marked cell is valid (FREE or in drawnBalls)
+    if (!isValidMarked(i, 4 - i)) {
+      return { valid: false }; // Invalid marking (cheating attempt)
+    }
+  }
+  if (allMarked) {
+    return { valid: true, pattern: 'diagonal', winningCells: cells2 };
+  }
+  
+  // Check four corners
+  const corners = [
+    { row: 0, col: 0 },
+    { row: 0, col: 4 },
+    { row: 4, col: 0 },
+    { row: 4, col: 4 },
+  ];
+  allMarked = true;
+  for (const corner of corners) {
+    if (!isMarked(corner.row, corner.col)) {
+      allMarked = false;
+      break;
+    }
+    // Also verify the marked cell is valid (FREE or in drawnBalls)
+    if (!isValidMarked(corner.row, corner.col)) {
+      return { valid: false }; // Invalid marking (cheating attempt)
+    }
+  }
+  if (allMarked) {
+    return { valid: true, pattern: 'four_corners', winningCells: corners };
+  }
+  
+  return { valid: false };
+}
+
+// Bingo: Claim bingo
+export async function claimBingo(params: {
+  roomId: string;
+  sessionId: string;
+  uid: string;
+}): Promise<{ valid: boolean; pattern?: string; error?: string }> {
+  const { roomId, sessionId, uid } = params;
+  const roomRef = doc(db, 'rooms', roomId);
+  
+  return runTransaction(db, async (tx) => {
+    const roomSnap = await tx.get(roomRef);
+    if (!roomSnap.exists()) throw new Error('Room not found');
+    const room = { id: roomSnap.id, ...(roomSnap.data() as any) } as Room;
+    
+    const currentSession = room.currentSession;
+    if (!currentSession || currentSession.gameId !== 'bingo') throw new Error('Not a bingo session');
+    
+    // Check if already claimed
+    if (currentSession.bingoWinnerUid) {
+      return { valid: false, error: 'Bingo already claimed' };
+    }
+    
+    // Check if in claiming state (prevent multiple simultaneous claims)
+    if (currentSession.status === 'claiming') {
+      return { valid: false, error: 'Another player is claiming bingo' };
+    }
+    
+    // Get player's card
+    const cardRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'cards', uid);
+    const cardSnap = await tx.get(cardRef);
+    if (!cardSnap.exists()) throw new Error('Card not found');
+    const card = cardSnap.data() as any;
+    
+    // Get drawn balls
+    const drawnBalls = currentSession.drawnBalls || [];
+    
+    // Validate pattern
+    const validation = validateBingoPattern(card as BingoCardDoc, drawnBalls);
+    
+    if (validation.valid) {
+      // Set status to claiming first (prevents other claims)
+      tx.update(roomRef, {
+        'currentSession.status': 'claiming',
+        'currentSession.bingoWinnerUid': uid,
+        'currentSession.revealData': {
+          pattern: validation.pattern,
+          winningCells: validation.winningCells,
+        },
+      } as any);
+      
+      // Award points (winner gets 100 points, normalized)
+      const scoresBaseRef = collection(db, 'rooms', roomId, 'sessions', sessionId, 'scores');
+      tx.set(doc(scoresBaseRef, uid), {
+        uid,
+        score: 100,
+        updatedAt: Date.now(),
+      } as any, { merge: true });
+      
+      return { valid: true, pattern: validation.pattern };
+    } else {
+      return { valid: false, error: 'Invalid bingo pattern' };
+    }
+  });
+}
+
+// Bingo: Finish game (after winner is confirmed)
+export async function finishBingoGame(params: {
+  roomId: string;
+  sessionId: string;
+}): Promise<void> {
+  const { roomId, sessionId } = params;
+  await controllerFinishSession({ roomId, sessionId });
 }
 
 

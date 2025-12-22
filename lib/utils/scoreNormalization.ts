@@ -48,3 +48,4 @@ export function applyScoreNormalization(
     score: normalizeScore(gameId, scoreDoc.score),
   };
 }
+

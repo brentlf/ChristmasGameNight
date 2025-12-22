@@ -21,6 +21,8 @@ import type { Player, Room } from '@/types';
 import toast from 'react-hot-toast';
 import MiniGamesTVHub from './_components/MiniGamesTVHub';
 import { useSessionScores } from '@/lib/hooks/useSessionScores';
+import { useScoreboard } from '@/lib/hooks/useScoreboard';
+import { getPlayerDisplayName } from '@/lib/utils/scoreboard';
 import { useAudio } from '@/lib/contexts/AudioContext';
 import RaceTrackTV from './_components/RaceTrackTV';
 import GameFinale from '@/app/components/GameFinale';
@@ -256,6 +258,7 @@ export default function TVPage() {
   const { room, loading: roomLoading, updateRoom } = useRoom(roomId);
   const { players, loading: playersLoading } = usePlayers(roomId);
   const { scores: sessionScores } = useSessionScores(roomId, room?.currentSession?.sessionId ?? null);
+  const { scoreboard, getSortedPlayers } = useScoreboard(roomId);
   const lang = getLanguage();
   const [joinUrl, setJoinUrl] = useState('');
   const [viewerUid, setViewerUid] = useState<string | null>(null);
@@ -338,7 +341,7 @@ export default function TVPage() {
       m.set(uid, next);
     }
     lastStageByUid.current = m;
-    if (anyAdvanced) playSound('sleighbells', 0.22);
+    if (anyAdvanced) playSound('race.checkpoint', 0.22);
   }, [playSound, players, room]);
 
   const isController = Boolean(viewerUid && room?.controllerUid === viewerUid);
@@ -416,11 +419,31 @@ export default function TVPage() {
   // Unified lobby: regardless of current roomMode, the TV lobby should show QR + game selection tiles.
   // This is what the "Back to lobby" button expects (instead of staying on the race screen).
   if ((room.status as string) === 'lobby') {
-    const lobbyLeaders = [...players].sort((a: any, b: any) => {
-      const aScore = Number(a.totalMiniGameScore ?? a.score ?? 0);
-      const bScore = Number(b.totalMiniGameScore ?? b.score ?? 0);
-      return bScore - aScore;
-    });
+    // Use scoreboard if available, otherwise fall back to player docs
+    const scoreboardPlayers = getSortedPlayers();
+    const lobbyLeaders = scoreboardPlayers.length > 0
+      ? scoreboardPlayers.map((sp) => {
+          // Find matching player doc for avatar and other info
+          const playerDoc = players.find((p: any) => {
+            const playerIdentityId = room.identityMap?.[p.uid] || p.uid;
+            return playerIdentityId === sp.playerIdentityId;
+          });
+          return {
+            ...sp,
+            uid: sp.uid,
+            avatar: playerDoc?.avatar || sp.avatar,
+            name: sp.displayNameWithTag,
+            totalMiniGameScore: sp.totalPoints,
+            score: sp.totalPoints,
+          };
+        })
+      : [...players]
+          .filter((p: any) => Number(p.totalMiniGameScore ?? p.score ?? 0) > 0)
+          .sort((a: any, b: any) => {
+            const aScore = Number(a.totalMiniGameScore ?? a.score ?? 0);
+            const bScore = Number(b.totalMiniGameScore ?? b.score ?? 0);
+            return bScore - aScore;
+          });
 
     return (
       <main className="min-h-dvh flex flex-col px-4 py-6 md:py-8 overflow-x-hidden">
@@ -480,22 +503,31 @@ export default function TVPage() {
                 <p className="text-xs md:text-sm text-white/60 break-words">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {sortedPlayers.map((p: any) => (
+                  {sortedPlayers.map((p: any) => {
+                    const displayName = getPlayerDisplayName({
+                      displayName: p.displayName,
+                      displayTag: p.displayTag,
+                      name: p.name, // legacy fallback
+                    });
+                    return (
                     <div key={p.uid} className="rounded-lg md:rounded-xl border border-white/10 bg-white/5 p-3 md:p-2 min-h-[60px] md:min-h-[50px]">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm md:text-base font-bold break-words">
                             <span className="mr-1.5 text-base md:text-lg shrink-0">{p.avatar}</span>
-                            <span className="truncate">{p.name}</span>
+                              <span className="truncate">{displayName}</span>
                           </p>
                           <p className="text-xs md:text-sm text-white/60">{p.ready ? '✅' : '⏳'}</p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
+                            <p className="text-sm font-black text-christmas-gold">
+                              {scoreboard ? (scoreboard.players?.[room.identityMap?.[p.uid] || p.uid]?.totalPoints ?? 0) : Number(p.totalMiniGameScore ?? p.score ?? 0)}
+                            </p>
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -512,7 +544,11 @@ export default function TVPage() {
                 <div className="text-xs text-white/60 break-words">{lang === 'cs' ? 'Celkem' : 'Overall'}</div>
               </div>
               {lobbyLeaders.length === 0 ? (
-                <p className="text-xs md:text-sm text-white/60 break-words">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
+                <p className="text-xs md:text-sm text-white/60 break-words">
+                  {lang === 'cs'
+                    ? 'Zatím žádné skóre — začněte hru a získejte body!'
+                    : 'No scores yet — start a game to get on the board!'}
+                </p>
               ) : (
                 <div className="flex flex-col gap-2 md:gap-1.5">
                   {lobbyLeaders.slice(0, 8).map((p: any, idx: number) => (
@@ -546,17 +582,45 @@ export default function TVPage() {
   // New TV-led synchronous mini-games hub.
   if (room.roomMode === 'mini_games') {
     const sessionScoreMap = new Map(sessionScores.map((s: any) => [s.uid, Number(s.score ?? 0)]));
-    const sidebarLeaders = [...players]
-      .map((p: any) => {
-        const sessionScore = sessionScoreMap.get(p.uid) ?? 0;
-        const fallbackScore = Number(p.totalMiniGameScore ?? p.score ?? 0);
-        const displayScore =
-          room.currentSession && room.currentSession.sessionId && room.currentSession.gameId ? sessionScore : fallbackScore;
-        return { ...p, sessionScore, displayScore };
-      })
-      .sort((a: any, b: any) => (b.displayScore ?? 0) - (a.displayScore ?? 0));
-
+    
+    // Use scoreboard for overall standings, session scores for current game
+    const scoreboardPlayers = getSortedPlayers();
     const hasActiveSession = Boolean(room.currentSession?.sessionId);
+    
+    const sidebarLeaders = hasActiveSession && room.currentSession?.gameId
+      ? // Show session scores during active game
+        [...players]
+          .map((p: any) => {
+            const sessionScore = sessionScoreMap.get(p.uid) ?? 0;
+            return { ...p, sessionScore, displayScore: sessionScore };
+          })
+          // RULE: show only players who scored > 0 in this session while it's active
+          .filter((p: any) => Number(p.displayScore ?? 0) > 0)
+          .sort((a: any, b: any) => (b.displayScore ?? 0) - (a.displayScore ?? 0))
+      : // Show scoreboard overall standings between sessions
+        scoreboardPlayers.length > 0
+        ? scoreboardPlayers.map((sp) => {
+            const playerDoc = players.find((p: any) => {
+              const playerIdentityId = room.identityMap?.[p.uid] || p.uid;
+              return playerIdentityId === sp.playerIdentityId;
+            });
+            return {
+              ...sp,
+              uid: sp.uid,
+              avatar: playerDoc?.avatar || sp.avatar,
+              name: sp.displayNameWithTag,
+              displayScore: sp.totalPoints,
+              sessionScore: 0,
+            };
+          })
+        : [...players]
+            .map((p: any) => {
+        const fallbackScore = Number(p.totalMiniGameScore ?? p.score ?? 0);
+              return { ...p, sessionScore: 0, displayScore: fallbackScore };
+      })
+      // RULE: when falling back to legacy totals, show only players with > 0 points
+      .filter((p: any) => Number(p.displayScore ?? 0) > 0)
+      .sort((a: any, b: any) => (b.displayScore ?? 0) - (a.displayScore ?? 0));
 
     const backToLobby = async () => {
       if (!isController) return;
@@ -654,13 +718,22 @@ export default function TVPage() {
                 </div>
               </div>
               <div className="space-y-3">
-                {sortedPlayers.map((p: any) => (
+                {sortedPlayers.map((p: any) => {
+                  const displayName = getPlayerDisplayName({
+                    displayName: p.displayName,
+                    displayTag: p.displayTag,
+                    name: p.name, // legacy fallback
+                  });
+                  const totalScore = scoreboard
+                    ? (scoreboard.players?.[room.identityMap?.[p.uid] || p.uid]?.totalPoints ?? 0)
+                    : Number(p.totalMiniGameScore ?? p.score ?? 0);
+                  return (
                   <div key={p.uid} className="rounded-2xl border border-white/10 bg-white/5 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-lg font-bold">
                           <span className="mr-2 text-xl">{p.avatar}</span>
-                          {p.name}
+                            {displayName}
                         </p>
                         <p className="text-xs text-white/60 mt-1">
                           {p.ready ? '✅ Ready' : '⏳ Not ready'}{' '}
@@ -668,11 +741,12 @@ export default function TVPage() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-base font-black text-christmas-gold">{Number(p.totalMiniGameScore ?? p.score ?? 0)}</p>
+                          <p className="text-base font-black text-christmas-gold">{totalScore}</p>
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -711,9 +785,9 @@ export default function TVPage() {
                         <p className="truncate font-bold">
                           <span className="mr-2">{idx === 0 ? '🏆' : `#${idx + 1}`}</span>
                           <span className="mr-2">{p.avatar}</span>
-                          {p.name}
+                          {p.name || p.displayNameWithTag || getPlayerDisplayName({ displayName: p.displayName, displayTag: p.displayTag, name: p.name })}
                         </p>
-                        {room.currentSession?.sessionId && room.currentSession?.gameId && (
+                        {hasActiveSession && room.currentSession?.gameId && (
                           <p className="text-xs text-white/60">
                             {lang === 'cs' ? 'Skóre hry' : 'Session'}: {p.sessionScore}
                           </p>

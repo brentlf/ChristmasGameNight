@@ -10,9 +10,13 @@ export default function TimerRing(props: {
   warnAtSeconds?: number;
   className?: string;
   showSeconds?: boolean;
+  /**
+   * If true, play subtle ticks near the end (TV-only, gated by settings).
+   */
+  enableTickSound?: boolean;
 }) {
-  const { endsAt, startedAt, size = 44, warnAtSeconds = 6, className, showSeconds = true } = props;
-  const { playSound } = useAudio();
+  const { endsAt, startedAt, size = 44, warnAtSeconds = 6, className, showSeconds = true, enableTickSound = false } = props;
+  const { playSound, device } = useAudio();
   const [now, setNow] = useState(Date.now());
   const lastWarnRef = useRef<number | null>(null);
 
@@ -51,11 +55,12 @@ export default function TimerRing(props: {
     if (lastWarnRef.current === remainingSeconds) return;
     lastWarnRef.current = remainingSeconds;
 
-    // Subtle ticks near the end (cooldown in AudioContext will de-dupe).
-    if (remainingSeconds === 5 || remainingSeconds === 3 || remainingSeconds === 1) {
-      playSound('ding', 0.18);
-    }
-  }, [playSound, remainingSeconds, warnAtSeconds]);
+    // Premium rule: ticks only during last 5 seconds, TV-only, and user-toggleable.
+    if (!enableTickSound) return;
+    if (device !== 'tv') return;
+    if (remainingSeconds > 5) return;
+    playSound('game.countdown_tick', { device: 'tv' });
+  }, [device, enableTickSound, playSound, remainingSeconds, warnAtSeconds]);
 
   const stroke = useMemo(() => {
     const angle = Math.round(pct * 360);

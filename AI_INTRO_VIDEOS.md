@@ -8,6 +8,9 @@ If a video exists at:
 - `public/intro/emoji.mp4`
 - `public/intro/wyr.mp4`
 - `public/intro/pictionary.mp4`
+- `public/intro/guess_the_song.mp4`
+- `public/intro/family_feud.mp4`
+- `public/intro/bingo.mp4`
 
 …then the UI (`GameIntro`) will auto‑play it. If not, it falls back to a lightweight animated card.
 

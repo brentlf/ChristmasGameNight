@@ -2,261 +2,220 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
+import { AUDIO_EVENT_MAP, BACKGROUND_MUSIC_SOURCES, legacyToEvent, type AudioDevice, type AudioEventName } from '@/lib/audio/audioEventMap';
+
+type AudioSettings = {
+  audio_enabled: boolean;
+  music_enabled: boolean;
+  sfx_volume: number; // 0..1
+  music_volume: number; // 0..1
+  haptics_enabled: boolean;
+  countdown_tick_enabled: boolean; // TV-only optional
+};
 
 interface AudioContextType {
-  playSound: (soundName: SoundName, volume?: number) => void;
-  setBackgroundMusicEnabled: (enabled: boolean) => void;
-  backgroundMusicEnabled: boolean;
-  backgroundMusicVolume: number;
-  setBackgroundMusicVolume: (volume: number) => void;
-  soundEffectsEnabled: boolean;
-  setSoundEffectsEnabled: (enabled: boolean) => void;
-  soundEffectsVolume: number;
-  setSoundEffectsVolume: (volume: number) => void;
+  device: AudioDevice;
+  settings: AudioSettings;
+  setSettings: (next: Partial<AudioSettings>) => void;
+  toggleMute: () => void;
+  preload: (events?: AudioEventName[]) => void;
+  playSound: (
+    eventName: AudioEventName | string,
+    opts?: { device?: AudioDevice; gain?: number; force?: boolean } | number,
+  ) => void;
+  vibrate: (pattern: number | number[], opts?: { device?: AudioDevice }) => void;
 }
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
 
-// Sound effect definitions - add your audio files to public/audio/
-const SOUND_EFFECTS = {
-  // Christmas theme
-  // Use the bell for all button clicks (per request).
-  click: '/audio/bell.ogg',
-  success: '/audio/success.ogg',
-  ding: '/audio/ding.ogg',
-  jingle: '/audio/jingle.ogg',
-  pageTurn: '/audio/snowstep.ogg',
-  whoosh: '/audio/whoosh.ogg',
-  bell: '/audio/bell.ogg',
-  cheer: '/audio/cheer.ogg',
-  sleighbells: '/audio/sleighbells.mp3',
-  hohoho: '/audio/hohoho.mp3',
+const SETTINGS_KEYS = {
+  audio_enabled: 'audio_enabled',
+  music_enabled: 'music_enabled',
+  sfx_volume: 'sfx_volume',
+  music_volume: 'music_volume',
+  haptics_enabled: 'haptics_enabled',
+  countdown_tick_enabled: 'countdown_tick_enabled',
 } as const;
 
-type SoundName = keyof typeof SOUND_EFFECTS;
+function clamp01(n: number) {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(1, n));
+}
 
-const SFX_VOLUME_MULTIPLIER: Record<SoundName, number> = {
-  click: 0.9,
-  success: 1,
-  ding: 0.85,
-  jingle: 1,
-  pageTurn: 0.7,
-  whoosh: 0.8,
-  bell: 0.9,
-  cheer: 1,
-  sleighbells: 1,
-  hohoho: 1,
-};
+function guessDevice(pathname: string | null | undefined): AudioDevice {
+  // In this app, controllers live under /play, TV hubs live under /tv.
+  if (!pathname) return 'tv';
+  if (pathname.includes('/tv')) return 'tv';
+  // Phone controller routes
+  if (pathname.includes('/play')) return 'phone';
+  if (pathname.includes('/minigames')) return 'phone';
+  // Most non-TV room routes are used on phones (controllers).
+  if (pathname.startsWith('/room/')) return 'phone';
+  // Default: treat non-controller screens as "TV hub" (more atmospheric).
+  return 'tv';
+}
 
-const SFX_COOLDOWN_MS: Record<SoundName, number> = {
-  click: 80,
-  success: 250,
-  ding: 200,
-  jingle: 700,
-  pageTurn: 250,
-  whoosh: 200,
-  bell: 500,
-  cheer: 1200,
-  sleighbells: 1200,
-  hohoho: 1200,
-};
+function loadSettings(device: AudioDevice): AudioSettings {
+  const defaults: AudioSettings =
+    device === 'tv'
+      ? {
+          audio_enabled: true,
+          music_enabled: true,
+          sfx_volume: 0.35,
+          music_volume: 0.08,
+          haptics_enabled: false,
+          countdown_tick_enabled: true,
+        }
+      : {
+          audio_enabled: true,
+          music_enabled: false,
+          sfx_volume: 0.25,
+          music_volume: 0,
+          haptics_enabled: true,
+          countdown_tick_enabled: false,
+        };
 
-// Optional (not bundled by default). If you add a track, put it in public/audio/.
-const BACKGROUND_MUSIC = '/audio/christmas-ambient.ogg';
+  if (typeof window === 'undefined') return defaults;
+  try {
+    // Required keys (explicit), with fallback to prior JSON store.
+    const ae = localStorage.getItem(SETTINGS_KEYS.audio_enabled);
+    const me = localStorage.getItem(SETTINGS_KEYS.music_enabled);
+    const sv = localStorage.getItem(SETTINGS_KEYS.sfx_volume);
+    const mv = localStorage.getItem(SETTINGS_KEYS.music_volume);
+    const he = localStorage.getItem(SETTINGS_KEYS.haptics_enabled);
+    const te = localStorage.getItem(SETTINGS_KEYS.countdown_tick_enabled);
+
+    const parsed: Partial<AudioSettings> = {};
+    if (ae !== null) parsed.audio_enabled = ae === '1' || ae === 'true';
+    if (me !== null) parsed.music_enabled = me === '1' || me === 'true';
+    if (sv !== null) parsed.sfx_volume = clamp01(Number(sv));
+    if (mv !== null) parsed.music_volume = clamp01(Number(mv));
+    if (he !== null) parsed.haptics_enabled = he === '1' || he === 'true';
+    if (te !== null) parsed.countdown_tick_enabled = te === '1' || te === 'true';
+
+    // Migrate from old JSON key (kept for back-compat).
+    const legacyRaw = localStorage.getItem('cgn_audio_settings');
+    if (legacyRaw) {
+      const legacy = JSON.parse(legacyRaw) as {
+        musicEnabled?: boolean;
+        musicVolume?: number;
+        sfxEnabled?: boolean;
+        sfxVolume?: number;
+      };
+      if (typeof parsed.music_enabled !== 'boolean' && typeof legacy.musicEnabled === 'boolean') parsed.music_enabled = legacy.musicEnabled;
+      if (typeof parsed.music_volume !== 'number' && typeof legacy.musicVolume === 'number') parsed.music_volume = clamp01(legacy.musicVolume);
+      if (typeof parsed.audio_enabled !== 'boolean' && typeof legacy.sfxEnabled === 'boolean') parsed.audio_enabled = legacy.sfxEnabled || legacy.musicEnabled || true;
+      if (typeof parsed.sfx_volume !== 'number' && typeof legacy.sfxVolume === 'number') parsed.sfx_volume = clamp01(legacy.sfxVolume);
+    }
+
+    return { ...defaults, ...parsed };
+  } catch {
+    return defaults;
+  }
+}
+
+function persistSettings(s: AudioSettings) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SETTINGS_KEYS.audio_enabled, String(s.audio_enabled));
+    localStorage.setItem(SETTINGS_KEYS.music_enabled, String(s.music_enabled));
+    localStorage.setItem(SETTINGS_KEYS.sfx_volume, String(clamp01(s.sfx_volume)));
+    localStorage.setItem(SETTINGS_KEYS.music_volume, String(clamp01(s.music_volume)));
+    localStorage.setItem(SETTINGS_KEYS.haptics_enabled, String(Boolean(s.haptics_enabled)));
+    localStorage.setItem(SETTINGS_KEYS.countdown_tick_enabled, String(Boolean(s.countdown_tick_enabled)));
+
+    // Keep legacy JSON key updated for any existing code reading it.
+    localStorage.setItem(
+      'cgn_audio_settings',
+      JSON.stringify({
+        musicEnabled: s.music_enabled,
+        musicVolume: clamp01(s.music_volume),
+        sfxEnabled: s.audio_enabled, // legacy conflates enable with sfx
+        sfxVolume: clamp01(s.sfx_volume),
+      }),
+    );
+  } catch {
+    // ignore
+  }
+}
 
 export function AudioProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  // Default to off on phone views, on for TV/desktop
-  const isPhoneView = pathname?.includes('/play') && !pathname?.includes('/tv');
-  
-  // Initialize from localStorage if available, otherwise use route-based defaults
-  const [backgroundMusicEnabled, setBackgroundMusicEnabled] = useState(() => {
-    if (typeof window === 'undefined') return !isPhoneView;
-    try {
-      const raw = localStorage.getItem('cgn_audio_settings');
-      if (raw) {
-        const parsed = JSON.parse(raw) as { musicEnabled?: boolean };
-        if (typeof parsed.musicEnabled === 'boolean') {
-          return parsed.musicEnabled;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return !isPhoneView;
-  });
-  
-  const [backgroundMusicVolume, setBackgroundMusicVolume] = useState(() => {
-    if (typeof window === 'undefined') return 0.12;
-    try {
-      const raw = localStorage.getItem('cgn_audio_settings');
-      if (raw) {
-        const parsed = JSON.parse(raw) as { musicVolume?: number };
-        if (typeof parsed.musicVolume === 'number' && Number.isFinite(parsed.musicVolume)) {
-          return Math.min(1, Math.max(0, parsed.musicVolume));
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return 0.12; // Very subtle, 12%
-  });
-  
-  // Default to off unless audio files exist (prevents noisy 404s in dev).
-  const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      const raw = localStorage.getItem('cgn_audio_settings');
-      if (raw) {
-        const parsed = JSON.parse(raw) as { sfxEnabled?: boolean };
-        if (typeof parsed.sfxEnabled === 'boolean') {
-          return parsed.sfxEnabled;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return false;
-  });
-  
-  const [soundEffectsVolume, setSoundEffectsVolume] = useState(() => {
-    if (typeof window === 'undefined') return 0.25;
-    try {
-      const raw = localStorage.getItem('cgn_audio_settings');
-      if (raw) {
-        const parsed = JSON.parse(raw) as { sfxVolume?: number };
-        if (typeof parsed.sfxVolume === 'number' && Number.isFinite(parsed.sfxVolume)) {
-          return Math.min(1, Math.max(0, parsed.sfxVolume));
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return 0.25; // Subtle, 25%
-  });
-  
-  // Persist audio settings to localStorage whenever they change
+  const device = useMemo(() => guessDevice(pathname), [pathname]);
+  const [settings, setSettingsState] = useState<AudioSettings>(() => loadSettings(device));
+
+  // Keep settings in sync if device flips (rare, but possible on route change).
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem(
-        'cgn_audio_settings',
-        JSON.stringify({
-          musicEnabled: backgroundMusicEnabled,
-          musicVolume: backgroundMusicVolume,
-          sfxEnabled: soundEffectsEnabled,
-          sfxVolume: soundEffectsVolume,
-        }),
-      );
-    } catch {
-      // ignore
-    }
-  }, [backgroundMusicEnabled, backgroundMusicVolume, soundEffectsEnabled, soundEffectsVolume]);
-  
-  const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
-  const soundEffectsCache = useRef<Map<string, HTMLAudioElement>>(new Map());
-  const hasInteracted = useRef(false);
-  // Avoid spamming 404 requests when audio files aren't present in /public/audio.
-  const soundAvailability = useRef<Map<string, 'unknown' | 'ok' | 'missing'>>(new Map());
-  const bgAvailability = useRef<'unknown' | 'ok' | 'missing'>('unknown');
-  const sfxChecked = useRef(false);
-  const lastPlayedAt = useRef<Map<SoundName, number>>(new Map());
-  // Fix a race: if user toggles music off before the audio element is created,
-  // we still need to apply the current enabled/volume once it becomes available.
-  const [bgReadyTick, setBgReadyTick] = useState(0);
-
-  // Enable SFX only if at least one core file exists (click is our sentinel).
-  // Also pre-check a handful of commonly-used SFX so the first click feels responsive.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (sfxChecked.current) return;
-    sfxChecked.current = true;
-
-    const core: SoundName[] = ['click', 'success', 'ding', 'whoosh', 'pageTurn'];
-    const sentinel = SOUND_EFFECTS.click;
-
-    fetch(sentinel, { method: 'HEAD', cache: 'no-store' })
-      .then((res) => {
-        if (res.ok) {
-          soundAvailability.current.set('click', 'ok');
-          setSoundEffectsEnabled(true);
-        } else {
-          setSoundEffectsEnabled(false);
-        }
-      })
-      .catch(() => setSoundEffectsEnabled(false));
-
-    core.forEach((name) => {
-      const soundPath = SOUND_EFFECTS[name];
-      fetch(soundPath, { method: 'HEAD', cache: 'no-store' })
-        .then((res) => {
-          soundAvailability.current.set(name, res.ok ? 'ok' : 'missing');
-          if (!res.ok) soundEffectsCache.current.delete(name);
-        })
-        .catch(() => {
-          soundAvailability.current.set(name, 'missing');
-          soundEffectsCache.current.delete(name);
-        });
+    setSettingsState((prev) => {
+      // If user already has explicit keys set, do not overwrite with defaults.
+      const loaded = loadSettings(device);
+      return { ...loaded, ...prev };
     });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device]);
 
-  // Initialize background music
+  useEffect(() => {
+    persistSettings(settings);
+  }, [settings]);
+
+  const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
+  const bgSrcRef = useRef<string | null>(null);
+  const hasInteracted = useRef(false);
+  const audioCache = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const availability = useRef<Map<string, 'unknown' | 'ok' | 'missing'>>(new Map());
+  const lastPlayedAt = useRef<Map<string, number>>(new Map());
+
+  const deviceSfxMultiplier = device === 'tv' ? 1.0 : 0.75;
+  const deviceMusicMultiplier = device === 'tv' ? 1.0 : 0.0; // phones default silent unless enabled
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // If the file doesn't exist, don't keep trying to load it.
-    // (This project ships without audio files by default; see AUDIO_SETUP.md)
-    const check = async () => {
-      if (bgAvailability.current !== 'unknown') return bgAvailability.current;
+    const safeFetch = async (url: string) => {
       try {
-        const res = await fetch(BACKGROUND_MUSIC, { method: 'HEAD', cache: 'no-store' });
-        bgAvailability.current = res.ok ? 'ok' : 'missing';
-      } catch {
-        bgAvailability.current = 'missing';
+        return await fetch(url, { method: 'HEAD', cache: 'no-store' });
+      } catch (error: any) {
+        if (error?.message?.includes('CACHE_OPERATION_NOT_SUPPORTED')) return await fetch(url, { method: 'HEAD' });
+        return await fetch(url, { method: 'HEAD' });
       }
-      return bgAvailability.current;
     };
 
-    let audio: HTMLAudioElement | null = null;
-
-    check().then((avail) => {
-      if (avail !== 'ok') {
-        // Disable background music if missing to avoid console noise.
-        setBackgroundMusicEnabled(false);
-        return;
+    let cancelled = false;
+    (async () => {
+      // pick first available music source
+      for (const src of BACKGROUND_MUSIC_SOURCES) {
+        if (availability.current.get(src) === 'missing') continue;
+        const known = availability.current.get(src) ?? 'unknown';
+        if (known === 'unknown') {
+          try {
+            const res = await safeFetch(src);
+            availability.current.set(src, res.ok ? 'ok' : 'missing');
+          } catch {
+            availability.current.set(src, 'missing');
+          }
+        }
+        if (availability.current.get(src) === 'ok') {
+          if (cancelled) return;
+          bgSrcRef.current = src;
+          const a = new Audio(src);
+          a.loop = true;
+          a.preload = 'auto';
+          a.crossOrigin = 'anonymous';
+          a.volume = 0;
+          backgroundMusicRef.current = a;
+          break;
+        }
       }
-
-      audio = new Audio(BACKGROUND_MUSIC);
-      audio.loop = true;
-      // Initial volume will be corrected in the sync effect below.
-      audio.volume = 0;
-      audio.preload = 'auto';
-      audio.crossOrigin = 'anonymous';
-      audio.addEventListener('error', () => {
-        bgAvailability.current = 'missing';
-        setBackgroundMusicEnabled(false);
-      });
-
-      backgroundMusicRef.current = audio;
-      setBgReadyTick((n) => n + 1);
-
-      // Only try to play if music is currently enabled.
-      if (backgroundMusicEnabled) {
-        audio.play().catch(() => {
-          // Autoplay blocked - will start on user interaction
-        });
-      }
-    });
+    })();
 
     // Start playing when user interacts with page
     const handleInteraction = () => {
       hasInteracted.current = true;
       const a = backgroundMusicRef.current;
-      if (backgroundMusicEnabled && a && a.paused) {
-        a.play().catch(() => {
-          // User may have blocked autoplay
-        });
-      }
+      if (!a) return;
+      const enabled = settings.audio_enabled && settings.music_enabled && clamp01(settings.music_volume) > 0;
+      if (!enabled) return;
+      if (a.paused) a.play().catch(() => {});
     };
 
     const events = ['click', 'keydown', 'touchstart'];
@@ -265,148 +224,213 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
-      if (audio) {
-        audio.pause();
-        audio.src = '';
+      cancelled = true;
+      if (backgroundMusicRef.current) {
+        backgroundMusicRef.current.pause();
+        backgroundMusicRef.current.src = '';
       }
       events.forEach((event) => {
         document.removeEventListener(event, handleInteraction);
       });
     };
+  }, [settings.audio_enabled, settings.music_enabled, settings.music_volume]);
+
+  useEffect(() => {
+    const a = backgroundMusicRef.current;
+    if (!a) return;
+    const enabled = settings.audio_enabled && settings.music_enabled && clamp01(settings.music_volume) > 0;
+    const volume = enabled ? clamp01(settings.music_volume) * deviceMusicMultiplier : 0;
+    a.volume = volume;
+    if (!enabled) a.pause();
+    else if (enabled && hasInteracted.current && a.paused) a.play().catch(() => {});
+  }, [settings.audio_enabled, settings.music_enabled, settings.music_volume, deviceMusicMultiplier]);
+
+  const safeHead = useCallback(async (url: string) => {
+    try {
+      return await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    } catch (error: any) {
+      if (error?.message?.includes('CACHE_OPERATION_NOT_SUPPORTED')) return await fetch(url, { method: 'HEAD' });
+      return await fetch(url, { method: 'HEAD' });
+    }
   }, []);
 
-  // Update background music volume and enabled state
-  useEffect(() => {
-    if (!backgroundMusicRef.current) return;
-    
-    backgroundMusicRef.current.volume = backgroundMusicEnabled ? backgroundMusicVolume : 0;
-    
-    if (backgroundMusicEnabled && hasInteracted.current && backgroundMusicRef.current.paused) {
-      backgroundMusicRef.current.play().catch(() => {
-        // May fail if user hasn't interacted yet or autoplay blocked
-      });
-    } else if (!backgroundMusicEnabled) {
-      backgroundMusicRef.current.pause();
-    }
-  }, [backgroundMusicEnabled, backgroundMusicVolume, bgReadyTick]);
+  const resolveFirstAvailableSrc = useCallback(
+    async (srcs: string[]) => {
+      for (const src of srcs) {
+        const state = availability.current.get(src) ?? 'unknown';
+        if (state === 'missing') continue;
+        if (state === 'ok') return src;
+        try {
+          const res = await safeHead(src);
+          availability.current.set(src, res.ok ? 'ok' : 'missing');
+          if (res.ok) return src;
+        } catch {
+          availability.current.set(src, 'missing');
+        }
+      }
+      return null;
+    },
+    [safeHead],
+  );
 
-  // Update sound effects volume
-  useEffect(() => {
-    soundEffectsCache.current.forEach((audio) => {
-      audio.volume = soundEffectsVolume;
-    });
-  }, [soundEffectsVolume]);
-
-  const playSound = useCallback((soundName: SoundName, volume?: number) => {
-    if (!soundEffectsEnabled) return;
-
-    // Avoid SFX while tab is hidden (prevents weird "catch-up" sounds).
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-
-    const now = Date.now();
-    const last = lastPlayedAt.current.get(soundName) ?? 0;
-    const cooldownMs = SFX_COOLDOWN_MS[soundName] ?? 0;
-    if (cooldownMs > 0 && now - last < cooldownMs) return;
-    lastPlayedAt.current.set(soundName, now);
-    
-    const soundPath = SOUND_EFFECTS[soundName];
-    if (!soundPath) {
-      console.warn(`Sound effect "${soundName}" not found`);
-      return;
-    }
-
-    const availability = soundAvailability.current.get(soundName) ?? 'unknown';
-    if (availability === 'missing') return;
-
-    // If we haven't confirmed the file exists yet, do a cheap one-time HEAD check.
-    // IMPORTANT: Don't create `new Audio(...)` until we know it exists, otherwise
-    // the browser will spam 404s to the console.
-    if (availability === 'unknown') {
-      fetch(soundPath, { method: 'HEAD', cache: 'no-store' })
-        .then((res) => {
-          soundAvailability.current.set(soundName, res.ok ? 'ok' : 'missing');
-          if (!res.ok) {
-            soundEffectsCache.current.delete(soundName);
-          }
-        })
-        .catch(() => {
-          soundAvailability.current.set(soundName, 'missing');
-          soundEffectsCache.current.delete(soundName);
+  const preload = useCallback(
+    (events?: AudioEventName[]) => {
+      if (typeof window === 'undefined') return;
+      const list = events && events.length > 0 ? events : (Object.keys(AUDIO_EVENT_MAP) as AudioEventName[]);
+      // Fire and forget.
+      list.forEach(async (ev) => {
+        const def = AUDIO_EVENT_MAP[ev];
+        const src = await resolveFirstAvailableSrc(def.src);
+        if (!src) return;
+        if (audioCache.current.has(src)) return;
+        const a = new Audio(src);
+        a.preload = 'auto';
+        a.volume = 0;
+        a.addEventListener('error', () => {
+          availability.current.set(src, 'missing');
+          audioCache.current.delete(src);
         });
-      // Don’t attempt playback on the very first call; if the file exists it’ll work next click.
-      return;
-    }
-
-    // Use cached audio or create new one (safe because availability === 'ok')
-    let audio = soundEffectsCache.current.get(soundName);
-    if (!audio) {
-      audio = new Audio(soundPath);
-      audio.preload = 'auto';
-      const base = volume !== undefined ? Math.min(1, Math.max(0, volume)) : soundEffectsVolume * (SFX_VOLUME_MULTIPLIER[soundName] ?? 1);
-      audio.volume = Math.min(1, Math.max(0, base));
-      audio.addEventListener('error', () => {
-        soundAvailability.current.set(soundName, 'missing');
-        soundEffectsCache.current.delete(soundName);
+        audioCache.current.set(src, a);
       });
-      audio.addEventListener('canplaythrough', () => {
-        soundAvailability.current.set(soundName, 'ok');
-      });
-      soundEffectsCache.current.set(soundName, audio);
-    }
+    },
+    [resolveFirstAvailableSrc],
+  );
 
-    // Clone for overlapping sounds (reset to start)
-    const audioClone = audio.cloneNode() as HTMLAudioElement;
-    const base = volume !== undefined ? Math.min(1, Math.max(0, volume)) : soundEffectsVolume * (SFX_VOLUME_MULTIPLIER[soundName] ?? 1);
-    audioClone.volume = Math.min(1, Math.max(0, base));
-    
-    audioClone.play().catch(() => {
-      // Silently fail if audio can't play (e.g., user hasn't interacted)
-    });
-  }, [soundEffectsEnabled, soundEffectsVolume]);
+  const vibrate = useCallback(
+    (pattern: number | number[], opts?: { device?: AudioDevice }) => {
+      const d = opts?.device ?? device;
+      if (d !== 'phone') return;
+      if (!settings.audio_enabled) return; // Respect master mute
+      if (!settings.haptics_enabled) return;
+      if (typeof navigator === 'undefined') return;
+      const vib = (navigator as any).vibrate as undefined | ((p: number | number[]) => boolean);
+      if (!vib) return;
+      try {
+        vib(pattern);
+      } catch {
+        // ignore
+      }
+    },
+    [device, settings.audio_enabled, settings.haptics_enabled],
+  );
 
-  // Global UI policy: every <button> click gets the "click" sound (a bell).
-  // Existing explicit playSound('click') calls will be naturally de-duped by the cooldown.
+  const playSound = useCallback(
+    (eventName: AudioEventName | string, opts?: { device?: AudioDevice; gain?: number; force?: boolean } | number) => {
+      // Avoid sounds while tab is hidden (prevents weird "catch-up" sounds).
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+
+      const normalizedOpts =
+        typeof opts === 'number' ? ({ gain: opts } as { device?: AudioDevice; gain?: number; force?: boolean }) : opts;
+
+      const d = normalizedOpts?.device ?? device;
+      const mapped = (AUDIO_EVENT_MAP as any)[eventName] ? (eventName as AudioEventName) : legacyToEvent(eventName);
+      if (!mapped) return;
+
+      const def = AUDIO_EVENT_MAP[mapped];
+      if (def.allow && !def.allow.includes(d)) return;
+      if (!settings.audio_enabled && !normalizedOpts?.force) return;
+      if (def.tvOptional && d === 'tv' && !settings.countdown_tick_enabled) return;
+
+      const now = Date.now();
+      const lastKey = `${mapped}:${d}`;
+      const last = lastPlayedAt.current.get(lastKey) ?? 0;
+      const cooldownMs = def.cooldownMs ?? 0;
+      if (cooldownMs > 0 && now - last < cooldownMs) return;
+      lastPlayedAt.current.set(lastKey, now);
+
+      const groupVol = def.group === 'music' ? settings.music_volume : settings.sfx_volume;
+      const groupEnabled = def.group === 'music' ? settings.music_enabled : true;
+      if (!groupEnabled && !normalizedOpts?.force) return;
+      if (def.group === 'music') return; // music handled separately
+
+      const multiplier = def.group === 'sfx' ? deviceSfxMultiplier : 1;
+      const baseGain = clamp01(groupVol) * multiplier * (def.gain ?? 1) * clamp01(normalizedOpts?.gain ?? 1);
+      if (baseGain <= 0.0001) return;
+
+      // Resolve best src without causing 404 spam.
+      const tryPlay = async () => {
+        const src = await resolveFirstAvailableSrc(def.src);
+        if (!src) return;
+        const cached = audioCache.current.get(src);
+        const base = cached ?? new Audio(src);
+        if (!cached) {
+          base.preload = 'auto';
+          base.addEventListener('error', () => {
+            availability.current.set(src, 'missing');
+            audioCache.current.delete(src);
+          });
+          audioCache.current.set(src, base);
+        }
+
+        // Clone to allow overlap. (Safari is happier with clones than restarting same element.)
+        const node = base.cloneNode(true) as HTMLAudioElement;
+        node.volume = clamp01(baseGain);
+        node.play().catch(() => {});
+      };
+
+      tryPlay();
+    },
+    [
+      device,
+      deviceSfxMultiplier,
+      resolveFirstAvailableSrc,
+      settings.audio_enabled,
+      settings.countdown_tick_enabled,
+      settings.music_enabled,
+      settings.music_volume,
+      settings.sfx_volume,
+    ],
+  );
+
+  // Phone-only: optional global click policy, but avoid spamming on TV and allow opt-out.
   useEffect(() => {
     if (typeof document === 'undefined') return;
+    if (device !== 'phone') return;
 
     const handler = (e: MouseEvent) => {
       const target = e.target as Element | null;
-      const btn = target?.closest?.('button') as HTMLButtonElement | null;
-      if (!btn) return;
-      if (btn.disabled) return;
-
-      playSound('click');
+      const el = target?.closest?.('button,a,[role="button"]') as HTMLElement | null;
+      if (!el) return;
+      if ((el as HTMLButtonElement).disabled) return;
+      if (el.getAttribute('data-audio') === 'off') return;
+      playSound('ui.click', { device: 'phone' });
     };
 
     document.addEventListener('click', handler, true);
     return () => document.removeEventListener('click', handler, true);
-    // Intentionally depends on playSound so it stays current.
-  }, [playSound]);
+  }, [device, playSound]);
 
-  const value = useMemo(
-    () => ({
-      playSound,
-      setBackgroundMusicEnabled,
-      backgroundMusicEnabled,
-      backgroundMusicVolume,
-      setBackgroundMusicVolume,
-      soundEffectsEnabled,
-      setSoundEffectsEnabled,
-      soundEffectsVolume,
-      setSoundEffectsVolume,
-    }),
-    [
-      playSound,
-      setBackgroundMusicEnabled,
-      backgroundMusicEnabled,
-      backgroundMusicVolume,
-      setBackgroundMusicVolume,
-      soundEffectsEnabled,
-      setSoundEffectsEnabled,
-      soundEffectsVolume,
-      setSoundEffectsVolume,
-    ],
-  );
+  const setSettings = useCallback((next: Partial<AudioSettings>) => {
+    setSettingsState((prev) => ({
+      ...prev,
+      ...Object.fromEntries(
+        Object.entries(next).map(([k, v]) => {
+          if (k === 'sfx_volume' || k === 'music_volume') return [k, clamp01(Number(v))];
+          if (k === 'audio_enabled' || k === 'music_enabled' || k === 'haptics_enabled' || k === 'countdown_tick_enabled') return [k, Boolean(v)];
+          return [k, v];
+        }),
+      ),
+    }));
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    setSettingsState((prev) => ({ ...prev, audio_enabled: !prev.audio_enabled }));
+  }, []);
+
+  // Preload a small, high-value set so the first interaction feels snappy.
+  useEffect(() => {
+    preload(['ui.click', 'ui.transition', 'ui.lock_in', 'ui.success', 'ui.error', 'game.correct', 'game.wrong', 'game.reveal']);
+  }, [preload]);
+
+  const value = useMemo(() => ({ device, settings, setSettings, toggleMute, preload, playSound, vibrate }), [
+    device,
+    settings,
+    setSettings,
+    toggleMute,
+    preload,
+    playSound,
+    vibrate,
+  ]);
 
   return (
     <AudioContext.Provider

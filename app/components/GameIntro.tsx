@@ -13,6 +13,7 @@ function gameTitle(gameId: MiniGameType, lang: 'en' | 'cs') {
   if (gameId === 'pictionary') return lang === 'cs' ? 'Kreslení' : 'Pictionary';
   if (gameId === 'guess_the_song') return lang === 'cs' ? 'Uhádni vánoční písničku' : 'Guess the Christmas Song';
   if (gameId === 'family_feud') return lang === 'cs' ? 'Vánoční rodinný souboj' : 'Christmas Family Feud';
+  if (gameId === 'bingo') return lang === 'cs' ? 'Vánoční bingo' : 'Christmas Bingo';
   return gameId;
 }
 
@@ -43,15 +44,25 @@ export default function GameIntro(props: {
   useEffect(() => {
     let cancelled = false;
     // If the mp4 exists, show it; otherwise fall back to a lightweight animated card.
-    fetch(videoSrc, { method: 'HEAD', cache: 'no-store' })
+    // Use a silent check that won't log errors for missing files
+    const controller = new AbortController();
+    fetch(videoSrc, { 
+      method: 'HEAD', 
+      cache: 'no-store',
+      signal: controller.signal,
+    })
       .then((res) => {
         if (!cancelled) setVideoOk(res.ok);
       })
-      .catch(() => {
-        if (!cancelled) setVideoOk(false);
+      .catch((err) => {
+        // Silently handle errors (expected for missing files)
+        if (!cancelled && err.name !== 'AbortError') {
+          setVideoOk(false);
+        }
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [videoSrc]);
 
@@ -104,12 +115,25 @@ export default function GameIntro(props: {
                 muted
                 playsInline
                 loop
+                preload="none"
+                onError={(e) => {
+                  // Silently handle video load errors
+                  e.preventDefault();
+                  setVideoOk(false);
+                }}
+                onLoadStart={(e) => {
+                  // Double-check: if video fails to load, hide it
+                  const video = e.currentTarget;
+                  video.addEventListener('error', () => {
+                    setVideoOk(false);
+                  }, { once: true });
+                }}
               />
             ) : (
               <div className="h-full min-h-[12rem] flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-6xl mb-3 animate-pulse-slow">
-                    {gameId === 'trivia' ? '⚡' : gameId === 'emoji' ? '🎬' : gameId === 'wyr' ? '🎄' : gameId === 'pictionary' ? '🎨' : gameId === 'guess_the_song' ? '🎵' : gameId === 'family_feud' ? '🎯' : '🎄'}
+                    {gameId === 'trivia' ? '⚡' : gameId === 'emoji' ? '🎬' : gameId === 'wyr' ? '🎄' : gameId === 'pictionary' ? '🎨' : gameId === 'guess_the_song' ? '🎵' : gameId === 'family_feud' ? '🎯' : gameId === 'bingo' ? '🎄' : '🎄'}
                   </div>
                   <div className="text-white/70 text-sm">
                     {lang === 'cs' ? 'Připravujeme show…' : 'Getting the show ready…'}

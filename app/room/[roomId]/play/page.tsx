@@ -22,6 +22,8 @@ import type { Player, Room, RaceStageDefinition, MiniGameType } from '@/types';
 import { MiniGameDashboard } from './MiniGameDashboard';
 import { useAudio } from '@/lib/contexts/AudioContext';
 import MiniGamesPhoneClient from './MiniGamesPhoneClient';
+import { ReconnectCode } from '@/app/components/ReconnectCode';
+import TimerRing from '@/app/components/TimerRing';
 
 const AVATARS = ['🎅', '🎄', '🎁', '❄️', '🦌', '⛄', '🔔', '🕯️', '🧦', '🎀'];
 
@@ -35,7 +37,7 @@ export default function PlayPage() {
   const { players } = usePlayers(roomId);
   const { previousNames, loading: profileLoading } = useUserProfile();
   const lang = getLanguage();
-  const { playSound } = useAudio();
+  const { playSound, vibrate } = useAudio();
   
   const [name, setName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
@@ -69,15 +71,19 @@ export default function PlayPage() {
       return;
     }
 
-    playSound('click');
+    playSound('ui.lock_in');
+    vibrate(10);
     setJoining(true);
     try {
       const uid = await joinRoom(roomId, name, selectedAvatar);
       setPlayerUid(uid);
-      playSound('success');
+      playSound('ui.success');
+      vibrate([10, 20, 10]);
       toast.success(t('player.joined', lang));
     } catch (error: any) {
       toast.error(error.message || 'Failed to join room');
+      playSound('ui.error');
+      vibrate([20, 30, 20]);
     } finally {
       setJoining(false);
     }
@@ -448,6 +454,9 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
               <p className="text-white/75 mb-4 md:mb-6 text-sm md:text-base break-words">
                 {t('race.waitingForStart', lang) || 'Waiting for the host to start the race...'}
               </p>
+              <div className="mb-4 md:mb-6">
+                <ReconnectCode player={player} roomId={roomId} />
+              </div>
               <p className="text-xs md:text-sm text-white/60 mb-4 md:mb-6 break-words">
                 {t('race.waitingDesc', lang) || 'The race will begin once the host starts it from the TV view.'}
               </p>
@@ -576,6 +585,7 @@ function StageBody(props: {
   const startedAt = isTriviaSolo ? Number(safeState.questionStartedAt ?? safeState.startedAt ?? now) : 0;
   const elapsedS = isTriviaSolo ? Math.floor((now - startedAt) / 1000) : 0;
   const remaining = isTriviaSolo ? Math.max(0, secondsPerQuestion - elapsedS) : 0;
+  const endsAt = isTriviaSolo ? startedAt + secondsPerQuestion * 1000 : 0;
 
   useEffect(() => {
     if (!isTriviaSolo || !questionId) return;
@@ -800,9 +810,12 @@ function StageBody(props: {
           <p className="text-xs md:text-sm text-white/70 break-words">
             {t('race.question', lang)} {Math.min(current + 1, questionIds.length)}/{questionIds.length}
           </p>
-          <p className="text-xs md:text-sm shrink-0">
-            ⏱️ <span className={remaining <= 5 ? 'text-christmas-red font-bold' : 'text-white/80'}>{remaining}s</span>
-          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <TimerRing endsAt={endsAt} startedAt={startedAt} size={42} showSeconds={false} />
+            <p className="text-xs md:text-sm shrink-0">
+              ⏱️ <span className={remaining <= 5 ? 'text-christmas-red font-bold' : 'text-white/80'}>{remaining}s</span>
+            </p>
+          </div>
         </div>
 
         <p className="text-lg md:text-xl lg:text-2xl font-semibold leading-snug break-words">{q.prompt}</p>

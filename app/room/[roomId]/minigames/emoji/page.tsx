@@ -14,6 +14,7 @@ import { shuffleSeeded, generateSeed } from '@/lib/utils/seededRandom';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { MiniGameAdvanceGate } from '../_components/MiniGameAdvanceGate';
+import { useAudio } from '@/lib/contexts/AudioContext';
 
 export default function EmojiPage() {
   const params = useParams();
@@ -138,7 +139,9 @@ function EmojiQuestion({
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [locked, setLocked] = useState(false);
   const router = useRouter();
+  const { playSound, vibrate } = useAudio();
 
   if (!item) return null;
 
@@ -149,7 +152,10 @@ function EmojiQuestion({
 
   const handleSubmit = async () => {
     if (!selected) return;
+    playSound('ui.lock_in', { device: 'phone' });
+    vibrate(10, { device: 'phone' });
     setBusy(true);
+    setLocked(true);
     try {
       const result = await submitEmojiAnswer({
         roomId,
@@ -160,22 +166,29 @@ function EmojiQuestion({
       });
       if (result.correct) {
         toast.success(t('emoji.correct', lang));
+        playSound('game.correct', { device: 'phone' });
+        vibrate([10, 20, 10], { device: 'phone' });
       } else {
         toast.error(t('emoji.incorrect', lang));
+        playSound('game.wrong', { device: 'phone' });
+        vibrate([25, 30, 25], { device: 'phone' });
       }
       // Reset selection - the component will automatically update via Firestore listener
       setSelected(null);
     } catch (error: any) {
       toast.error(error.message || t('common.error', lang));
+      playSound('ui.error', { device: 'phone' });
+      vibrate(20, { device: 'phone' });
     } finally {
       setBusy(false);
+      setLocked(false);
     }
   };
 
   return (
       <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
       <div className="max-w-xl mx-auto">
-        <div className="card mb-4">
+        <div className="card mb-4 cgn-animate-in">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold">{t('emoji.title', lang)}</h1>
             <Link href={`/room/${roomId}/play`} className="btn-secondary text-sm">
@@ -189,7 +202,7 @@ function EmojiQuestion({
           </div>
         </div>
 
-        <div className="card">
+        <div className="card cgn-animate-in">
           <div className="text-center mb-6">
             <div className="text-8xl mb-4">{item.emoji}</div>
             <p className="text-lg text-white/80">{t('emoji.guess', lang)}</p>
@@ -199,7 +212,7 @@ function EmojiQuestion({
             {allOptions.map((opt, idx) => (
               <button
                 key={idx}
-                className={`w-full rounded-2xl border p-4 text-left transition disabled:opacity-50 ${
+                className={`w-full rounded-2xl border p-4 text-left transition disabled:opacity-50 active:scale-[0.99] ${
                   selected === opt
                     ? 'bg-christmas-gold/25 border-christmas-gold/40'
                     : 'bg-white/5 border-white/10 hover:bg-white/10'
@@ -218,7 +231,10 @@ function EmojiQuestion({
             disabled={busy || !selected}
             onClick={handleSubmit}
           >
-            {busy ? t('common.loading', lang) : t('common.submit', lang)}
+            <span className="inline-flex items-center justify-center gap-2">
+              {locked && <span className="cgn-pop" aria-hidden="true">✅</span>}
+              {busy ? t('common.loading', lang) : locked ? (lang === 'cs' ? 'Zamčeno' : 'Locked') : t('common.submit', lang)}
+            </span>
           </button>
         </div>
       </div>
