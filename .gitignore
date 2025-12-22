@@ -38,6 +38,5 @@ next-env.d.ts
 # scratch / local tooling
 /tmp/
 
-# optional local media outputs
-/public/intro/
+
 
