@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRoom } from '@/lib/hooks/useRoom';
 import { usePlayer } from '@/lib/hooks/usePlayer';
 import { usePlayers } from '@/lib/hooks/usePlayers';
@@ -9,8 +9,9 @@ import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { calculateOverallScoring } from '@/lib/utils/overallScoring';
 import { getLanguage, t } from '@/lib/i18n';
 import { joinRoom } from '@/lib/utils/room';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { ensureStageInitialized, getStageByIndex, getTotalStages, submitCodeLock, submitEmojiAnswer, submitRiddleAnswer, submitTriviaAnswer } from '@/lib/raceEngine';
@@ -38,6 +39,7 @@ export default function PlayPage() {
   const { previousNames, loading: profileLoading } = useUserProfile();
   const lang = getLanguage();
   const { playSound, vibrate } = useAudio();
+  const lastHeartbeatAtRef = useRef<number>(0);
   
   const [name, setName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
@@ -59,6 +61,36 @@ export default function PlayPage() {
     if (room.redirectRoomId === roomId) return;
     router.replace(`/room/${room.redirectRoomId}/play`);
   }, [room, roomId, router]);
+
+  // Presence heartbeat for the main /play page (Amazing Race + Mini Games entry).
+  // Keeps lastActiveAt fresh while the tab is visible so the TV can detect who is away.
+  useEffect(() => {
+    if (!roomId) return;
+    if (!player?.uid) return;
+    if (typeof document === 'undefined') return;
+
+    const playerRef = doc(db, 'rooms', roomId, 'players', player.uid);
+
+    const ping = (force: boolean) => {
+      if (!force && document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (!force && now - lastHeartbeatAtRef.current < 20_000) return;
+      lastHeartbeatAtRef.current = now;
+      updateDoc(playerRef, { lastActiveAt: now } as any).catch(() => {});
+    };
+
+    const onVis = () => {
+      if (document.visibilityState === 'visible') ping(true);
+    };
+    document.addEventListener('visibilitychange', onVis);
+
+    ping(true);
+    const id = setInterval(() => ping(false), 25_000);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [roomId, player?.uid]);
 
   const handleJoin = async () => {
     if (!name.trim()) {

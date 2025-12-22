@@ -83,6 +83,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   const lang = getLanguage();
   const { playSound, vibrate } = useAudio();
   const { players: allPlayers } = usePlayers(roomId);
+  const lastHeartbeatAtRef = useRef<number>(0);
 
   const currentSession = room.currentSession ?? null;
   const sessionId = currentSession?.sessionId ?? null;
@@ -124,6 +125,39 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
       playSound('ui.error');
     }
   };
+
+  // Presence heartbeat: update lastActiveAt periodically while the player view is visible.
+  // This lets the TV reliably mark players as away when they close the tab / lock the phone.
+  useEffect(() => {
+    if (!roomId) return;
+    if (!player?.uid) return;
+    if (typeof document === 'undefined') return;
+
+    const playerRef = doc(db, 'rooms', roomId, 'players', player.uid);
+
+    const ping = async (force: boolean) => {
+      // If the tab isn't visible, stop heartbeating so the user naturally becomes "away".
+      if (!force && document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (!force && now - lastHeartbeatAtRef.current < 20_000) return;
+      lastHeartbeatAtRef.current = now;
+      updateDoc(playerRef, { lastActiveAt: now } as any).catch(() => {});
+    };
+
+    const onVis = () => {
+      if (document.visibilityState === 'visible') ping(true);
+    };
+    document.addEventListener('visibilitychange', onVis);
+
+    // Initial ping + interval.
+    ping(true);
+    const id = setInterval(() => ping(false), 25_000);
+
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [roomId, player?.uid]);
 
   const submit = async (answer: string | number | null) => {
     if (!sessionId || questionIndex === null || !gameId) return;

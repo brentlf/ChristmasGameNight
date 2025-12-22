@@ -206,7 +206,7 @@ export default function MiniGamesTVHub(props: {
     if (!isController) return;
     if (!sessionId) return;
     if (!currentSession) return;
-    const idleMs = 120_000;
+    const idleMs = 90_000;
     const id = setInterval(() => {
       const now = Date.now();
       const drawerUid = currentSession.drawerUid ?? null;

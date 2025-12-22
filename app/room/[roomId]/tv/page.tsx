@@ -267,6 +267,13 @@ export default function TVPage() {
   const { playSound } = useAudio();
   const lastStageByUid = useRef<Map<string, number>>(new Map());
   const stageSoundPrimed = useRef(false);
+  const [now, setNow] = useState(Date.now());
+
+  // Re-render periodically so "Active/Away" presence based on lastActiveAt stays up to date.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (auth?.currentUser?.uid) {
@@ -707,11 +714,14 @@ export default function TVPage() {
                   {t('tv.players', lang)} ({players.length}/{room.maxPlayers})
                 </h2>
                 <div className="text-xs text-white/60 whitespace-normal break-words max-w-full">
-                  {lang === 'cs' ? 'Ready = aktivní' : 'Ready = active'}
+                  {lang === 'cs' ? 'Ready = připraven • Aktivní = nedávno online' : 'Ready = opted in • Active = seen recently'}
                 </div>
               </div>
               <div className="space-y-3">
                 {sortedPlayers.map((p: any) => {
+                  const thresholdMs = 90_000;
+                  const last = Number(p.lastActiveAt ?? 0);
+                  const isActive = last > 0 && now - last <= thresholdMs;
                   const displayName = getPlayerDisplayName({
                     displayName: p.displayName,
                     displayTag: p.displayTag,
@@ -730,7 +740,9 @@ export default function TVPage() {
                         </p>
                         <p className="text-xs text-white/60 mt-1">
                           {p.ready ? '✅ Ready' : '⏳ Not ready'}{' '}
-                          {p.lastActiveAt ? <span className="text-white/40">• {lang === 'cs' ? 'aktivní' : 'active'}</span> : null}
+                          <span className={isActive ? 'text-emerald-300' : 'text-white/40'}>
+                            • {isActive ? (lang === 'cs' ? '🟢 aktivní' : '🟢 active') : lang === 'cs' ? '⚫ pryč' : '⚫ away'}
+                          </span>
                         </p>
                       </div>
                       <div className="text-right">
