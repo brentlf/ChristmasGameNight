@@ -84,7 +84,7 @@ function GlobalLeaderboardPageContent() {
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(selectedRoomIdsFromUrl);
   const [loading, setLoading] = useState(true);
   const [aggregatedPlayers, setAggregatedPlayers] = useState<AggregatedPlayer[]>([]);
-  const [availableRooms, setAvailableRooms] = useState<Array<{ id: string; name: string; code: string; createdAt: number }>>([]);
+  const [availableRooms, setAvailableRooms] = useState<Array<{ id: string; name: string; code: string; createdAt: number; totalPoints: number }>>([]);
   const [showSelector, setShowSelector] = useState(false);
   const lang = getLanguage();
   const [animateBars, setAnimateBars] = useState(false);
@@ -143,14 +143,21 @@ function GlobalLeaderboardPageContent() {
             const data = doc.data() as Room;
             // Only show public rooms (no eventId/groupId)
             if (data.eventId != null || data.groupId != null) return null;
+            const scoreboardPlayers: ScoreboardPlayer[] = data.scoreboard?.players
+              ? Object.values(data.scoreboard.players)
+              : [];
+            const totalPoints = scoreboardPlayers.reduce((sum, p) => sum + Number((p as any)?.totalPoints ?? 0), 0);
+            // Only show rooms where points were actually scored.
+            if (totalPoints <= 0) return null;
             return {
               id: doc.id,
               name: data.name || 'Unnamed Room',
               code: data.code || '',
               createdAt: data.createdAt || 0,
+              totalPoints,
             };
           })
-          .filter(Boolean) as Array<{ id: string; name: string; code: string; createdAt: number }>;
+          .filter(Boolean) as Array<{ id: string; name: string; code: string; createdAt: number; totalPoints: number }>;
         setAvailableRooms(rooms);
       } catch (error) {
         console.error('Error loading rooms:', error);
@@ -716,7 +723,7 @@ function GlobalLeaderboardPageContent() {
             
             <div className="space-y-2">
               {availableRooms.length === 0 ? (
-                <p className="text-white/60 text-sm">No rooms available</p>
+                <p className="text-white/60 text-sm">No game nights with points yet.</p>
               ) : (
                 availableRooms
                   .sort((a, b) => b.createdAt - a.createdAt) // Sort by newest first
