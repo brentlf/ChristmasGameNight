@@ -447,7 +447,7 @@ export default function TVPage() {
 
     return (
       <main className="min-h-dvh flex flex-col px-4 py-6 md:py-8 overflow-x-hidden">
-        <div className="max-w-7xl mx-auto w-full flex flex-col gap-4 md:gap-5">
+        <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 flex flex-col gap-4 md:gap-5">
           {/* Header */}
           <div className="card relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
@@ -488,9 +488,9 @@ export default function TVPage() {
           </div>
 
           {/* 3-pillar layout: Players | Lobby/Game Select | Leaderboard */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-5">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-5 flex-1 min-h-0">
             {/* Players (left) */}
-            <div className="card xl:col-span-2 flex flex-col gap-2 h-full">
+            <div className="card xl:col-span-2 flex flex-col gap-2 min-h-0">
               <div className="flex flex-col gap-1.5">
                 <h2 className="text-lg md:text-xl font-bold break-words">
                   {t('tv.players', lang)} ({players.length}/{room.maxPlayers})
@@ -502,7 +502,7 @@ export default function TVPage() {
               {sortedPlayers.length === 0 ? (
                 <p className="text-xs md:text-sm text-white/60 break-words">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
               ) : (
-                <div className="flex flex-col gap-2">
+                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-auto pr-1">
                   {sortedPlayers.map((p: any) => {
                     const displayName = getPlayerDisplayName({
                       displayName: p.displayName,
@@ -533,12 +533,12 @@ export default function TVPage() {
             </div>
 
             {/* Lobby / Game Select (middle) */}
-            <div className="xl:col-span-8 h-full">
+            <div className="xl:col-span-8 min-h-0 flex flex-col">
               <MiniGamesTVHub roomId={roomId} room={room} players={players} lang={lang} isController={isController} />
             </div>
 
             {/* Leaderboard (right) */}
-            <div className="card xl:col-span-2 flex flex-col gap-2 h-full">
+            <div className="card xl:col-span-2 flex flex-col gap-2 min-h-0">
               <div className="flex flex-col gap-1.5">
                 <h2 className="text-lg md:text-xl font-bold break-words">{t('common.leaderboard', lang)}</h2>
                 <div className="text-xs text-white/60 break-words">{lang === 'cs' ? 'Celkem' : 'Overall'}</div>
@@ -550,7 +550,7 @@ export default function TVPage() {
                     : 'No scores yet — start a game to get on the board!'}
                 </p>
               ) : (
-                <div className="flex flex-col gap-2 md:gap-1.5">
+                <div className="flex-1 min-h-0 flex flex-col gap-2 md:gap-1.5 overflow-auto pr-1">
                   {lobbyLeaders.slice(0, 8).map((p: any, idx: number) => (
                     <div
                       key={p.uid}

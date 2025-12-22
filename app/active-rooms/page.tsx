@@ -164,7 +164,7 @@ export default function ActiveRoomsPage() {
 
   if (loading) {
     return (
-      <main className="h-dvh px-4 py-6 md:py-8 flex flex-col overflow-hidden">
+      <main className="min-h-dvh px-4 py-6 md:py-8 flex flex-col overflow-hidden">
         <div className="mx-auto max-w-4xl w-full flex-1 min-h-0 flex flex-col">
           <div className="card text-center">
             <p className="text-white/70">{t('common.loading', lang)}</p>
@@ -175,7 +175,7 @@ export default function ActiveRoomsPage() {
   }
 
   return (
-    <main className="h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col overflow-hidden">
+    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col overflow-hidden">
       <div className="mx-auto max-w-4xl w-full flex-1 min-h-0 flex flex-col">
         <div className="mb-3 md:mb-4 flex items-center justify-between gap-3 md:gap-4 shrink-0">
           <Link 

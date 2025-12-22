@@ -100,7 +100,7 @@ export default function GameIntro(props: {
               disabled={!canSkip}
               className="btn-secondary text-sm disabled:opacity-50"
             >
-              {canSkip ? (lang === 'cs' ? 'Přeskočit' : 'Skip') : lang === 'cs' ? '...' : '...'}
+              {canSkip ? (lang === 'cs' ? 'Spustit hru' : 'Start Game') : lang === 'cs' ? '...' : '...'}
             </button>
           )}
         </div>

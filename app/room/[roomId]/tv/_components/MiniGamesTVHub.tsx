@@ -103,11 +103,15 @@ function GameTile(props: {
       disabled={disabled}
       onClick={onClick}
       className={[
-        'group relative overflow-hidden rounded-2xl bg-wood-dark/40 backdrop-blur-xl border border-wood-light/30',
+        // h-full lets tiles stretch when placed in a full-height grid cell.
+        'group relative overflow-hidden rounded-2xl bg-wood-dark/40 backdrop-blur-xl border border-wood-light/30 h-full',
         accentBorder,
         'transition-all duration-500',
         disabled ? 'opacity-60 cursor-not-allowed' : 'hover:scale-[1.03] hover:bg-wood-dark/50',
-        size === 'main' ? 'min-h-[130px] md:min-h-[120px]' : 'min-h-[110px] md:min-h-[105px]',
+        // Keep "main event" tiles compact by default; scale up on big screens.
+        size === 'main'
+          ? 'min-h-[110px] sm:min-h-[120px] lg:min-h-[130px]'
+          : 'min-h-[100px] sm:min-h-[105px] lg:min-h-[110px]',
       ].join(' ')}
       style={{
         boxShadow:
@@ -124,10 +128,12 @@ function GameTile(props: {
       {/* Shimmer */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-fire-gold/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
 
-      <div className={['relative z-10 text-left', size === 'main' ? 'p-4 md:p-4' : 'p-3 md:p-3'].join(' ')}>
+      <div className={['relative z-10 text-left', size === 'main' ? 'p-3 sm:p-4' : 'p-3'].join(' ')}>
         <div
           className={[
-            size === 'main' ? 'text-3xl md:text-4xl mb-2 md:mb-1.5' : 'text-2xl md:text-3xl mb-1.5 md:mb-1',
+            size === 'main'
+              ? 'text-2xl sm:text-3xl lg:text-4xl mb-1.5 sm:mb-2'
+              : 'text-xl sm:text-2xl lg:text-3xl mb-1 sm:mb-1.5',
             'transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500',
             iconGlow,
           ].join(' ')}
@@ -137,7 +143,7 @@ function GameTile(props: {
         <div className="space-y-1 md:space-y-0.5">
           <h3
             className={[
-              size === 'main' ? 'text-base md:text-xl' : 'text-sm md:text-lg',
+              size === 'main' ? 'text-sm sm:text-base lg:text-xl' : 'text-xs sm:text-sm lg:text-lg',
               'font-black text-white group-hover:text-fire-gold transition-colors duration-300 break-words',
             ].join(' ')}
           >
@@ -147,7 +153,7 @@ function GameTile(props: {
         </div>
         <p
           className={[
-            'text-xs md:text-xs',
+            'text-[11px] sm:text-xs',
             'text-white/75 mt-1.5 md:mt-1 group-hover:text-white/95 transition-colors duration-300 whitespace-normal break-words line-clamp-2',
           ].join(' ')}
         >
@@ -824,7 +830,7 @@ export default function MiniGamesTVHub(props: {
     if (!currentSession || !sessionId || !gameId || sessionStatus === 'between' || room.status === 'between_sessions') {
       // Host Session: always allow starting any mini-game from the TV hub.
       return (
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-2.5 md:p-3 relative overflow-hidden flex flex-col h-full">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-2.5 md:p-3 relative overflow-hidden flex flex-col h-full min-h-0">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/10 blur-3xl" />
           <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/10 blur-3xl" />
 
@@ -860,10 +866,11 @@ export default function MiniGamesTVHub(props: {
             )}
           </div>
 
-          <div className="relative mt-2 md:mt-3 space-y-2 md:space-y-2.5">
-            {/* Main Events (top row) */}
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
+          {/* Layout: Main Events (content-sized) + Mini Games (fills remaining space) */}
+          <div className="relative mt-2 md:mt-3 flex-1 min-h-0 flex flex-col gap-2 md:gap-2.5">
+            {/* Main Events (content-sized) */}
+            <div className="shrink-0">
+              <div className="mb-1.5 flex items-center justify-between shrink-0">
                 <div className="text-xs font-black tracking-widest text-white/60 uppercase">
                   {lang === 'cs' ? 'Hlavní události' : 'Main Events'}
                 </div>
@@ -896,72 +903,74 @@ export default function MiniGamesTVHub(props: {
               </div>
             </div>
 
-            {/* Mini Games (next two rows) */}
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
+            {/* Mini Games (fills remaining space) */}
+            <div className="flex-1 min-h-0 flex flex-col">
+              <div className="mb-1.5 flex items-center justify-between shrink-0">
                 <div className="text-xs font-black tracking-widest text-white/60 uppercase">
                   {lang === 'cs' ? 'Mini hry' : 'Mini Games'}
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 md:gap-2.5">
-                <GameTile
-                  title="Trivia Blitz"
-                  subtitle={lang === 'cs' ? 'Rychlé body' : 'Fast points'}
-                  description={lang === 'cs' ? '10 otázek. Odpovídej na telefonu.' : '10 questions. Answer on your phone.'}
-                  icon="⚡"
-                  accent="gold"
-                  disabled={!isController || busy}
-                  onClick={() => requestStartGame('trivia')}
-                />
-                <GameTile
-                  title={lang === 'cs' ? 'Emoji hádanka' : 'Emoji Guess'}
-                  subtitle={lang === 'cs' ? 'Filmy & písně' : 'Movies & songs'}
-                  description={lang === 'cs' ? 'Uhodni název podle emotikonů.' : 'Guess from the emoji clue.'}
-                  icon="🎬"
-                  accent="blue"
-                  disabled={!isController || busy}
-                  onClick={() => requestStartGame('emoji')}
-                />
-                <GameTile
-                  title={lang === 'cs' ? 'Co radši?' : 'Would You Rather'}
-                  subtitle={lang === 'cs' ? 'Hlasování' : 'Vote'}
-                  description={lang === 'cs' ? 'Vyber A/B. Pak se zasměj splitu.' : 'Pick A/B. Enjoy the chaos split.'}
-                  icon="🎄"
-                  accent="green"
-                  disabled={!isController || busy}
-                  onClick={() => requestStartGame('wyr')}
-                />
-                <GameTile
-                  title="Pictionary"
-                  subtitle={lang === 'cs' ? 'Kresli & hádej' : 'Draw & guess'}
-                  description={lang === 'cs' ? 'Jeden kreslí, ostatní tipují z TV.' : 'One draws, everyone guesses from the TV.'}
-                  icon="🎨"
-                  accent="gold"
-                  disabled={!isController || busy}
-                  onClick={() => requestStartGame('pictionary')}
-                />
-                <GameTile
-                  title={lang === 'cs' ? 'Uhádni písničku' : 'Guess the Song'}
-                  subtitle={lang === 'cs' ? 'Poslouchej & hádej' : 'Listen & guess'}
-                  description={
-                    lang === 'cs'
-                      ? 'Poslouchej úryvek a uhodni vánoční písničku.'
-                      : 'Listen to the snippet and guess the Christmas song.'
-                  }
-                  icon="🎵"
-                  accent="blue"
-                  disabled={!isController || busy}
-                  onClick={() => requestStartGame('guess_the_song')}
-                />
-                <GameTile
-                  title={lang === 'cs' ? 'Vánoční bingo' : 'Christmas Bingo'}
-                  subtitle={lang === 'cs' ? 'Klasické bingo' : 'Classic bingo'}
-                  description={lang === 'cs' ? 'Sleduj koule a označuj čísla na své kartě.' : 'Watch the balls and mark numbers on your card.'}
-                  icon="🎄"
-                  accent="red"
-                  disabled={!isController || busy}
-                  onClick={() => requestStartGame('bingo')}
-                />
+              <div className="flex-1 min-h-0 overflow-auto pr-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 md:gap-2.5 auto-rows-[minmax(100px,1fr)]">
+                  <GameTile
+                    title="Trivia Blitz"
+                    subtitle={lang === 'cs' ? 'Rychlé body' : 'Fast points'}
+                    description={lang === 'cs' ? '10 otázek. Odpovídej na telefonu.' : '10 questions. Answer on your phone.'}
+                    icon="⚡"
+                    accent="gold"
+                    disabled={!isController || busy}
+                    onClick={() => requestStartGame('trivia')}
+                  />
+                  <GameTile
+                    title={lang === 'cs' ? 'Emoji hádanka' : 'Emoji Guess'}
+                    subtitle={lang === 'cs' ? 'Filmy & písně' : 'Movies & songs'}
+                    description={lang === 'cs' ? 'Uhodni název podle emotikonů.' : 'Guess from the emoji clue.'}
+                    icon="🎬"
+                    accent="blue"
+                    disabled={!isController || busy}
+                    onClick={() => requestStartGame('emoji')}
+                  />
+                  <GameTile
+                    title={lang === 'cs' ? 'Co radši?' : 'Would You Rather'}
+                    subtitle={lang === 'cs' ? 'Hlasování' : 'Vote'}
+                    description={lang === 'cs' ? 'Vyber A/B. Pak se zasměj splitu.' : 'Pick A/B. Enjoy the chaos split.'}
+                    icon="🎄"
+                    accent="green"
+                    disabled={!isController || busy}
+                    onClick={() => requestStartGame('wyr')}
+                  />
+                  <GameTile
+                    title="Pictionary"
+                    subtitle={lang === 'cs' ? 'Kresli & hádej' : 'Draw & guess'}
+                    description={lang === 'cs' ? 'Jeden kreslí, ostatní tipují z TV.' : 'One draws, everyone guesses from the TV.'}
+                    icon="🎨"
+                    accent="gold"
+                    disabled={!isController || busy}
+                    onClick={() => requestStartGame('pictionary')}
+                  />
+                  <GameTile
+                    title={lang === 'cs' ? 'Uhádni písničku' : 'Guess the Song'}
+                    subtitle={lang === 'cs' ? 'Poslouchej & hádej' : 'Listen & guess'}
+                    description={
+                      lang === 'cs'
+                        ? 'Poslouchej úryvek a uhodni vánoční písničku.'
+                        : 'Listen to the snippet and guess the Christmas song.'
+                    }
+                    icon="🎵"
+                    accent="blue"
+                    disabled={!isController || busy}
+                    onClick={() => requestStartGame('guess_the_song')}
+                  />
+                  <GameTile
+                    title={lang === 'cs' ? 'Vánoční bingo' : 'Christmas Bingo'}
+                    subtitle={lang === 'cs' ? 'Klasické bingo' : 'Classic bingo'}
+                    description={lang === 'cs' ? 'Sleduj koule a označuj čísla na své kartě.' : 'Watch the balls and mark numbers on your card.'}
+                    icon="🎄"
+                    accent="red"
+                    disabled={!isController || busy}
+                    onClick={() => requestStartGame('bingo')}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1025,10 +1034,11 @@ export default function MiniGamesTVHub(props: {
         );
       }
       
-      // Bingo uses full-screen with ball machine
+      // Bingo should still use the center pillar styling (like other mini-games),
+      // but keep its own internal layout.
       if (gameId === 'bingo') {
         return (
-          <div className="flex-1 min-h-0 w-full">
+          <div className="flex-1 min-h-0 rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
             {renderQuestion()}
           </div>
         );
@@ -1132,7 +1142,7 @@ export default function MiniGamesTVHub(props: {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full min-h-0 flex flex-col">
       <div className="flex-1 min-h-0 flex flex-col">{view()}</div>
       {confirmModal}
       {generatingModal}
