@@ -174,7 +174,7 @@ export default function GameFinale({
             <h3 className="text-xl font-bold mb-4 text-center text-white/70">
               {lang === 'cs' ? 'Ostatní hráči' : 'Other Players'}
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto pr-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {rest.map((p, idx) => (
                 <div
                   key={p.uid}
@@ -205,6 +205,7 @@ export default function GameFinale({
     </div>
   );
 }
+
 
 
 

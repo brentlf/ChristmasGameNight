@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useAudio } from '@/lib/contexts/AudioContext'
 import { getLanguage, t, type Language } from '@/lib/i18n'
 
@@ -63,6 +64,8 @@ export default function AudioControls(props: { className?: string }) {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const lang = getLanguage()
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   const musicPct = useMemo(() => Math.round((settings.music_volume ?? 0) * 100), [settings.music_volume])
   const sfxPct = useMemo(() => Math.round((settings.sfx_volume ?? 0) * 100), [settings.sfx_volume])
@@ -70,6 +73,49 @@ export default function AudioControls(props: { className?: string }) {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!open) return
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(target)
+      ) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open])
+
+  // Update dropdown position on scroll/resize
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
+  useEffect(() => {
+    if (!open || !buttonRef.current) return
+    
+    const updatePosition = () => {
+      if (buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect()
+        setDropdownStyle({
+          top: `${rect.bottom + 8}px`,
+          right: `${window.innerWidth - rect.right}px`,
+        })
+      }
+    }
+    
+    updatePosition()
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+    
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [open])
 
   const muted = !settings.audio_enabled
   const musicOn = settings.music_enabled && settings.music_volume > 0 && !muted
@@ -79,9 +125,16 @@ export default function AudioControls(props: { className?: string }) {
     <div className={className}>
       <div className="relative">
         <button
+          ref={buttonRef}
           type="button"
-          onClick={() => {
-            playSound('ui.click', { device })
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            try {
+              playSound('ui.click', { device })
+            } catch (err) {
+              console.warn('Failed to play click sound:', err)
+            }
             setOpen((v) => !v)
           }}
           className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-lg px-2.5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-white/20 transition active:scale-[0.98]"
@@ -93,8 +146,12 @@ export default function AudioControls(props: { className?: string }) {
           </span>
         </button>
 
-        {open && (
-          <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-md shadow-xl p-4">
+        {open && typeof document !== 'undefined' && createPortal(
+          <div 
+            ref={dropdownRef} 
+            className="fixed w-64 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-md shadow-xl p-4 z-[60]"
+            style={dropdownStyle}
+          >
             <div className="flex items-center justify-between gap-3 mb-3">
               <p className="text-sm font-bold text-white">{lang === 'cs' ? 'Zvuk' : 'Audio'}</p>
               <button
@@ -115,8 +172,14 @@ export default function AudioControls(props: { className?: string }) {
               <p className="text-sm font-bold text-white">{t('audio.music', lang)}</p>
               <button
                 type="button"
-                onClick={() => {
-                  playSound('ui.click', { device })
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  try {
+                    playSound('ui.click', { device })
+                  } catch (err) {
+                    console.warn('Failed to play click sound:', err)
+                  }
                   setSettings({ music_enabled: !settings.music_enabled })
                 }}
                 className={`px-3 py-1 rounded-full text-xs font-semibold transition ${
@@ -242,7 +305,7 @@ export default function AudioControls(props: { className?: string }) {
               {t('audio.browserNote', lang)}
             </p>
           </div>
-        )}
+        , document.body)}
       </div>
     </div>
   )

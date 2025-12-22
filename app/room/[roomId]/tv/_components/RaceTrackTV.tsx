@@ -136,7 +136,7 @@ export default function RaceTrackTV(props: {
         </div>
 
         {/* Player rows */}
-        <div className="mt-4 space-y-2 max-h-[min(560px,60dvh)] overflow-auto pr-1">
+        <div className="mt-4 space-y-2">
           {rows.length === 0 ? (
             <div className="text-sm text-white/60">{lang === 'cs' ? 'Zatím žádní hráči.' : 'No players yet.'}</div>
           ) : (

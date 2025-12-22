@@ -127,11 +127,19 @@
     - Some mobile/in-app browsers still report "dvh" differently than the *visible* area.
     - We override these to use --app-height (synced to visualViewport.height).
   */
+  :root {
+    --nav-height: 4.5rem;
+  }
+  @media (min-width: 640px) {
+    :root {
+      --nav-height: 5rem;
+    }
+  }
   .h-dvh {
-    height: var(--app-height);
+    height: calc(var(--app-height) - var(--nav-height));
   }
   .min-h-dvh {
-    min-height: var(--app-height);
+    min-height: calc(var(--app-height) - var(--nav-height));
   }
 
   /* Background helpers (used by ChristmasBackdrop) */

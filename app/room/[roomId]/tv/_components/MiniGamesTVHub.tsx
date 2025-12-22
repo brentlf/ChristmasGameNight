@@ -910,7 +910,7 @@ export default function MiniGamesTVHub(props: {
                   {lang === 'cs' ? 'Mini hry' : 'Mini Games'}
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-auto pr-1">
+              <div className="flex-1 min-h-0">
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 md:gap-2.5 auto-rows-[minmax(100px,1fr)]">
                   <GameTile
                     title="Trivia Blitz"

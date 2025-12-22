@@ -134,7 +134,7 @@ function CreatePageInner() {
   }
 
   return (
-    <main className="h-dvh px-4 py-4 md:py-6 flex flex-col overflow-hidden">
+    <main className="min-h-dvh px-4 py-4 md:py-5 flex flex-col">
       <div className="mx-auto max-w-3xl w-full flex-1 min-h-0 flex flex-col">
         <div className="mb-4 md:mb-6 flex items-center justify-between shrink-0">
           <Link href="/game-night" className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md hover:bg-white/20 transition">

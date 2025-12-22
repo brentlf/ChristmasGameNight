@@ -33,7 +33,7 @@ export default function RootLayout({
           <ChristmasBackdrop />
           <TopLeftNav />
           <AudioPolicyClient />
-          <div className="relative min-h-dvh pt-[calc(env(safe-area-inset-top)+3rem)] sm:pt-[calc(env(safe-area-inset-top)+3.5rem)] md:pt-4 pb-[env(safe-area-inset-bottom)]">
+          <div className="relative min-h-[calc(100vh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-4.5rem)] sm:min-h-[calc(100vh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-5rem)] pt-[calc(env(safe-area-inset-top)+4.5rem)] sm:pt-[calc(env(safe-area-inset-top)+5rem)] pb-[env(safe-area-inset-bottom)]">
             {children}
           </div>
           <Toaster position="top-center" />

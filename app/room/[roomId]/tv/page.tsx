@@ -64,7 +64,7 @@ function ExpandableQRCode({ value, smallSize = 160 }: { value: string; smallSize
     open && typeof document !== 'undefined'
       ? createPortal(
           <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-3 md:p-6 overflow-y-auto"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-3 md:p-6"
             onClick={() => setOpen(false)}
             role="dialog"
             aria-modal="true"
@@ -172,7 +172,7 @@ function WYRVisualSnapshot({ room, players, lang }: { room: Room; players: Playe
       {completedCount === 0 ? (
         <p className="text-sm text-white/60">{t('tv.noCompletions', lang)}</p>
       ) : (
-        <div className="space-y-4 max-h-[600px] overflow-y-auto">
+        <div className="space-y-4">
           {questionAnswers.map((qa) => {
             if (!qa.item) return null;
             
@@ -402,7 +402,7 @@ export default function TVPage() {
 
   if (roomLoading || playersLoading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="h-full flex items-center justify-center">
         <div className="text-4xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -410,7 +410,7 @@ export default function TVPage() {
 
   if (!room) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="h-full flex items-center justify-center">
         <div className="text-4xl">{t('common.error', lang)}</div>
       </div>
     );
@@ -446,7 +446,7 @@ export default function TVPage() {
           });
 
     return (
-      <main className="min-h-dvh flex flex-col px-4 py-6 md:py-8 overflow-x-hidden">
+      <main className="min-h-dvh flex flex-col px-4 py-4 md:py-6 overflow-x-hidden">
         <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 flex flex-col gap-4 md:gap-5">
           {/* Header */}
           <div className="card relative overflow-hidden">
@@ -502,7 +502,7 @@ export default function TVPage() {
               {sortedPlayers.length === 0 ? (
                 <p className="text-xs md:text-sm text-white/60 break-words">{t('tv.noPlayers', lang) || 'No players yet.'}</p>
               ) : (
-                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-auto pr-1">
+                <div className="flex-1 min-h-0 flex flex-col gap-2">
                   {sortedPlayers.map((p: any) => {
                     const displayName = getPlayerDisplayName({
                       displayName: p.displayName,
@@ -550,7 +550,7 @@ export default function TVPage() {
                     : 'No scores yet — start a game to get on the board!'}
                 </p>
               ) : (
-                <div className="flex-1 min-h-0 flex flex-col gap-2 md:gap-1.5 overflow-auto pr-1">
+                <div className="flex-1 min-h-0 flex flex-col gap-2 md:gap-1.5">
                   {lobbyLeaders.slice(0, 8).map((p: any, idx: number) => (
                     <div
                       key={p.uid}
@@ -636,8 +636,8 @@ export default function TVPage() {
     };
 
     return (
-      <main className="min-h-dvh flex flex-col px-4 py-6 md:py-8">
-        <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
+      <main className="flex flex-col px-4 py-6 md:py-8">
+        <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 flex flex-col">
           {/* Header */}
           <div className="card mb-6 relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
@@ -708,7 +708,7 @@ export default function TVPage() {
           {/* 3-pillar layout: Players | Game Stage | Leaderboard */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1 min-h-0">
             {/* Players (left) */}
-            <div className="card xl:col-span-2 h-full">
+            <div className="card xl:col-span-2">
               <div className="mb-4">
                 <h2 className="text-2xl font-bold">
                   {t('tv.players', lang)} ({players.length}/{room.maxPlayers})
@@ -751,12 +751,12 @@ export default function TVPage() {
             </div>
 
             {/* Game Stage (middle) */}
-            <div className="xl:col-span-8 h-full flex flex-col min-h-0">
+            <div className="xl:col-span-8 flex flex-col min-h-0">
               <MiniGamesTVHub roomId={roomId} room={room} players={players} lang={lang} isController={isController} />
             </div>
 
             {/* Leaderboard (right) */}
-            <div className="card xl:col-span-2 h-full">
+            <div className="card xl:col-span-2">
               <div className="mb-4">
                 <h2 className="text-2xl font-bold">{t('common.leaderboard', lang)}</h2>
                 <div className="text-xs text-white/60 whitespace-normal break-words max-w-full">
@@ -832,8 +832,8 @@ export default function TVPage() {
   };
 
   return (
-    <main className="h-dvh flex flex-col px-4 py-6 md:py-8 overflow-hidden">
-      <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col min-h-0">
+    <main className="min-h-dvh flex flex-col px-4 py-4 md:py-6">
+      <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 flex flex-col">
         {/* Header */}
         <div className="card mb-6 relative overflow-hidden">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
@@ -1062,7 +1062,7 @@ export default function TVPage() {
 
               <div className="card">
                 <h3 className="text-2xl font-bold mb-3">{t('tv.eventFeed', lang)}</h3>
-                <div className="space-y-2 max-h-64 overflow-auto pr-1">
+                <div className="space-y-2">
                   {events.length === 0 && <p className="text-sm text-white/60">{t('tv.noEvents', lang)}</p>}
                   {events.map((e: any) => (
                     <div key={e.id} className="text-sm text-white/75">

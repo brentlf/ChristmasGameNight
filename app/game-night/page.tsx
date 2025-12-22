@@ -62,38 +62,17 @@ export default function GameNightPage() {
   return (
     <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
       <div className="mx-auto max-w-4xl w-full flex-1 min-h-0 flex flex-col">
-        <div className="mb-6 md:mb-8 flex items-center justify-between gap-3 md:gap-4 shrink-0">
-          <Link href="/" className="hidden md:inline-flex items-center gap-2 md:gap-3 rounded-full bg-white/10 border border-white/15 px-3 md:px-4 py-1.5 md:py-2 backdrop-blur-md hover:bg-white/20 transition text-xs md:text-sm">
-            <span>←</span>
-            <span className="font-semibold">{t('nav.backToHome', language)}</span>
-          </Link>
-
-          <div className="flex items-center gap-1.5 md:gap-2">
-            <button
-              onClick={() => handleLanguageSelect('en')}
-              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm border backdrop-blur-md transition ${
-                language === 'en'
-                  ? 'bg-christmas-gold/25 border-christmas-gold/40 text-white'
-                  : 'bg-white/10 border-white/20 text-white/80 hover:bg-white/20'
-              }`}
-            >
-              EN
-            </button>
-            <button
-              onClick={() => handleLanguageSelect('cs')}
-              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm border backdrop-blur-md transition ${
-                language === 'cs'
-                  ? 'bg-christmas-gold/25 border-christmas-gold/40 text-white'
-                  : 'bg-white/10 border-white/20 text-white/80 hover:bg-white/20'
-              }`}
-            >
-              CS
-            </button>
-          </div>
-        </div>
-
         <div className="flex-1 min-h-0 flex items-center justify-center">
-          <div className="card relative overflow-hidden w-full max-w-3xl">
+          <div className="relative w-full max-w-3xl">
+            <Link 
+              href="/" 
+              className="absolute -top-12 sm:-top-14 left-0 z-10 inline-flex items-center gap-2 md:gap-3 rounded-full bg-wood-dark/30 backdrop-blur-xl border border-wood-light/20 px-3 md:px-4 py-1.5 md:py-2 hover:bg-wood-dark/40 hover:border-fire-gold/40 transition text-xs md:text-sm text-white/85 hover:text-white"
+              style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 140, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.1)' }}
+            >
+              <span>←</span>
+              <span className="font-semibold">{t('nav.backToHome', language)}</span>
+            </Link>
+            <div className="card relative overflow-hidden w-full">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
             <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
 
@@ -146,6 +125,7 @@ export default function GameNightPage() {
                   </Link>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>

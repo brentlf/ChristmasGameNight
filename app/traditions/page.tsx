@@ -376,7 +376,7 @@ export default function TraditionsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-6 flex-1 min-h-0 overflow-auto pr-1">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-6 flex-1 min-h-0">
           <div className="xl:col-span-8">
             <div className="card relative overflow-hidden">
               <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />

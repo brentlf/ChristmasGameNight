@@ -624,20 +624,47 @@ function GlobalLeaderboardPageContent() {
     setSelectedRoomIds(newIds);
   };
 
-  if (loading) {
-    return (
-      <main className="h-dvh flex items-center justify-center">
-        <div className="text-4xl">{t('common.loading', lang)}</div>
-      </main>
-    );
-  }
+    if (loading) {
+      return (
+        <main className="min-h-[calc(100vh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-4.5rem)] sm:min-h-[calc(100vh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-5rem)] flex items-center justify-center">
+          <div className="text-4xl">{t('common.loading', lang)}</div>
+        </main>
+      );
+    }
 
-  return (
-    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
-      <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col">
-        <div className="mb-4 md:mb-6 text-center shrink-0">
+    return (
+     <main className="min-h-[calc(100vh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-4.5rem)] sm:min-h-[calc(100vh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-5rem)] px-3 md:px-4 py-3 md:py-4 flex flex-col">
+        <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col">
+        <div className="mb-3 md:mb-4 text-center shrink-0">
+          <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-white/10 border border-white/20 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-white/80 backdrop-blur-md">
+            <span>🏆</span>
+            <span>
+              {mode === 'global' && 'Global'}
+              {mode === 'current' && (currentRoomId ? 'Room' : 'Current')}
+              {mode === 'select' && 'Selected'}
+            </span>
+            <span className="text-white/40">•</span>
+            <span className="text-white/70 hidden sm:inline">Leaderboard</span>
+          </div>
+          <h1 className="game-show-title text-3xl md:text-5xl lg:text-6xl text-center mt-3 md:mt-4">
+            {t('common.leaderboard', lang)}
+          </h1>
+          <p className="text-sm md:text-base lg:text-lg text-white/70 mt-2 md:mt-4">
+            {mode === 'global' && 'All-time scores across all games'}
+            {mode === 'current' && (
+              currentRoomId 
+                ? `Room: ${currentRoom?.name || currentRoomId}` 
+                : 'No active room detected'
+            )}
+            {mode === 'select' && (
+              selectedRoomIds.length > 0
+                ? `${selectedRoomIds.length} room(s) selected`
+                : 'Select rooms to compare'
+            )}
+          </p>
+          
           {/* Mode Selector */}
-          <div className="flex justify-center gap-2 mb-4 md:mb-6">
+          <div className="flex justify-center gap-2 mt-4 md:mt-6">
             <button
               onClick={() => setMode('global')}
               className={`px-4 py-2 rounded-full text-sm md:text-base font-medium transition ${
@@ -672,33 +699,6 @@ function GlobalLeaderboardPageContent() {
               🎯 Select
             </button>
           </div>
-          
-          <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-white/10 border border-white/20 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-white/80 backdrop-blur-md">
-            <span>🏆</span>
-            <span>
-              {mode === 'global' && 'Global'}
-              {mode === 'current' && (currentRoomId ? 'Room' : 'Current')}
-              {mode === 'select' && 'Selected'}
-            </span>
-            <span className="text-white/40">•</span>
-            <span className="text-white/70 hidden sm:inline">Leaderboard</span>
-          </div>
-          <h1 className="game-show-title text-3xl md:text-5xl lg:text-6xl text-center mt-3 md:mt-4">
-            {t('common.leaderboard', lang)}
-          </h1>
-          <p className="text-sm md:text-base lg:text-lg text-white/70 mt-2 md:mt-4">
-            {mode === 'global' && 'All-time scores across all games'}
-            {mode === 'current' && (
-              currentRoomId 
-                ? `Room: ${currentRoom?.name || currentRoomId}` 
-                : 'No active room detected'
-            )}
-            {mode === 'select' && (
-              selectedRoomIds.length > 0
-                ? `${selectedRoomIds.length} room(s) selected`
-                : 'Select rooms to compare'
-            )}
-          </p>
         </div>
 
         {/* Selector Modal */}
@@ -714,7 +714,7 @@ function GlobalLeaderboardPageContent() {
               </button>
             </div>
             
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="space-y-2">
               {availableRooms.length === 0 ? (
                 <p className="text-white/60 text-sm">No rooms available</p>
               ) : (

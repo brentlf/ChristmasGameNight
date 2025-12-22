@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 import { getLanguage, setLanguage, t, type Language } from '@/lib/i18n'
 import { useAudio } from '@/lib/contexts/AudioContext'
 import AudioControls from '@/app/components/AudioControls'
-import ViewportPanel from '@/app/components/ViewportPanel'
 
 const STORAGE_KEY_ACTIVE_ROOM_ID = 'cgn_active_room_id'
 
@@ -20,7 +19,7 @@ function Icon({
   return (
     <span
       aria-hidden="true"
-      className={`inline-flex items-center justify-center text-white/85 drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-transform duration-150 ease-out motion-safe:group-hover:-translate-y-[1px] motion-safe:group-active:translate-y-[0px] motion-safe:group-active:scale-[0.98] [&>svg]:h-5 [&>svg]:w-5 sm:[&>svg]:h-6 sm:[&>svg]:w-6 [&>svg]:stroke-[2.25] ${className}`}
+      className={`inline-flex items-center justify-center transition-colors duration-200 [&>svg]:h-4 [&>svg]:w-4 sm:[&>svg]:h-5 sm:[&>svg]:w-5 [&>svg]:stroke-[2] ${className}`}
     >
       {children}
     </span>
@@ -105,22 +104,9 @@ function IconGlobe() {
   )
 }
 
-function IconRuler() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 7H3a2 2 0 0 1 0-4h18a2 2 0 0 1 0 4Z" />
-      <path d="M7 3v4" />
-      <path d="M11 3v2" />
-      <path d="M15 3v4" />
-      <path d="M19 3v2" />
-      <path d="M3 21V7" />
-      <path d="M21 21V7" />
-    </svg>
-  )
-}
 
 function NavDivider() {
-  return <div aria-hidden="true" className="hidden sm:block h-7 w-px bg-white/20 mx-1" />
+  return <div aria-hidden="true" className="hidden sm:block h-6 w-px bg-wood-light/20 mx-0.5" />
 }
 
 function getRoomIdFromPathname(pathname: string): string | null {
@@ -132,12 +118,14 @@ function NavIconLink({
   href,
   active,
   tooltip,
+  label,
   children,
   onClick,
 }: {
   href: string
   active?: boolean
   tooltip: string
+  label: string
   children: React.ReactNode
   onClick?: () => void
 }) {
@@ -147,15 +135,17 @@ function NavIconLink({
       onClick={onClick}
       aria-label={tooltip}
       title={tooltip}
-      className={`relative group inline-flex items-center justify-center rounded-full h-9 w-9 sm:h-11 sm:w-11 border text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-christmas-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black/30 before:absolute before:inset-0 before:rounded-full before:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.16),transparent_55%)] before:opacity-100 ${
+      className={`relative group inline-flex flex-col items-center justify-center rounded-lg px-1.5 py-1 sm:px-2 sm:py-1.5 border text-white transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fire-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black/30 ${
         active
-          ? 'bg-white/12 border-christmas-gold/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_26px_rgba(0,0,0,0.42)]'
-          : 'bg-white/8 border-white/15 hover:bg-white/11 hover:border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_8px_20px_rgba(0,0,0,0.38)]'
+          ? 'bg-wood-dark/50 border-fire-gold/40 text-fire-gold'
+          : 'bg-transparent border-transparent hover:bg-wood-dark/30 hover:border-wood-light/20 text-white/85 hover:text-white'
       }`}
     >
       {children}
-      <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 whitespace-nowrap rounded-md bg-black/80 px-2 py-1 text-xs font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-        {tooltip}
+      <span className={`text-[9px] sm:text-[10px] font-medium mt-0.5 sm:mt-0.5 leading-tight text-center ${
+        active ? 'text-fire-gold' : 'text-white/70 group-hover:text-white/90'
+      }`}>
+        {label}
       </span>
     </Link>
   )
@@ -164,11 +154,13 @@ function NavIconLink({
 function NavIconButton({
   active,
   tooltip,
+  label,
   children,
   onClick,
 }: {
   active?: boolean
   tooltip: string
+  label: string
   children: React.ReactNode
   onClick: () => void
 }) {
@@ -178,15 +170,17 @@ function NavIconButton({
       onClick={onClick}
       aria-label={tooltip}
       title={tooltip}
-      className={`relative group inline-flex items-center justify-center rounded-full h-9 w-9 sm:h-11 sm:w-11 border text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-christmas-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black/30 before:absolute before:inset-0 before:rounded-full before:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.16),transparent_55%)] before:opacity-100 ${
+      className={`relative group inline-flex flex-col items-center justify-center rounded-lg px-1.5 py-1 sm:px-2 sm:py-1.5 border text-white transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fire-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black/30 ${
         active
-          ? 'bg-white/12 border-christmas-gold/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_26px_rgba(0,0,0,0.42)]'
-          : 'bg-white/8 border-white/15 hover:bg-white/11 hover:border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_8px_20px_rgba(0,0,0,0.38)]'
+          ? 'bg-wood-dark/50 border-fire-gold/40 text-fire-gold'
+          : 'bg-transparent border-transparent hover:bg-wood-dark/30 hover:border-wood-light/20 text-white/85 hover:text-white'
       }`}
     >
       {children}
-      <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 whitespace-nowrap rounded-md bg-black/80 px-2 py-1 text-xs font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-        {tooltip}
+      <span className={`text-[9px] sm:text-[10px] font-medium mt-0.5 sm:mt-0.5 leading-tight text-center ${
+        active ? 'text-fire-gold' : 'text-white/70 group-hover:text-white/90'
+      }`}>
+        {label}
       </span>
     </button>
   )
@@ -195,12 +189,17 @@ function NavIconButton({
 export default function TopLeftNav() {
   const pathname = usePathname()
   const router = useRouter()
-  const [lang, setLang] = useState<Language>('en')
+  const [lang, setLang] = useState<Language>(() => {
+    if (typeof window !== 'undefined') {
+      return getLanguage()
+    }
+    return 'en'
+  })
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null)
-  const [viewportOpen, setViewportOpen] = useState(false)
   const { playSound, device } = useAudio()
 
   useEffect(() => {
+    // Sync with localStorage on mount
     setLang(getLanguage())
   }, [])
 
@@ -222,17 +221,15 @@ export default function TopLeftNav() {
   const tvHref = activeRoomId ? `/room/${activeRoomId}/tv` : '/active-rooms'
   const tvActive = pathname === '/active-rooms' || pathname.includes('/tv')
 
-  // Keep landing screen clean.
-  if (pathname === '/') return null
-
   return (
     <>
-      <div className="fixed left-2 right-2 top-[calc(env(safe-area-inset-top)+0.5rem)] sm:left-4 sm:right-auto sm:top-[calc(env(safe-area-inset-top)+1rem)] z-50">
-      <div className="flex w-full flex-nowrap items-center gap-1.5 sm:gap-2 rounded-2xl sm:rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-lg px-2 py-1.5 sm:py-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="fixed left-1/2 -translate-x-1/2 top-[calc(env(safe-area-inset-top)+0.5rem)] sm:top-[calc(env(safe-area-inset-top)+1rem)] z-[100] max-w-[calc(100vw-1rem)] sm:max-w-none">
+      <div className="flex flex-nowrap items-center gap-1 sm:gap-1.5 rounded-xl bg-wood-dark/30 backdrop-blur-xl border border-wood-light/20 px-1.5 py-1 sm:px-2 sm:py-1.5 overflow-x-auto overflow-y-visible [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 140, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.1)' }}>
         {/* Left: icon nav */}
-        <div className="flex min-w-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <div className="flex min-w-0 flex-nowrap items-center gap-0.5 sm:gap-1">
           <NavIconButton
             tooltip={t('nav.back', lang)}
+            label={lang === 'cs' ? 'Zpět' : 'Back'}
             onClick={() => {
               playSound('ui.click', { device })
               if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -242,7 +239,7 @@ export default function TopLeftNav() {
               }
             }}
           >
-            <Icon className="text-white/85 group-hover:text-white">
+            <Icon className="group-hover:scale-105 transition-transform duration-200">
               <IconChevronLeft />
             </Icon>
           </NavIconButton>
@@ -251,9 +248,10 @@ export default function TopLeftNav() {
             href="/"
             active={pathname === '/'}
             tooltip={t('nav.home', lang)}
+            label={lang === 'cs' ? 'Domů' : 'Home'}
             onClick={() => playSound('ui.click', { device })}
           >
-            <Icon className="text-white/85 group-hover:text-white">
+            <Icon className="group-hover:scale-105 transition-transform duration-200">
               <IconHome />
             </Icon>
           </NavIconLink>
@@ -264,9 +262,10 @@ export default function TopLeftNav() {
             href={tvHref}
             active={tvActive}
             tooltip={lang === 'cs' ? 'TV Lobby' : 'TV Lobby'}
+            label={lang === 'cs' ? 'TV' : 'TV'}
             onClick={() => playSound('ui.click', { device })}
           >
-            <Icon className="text-white/85 group-hover:text-white">
+            <Icon className="group-hover:scale-105 transition-transform duration-200">
               <IconTv />
             </Icon>
           </NavIconLink>
@@ -277,9 +276,10 @@ export default function TopLeftNav() {
             href="/profile"
             active={pathname.startsWith('/profile')}
             tooltip={lang === 'cs' ? 'Profil' : 'Profile'}
+            label={lang === 'cs' ? 'Profil' : 'Profile'}
             onClick={() => playSound('ui.click', { device })}
           >
-            <Icon className="text-white/85 group-hover:text-white">
+            <Icon className="group-hover:scale-105 transition-transform duration-200">
               <IconUser />
             </Icon>
           </NavIconLink>
@@ -290,9 +290,10 @@ export default function TopLeftNav() {
             href="/leaderboard"
             active={pathname.startsWith('/leaderboard')}
             tooltip={lang === 'cs' ? 'Žebříček' : 'Leaderboard'}
+            label={lang === 'cs' ? 'Žebříček' : 'Board'}
             onClick={() => playSound('ui.click', { device })}
           >
-            <Icon className="text-white/85 group-hover:text-white">
+            <Icon className="group-hover:scale-105 transition-transform duration-200">
               <IconTrophy />
             </Icon>
           </NavIconLink>
@@ -303,9 +304,10 @@ export default function TopLeftNav() {
             href="/traditions"
             active={pathname.startsWith('/traditions')}
             tooltip={t('nav.traditions', lang)}
+            label={lang === 'cs' ? 'Tradice' : 'Traditions'}
             onClick={() => playSound('ui.click', { device })}
           >
-            <Icon className="text-white/85 group-hover:text-white">
+            <Icon className="group-hover:scale-105 transition-transform duration-200">
               <IconWheel />
             </Icon>
           </NavIconLink>
@@ -314,20 +316,27 @@ export default function TopLeftNav() {
         <NavDivider />
 
         {/* Right: language + audio */}
-        <div className="flex items-center gap-2 ml-auto shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 ml-auto shrink-0">
           {/* Mobile: compact language toggle */}
           <button
             type="button"
-            onClick={() => {
-              playSound('ui.click', { device })
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              try {
+                playSound('ui.click', { device })
+              } catch (err) {
+                console.warn('Failed to play sound:', err)
+              }
               const next: Language = lang === 'en' ? 'cs' : 'en'
               setLanguage(next)
               setLang(next)
-              if (typeof window !== 'undefined') window.location.reload()
+              // Use setTimeout to ensure localStorage is written before reload
+              setTimeout(() => {
+                if (typeof window !== 'undefined') window.location.reload()
+              }, 50)
             }}
-            className={`sm:hidden inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold transition ${
-              'bg-white/8 border border-white/15 hover:bg-white/11 hover:border-white/25'
-            }`}
+            className="sm:hidden inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition bg-transparent border border-transparent hover:bg-wood-dark/30 hover:border-wood-light/20 text-white/85 hover:text-white"
             aria-label="Switch language"
             title="Switch language"
           >
@@ -339,16 +348,25 @@ export default function TopLeftNav() {
 
           <button
             type="button"
-            onClick={() => {
-              playSound('ui.click', { device })
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              try {
+                playSound('ui.click', { device })
+              } catch (err) {
+                console.warn('Failed to play sound:', err)
+              }
               setLanguage('en')
               setLang('en')
-              if (typeof window !== 'undefined') window.location.reload()
+              // Use setTimeout to ensure localStorage is written before reload
+              setTimeout(() => {
+                if (typeof window !== 'undefined') window.location.reload()
+              }, 50)
             }}
-            className={`hidden sm:inline-flex items-center rounded-full px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm font-semibold transition ${
+            className={`hidden sm:inline-flex items-center rounded-lg px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition ${
               lang === 'en'
-                ? 'bg-christmas-gold/25 border border-christmas-gold/40 text-white'
-                : 'text-white/80 hover:bg-white/20 border border-transparent'
+                ? 'bg-wood-dark/50 border border-fire-gold/40 text-fire-gold'
+                : 'text-white/70 hover:bg-wood-dark/30 hover:border-wood-light/20 hover:text-white border border-transparent'
             }`}
             aria-label="Switch language to English"
             title="English"
@@ -358,16 +376,25 @@ export default function TopLeftNav() {
 
           <button
             type="button"
-            onClick={() => {
-              playSound('ui.click', { device })
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              try {
+                playSound('ui.click', { device })
+              } catch (err) {
+                console.warn('Failed to play sound:', err)
+              }
               setLanguage('cs')
               setLang('cs')
-              if (typeof window !== 'undefined') window.location.reload()
+              // Use setTimeout to ensure localStorage is written before reload
+              setTimeout(() => {
+                if (typeof window !== 'undefined') window.location.reload()
+              }, 50)
             }}
-            className={`hidden sm:inline-flex items-center rounded-full px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm font-semibold transition ${
+            className={`hidden sm:inline-flex items-center rounded-lg px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition ${
               lang === 'cs'
-                ? 'bg-christmas-gold/25 border border-christmas-gold/40 text-white'
-                : 'text-white/80 hover:bg-white/20 border border-transparent'
+                ? 'bg-wood-dark/50 border border-fire-gold/40 text-fire-gold'
+                : 'text-white/70 hover:bg-wood-dark/30 hover:border-wood-light/20 hover:text-white border border-transparent'
             }`}
             aria-label="Switch language to Czech"
             title="Czech"
@@ -375,26 +402,12 @@ export default function TopLeftNav() {
             CS
           </button>
 
-          <div className="hidden sm:block h-7 w-px bg-white/20 mx-1" />
-
-          <NavIconButton
-            tooltip={lang === 'cs' ? 'Viewport' : 'Viewport'}
-            onClick={() => {
-              playSound('ui.click', { device })
-              setViewportOpen(true)
-            }}
-          >
-            <Icon className="text-white/85 group-hover:text-white">
-              <IconRuler />
-            </Icon>
-          </NavIconButton>
+          <div className="hidden sm:block h-6 w-px bg-wood-light/20 mx-1" />
 
           <AudioControls className="shrink-0" />
         </div>
       </div>
       </div>
-
-      <ViewportPanel open={viewportOpen} onClose={() => setViewportOpen(false)} />
     </>
   )
 }

@@ -144,7 +144,7 @@ export default function GameIntro(props: {
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col min-h-0">
-            <div className="space-y-3 flex-1 min-h-0 overflow-auto pr-1">
+            <div className="space-y-3 flex-1 min-h-0">
               {lines.map((l, idx) => (
                 <div key={idx} className="rounded-xl border border-white/10 bg-black/20 p-3">
                   <p className="text-white/90 font-semibold">{lang === 'cs' ? l.cs : l.en}</p>

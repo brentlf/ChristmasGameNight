@@ -217,7 +217,7 @@ export default function ActiveRoomsPage() {
                 <p className="text-sm md:text-base text-white/50">All rooms are finished or closed</p>
               </div>
             ) : (
-              <div className="space-y-2 md:space-y-3 overflow-auto pr-1 flex-1 min-h-0">
+              <div className="space-y-2 md:space-y-3 flex-1 min-h-0">
                 {rooms.map((room) => (
                   <div
                     key={room.id}
