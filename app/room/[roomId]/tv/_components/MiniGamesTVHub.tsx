@@ -31,7 +31,7 @@ import TimerRing from '@/app/components/TimerRing';
 import GameIntro from '@/app/components/GameIntro';
 import GameFinale from '@/app/components/GameFinale';
 import BingoBallMachine from '@/app/components/BingoBallMachine';
-import { doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { rolloverRoomWithSamePlayers } from '@/lib/utils/room';
 import toast from 'react-hot-toast';
@@ -2056,6 +2056,44 @@ function BingoTVRound(props: {
   const [busy, setBusy] = useState(false);
   const sessionStatus = currentSession?.status;
   const autoAdvanceScheduledRef = useRef(false);
+  const processingClaimsRef = useRef<Set<string>>(new Set());
+
+  // Process bingo claims coming from phones (stored under sessions/{sessionId}/claims)
+  useEffect(() => {
+    if (!isController) return;
+    const claimsRef = collection(db, 'rooms', roomId, 'sessions', sessionId, 'claims');
+    const unsubscribe = onSnapshot(claimsRef, (snap) => {
+      snap.docChanges().forEach((change) => {
+        const data = change.doc.data() as any;
+        const status = data?.status || 'pending';
+        const uid = data?.uid || change.doc.id;
+        if (status !== 'pending' || !uid) return;
+        if (processingClaimsRef.current.has(change.doc.id)) return;
+        processingClaimsRef.current.add(change.doc.id);
+
+        claimBingo({ roomId, sessionId, uid })
+          .then((res) =>
+            setDoc(
+              change.doc.ref,
+              { status: 'processed', result: res, processedAt: Date.now() },
+              { merge: true }
+            )
+          )
+          .catch((err: any) => {
+            setDoc(
+              change.doc.ref,
+              { status: 'error', error: err?.message || 'Failed', processedAt: Date.now() },
+              { merge: true }
+            ).catch(() => {});
+            toast.error(err?.message || 'Failed to process bingo claim');
+          })
+          .finally(() => {
+            processingClaimsRef.current.delete(change.doc.id);
+          });
+      });
+    });
+    return () => unsubscribe();
+  }, [isController, roomId, sessionId]);
 
   const handleDrawBall = async () => {
     if (busy || isDrawing || sessionStatus !== 'in_game') return;

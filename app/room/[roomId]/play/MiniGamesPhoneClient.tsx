@@ -14,7 +14,7 @@ import type { FamilyFeudQuestion } from '@/content/family_feud_christmas';
 import TimerRing from '@/app/components/TimerRing';
 import GameIntro from '@/app/components/GameIntro';
 import toast from 'react-hot-toast';
-import { doc, updateDoc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { generateSeed, shuffleSeeded } from '@/lib/utils/seededRandom';
 import { useAudio } from '@/lib/contexts/AudioContext';
@@ -1498,10 +1498,27 @@ function BingoPhoneCard(props: {
         setClaiming(false);
       }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to claim bingo');
+      const message = String(error?.message || '');
+      const isPermission = message.toLowerCase().includes('permission');
+      if (isPermission) {
+        try {
+          await setDoc(
+            doc(db, 'rooms', roomId, 'sessions', sessionId, 'claims', player.uid),
+            { uid: player.uid, requestedAt: Date.now(), status: 'pending' },
+            { merge: true }
+          );
+          toast.success(lang === 'cs' ? 'Bingo odesláno hostiteli ke kontrole.' : 'Bingo sent to host for verification.');
+        } catch (claimError: any) {
+          toast.error(claimError?.message || message || 'Failed to claim bingo');
+        } finally {
+          setClaiming(false);
+        }
+      } else {
+        toast.error(message || 'Failed to claim bingo');
+        setClaiming(false);
+      }
       playSound('ui.error');
       vibrate([20, 30, 20], { device: 'phone' });
-      setClaiming(false);
     }
   };
 
