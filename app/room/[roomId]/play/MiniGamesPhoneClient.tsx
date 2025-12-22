@@ -139,7 +139,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
       // If the tab isn't visible, stop heartbeating so the user naturally becomes "away".
       if (!force && document.visibilityState !== 'visible') return;
       const now = Date.now();
-      if (!force && now - lastHeartbeatAtRef.current < 20_000) return;
+      if (!force && now - lastHeartbeatAtRef.current < 10_000) return;
       lastHeartbeatAtRef.current = now;
       updateDoc(playerRef, { lastActiveAt: now } as any).catch(() => {});
     };
@@ -151,7 +151,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
 
     // Initial ping + interval.
     ping(true);
-    const id = setInterval(() => ping(false), 25_000);
+    const id = setInterval(() => ping(false), 15_000);
 
     return () => {
       clearInterval(id);

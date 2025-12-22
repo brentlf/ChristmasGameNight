@@ -84,8 +84,21 @@ export async function startMiniGameSession(params: {
 
   const playersSnap = await getDocs(collection(db, 'rooms', roomId, 'players'));
   const allPlayerUids = playersSnap.docs.map((d) => d.id);
-  const readyUids = playersSnap.docs.filter((d) => Boolean((d.data() as any)?.ready)).map((d) => d.id);
-  const activePlayerUids = (readyUids.length ? readyUids : allPlayerUids).slice(0, 64);
+  const now = Date.now();
+  const activeThresholdMs = 45_000; // phones heartbeat every ~15s; allow a few missed pings
+  const readyDocs = playersSnap.docs.filter((d) => Boolean((d.data() as any)?.ready));
+  const readyUids = readyDocs.map((d) => d.id);
+  const readyAndActiveUids = readyDocs
+    .filter((d) => {
+      const last = Number((d.data() as any)?.lastActiveAt ?? 0);
+      return last > 0 && now - last <= activeThresholdMs;
+    })
+    .map((d) => d.id);
+
+  // Prefer "Ready + recently active" so games don't hang on users who walked away / closed their tab.
+  // Fallback to just "Ready" if nobody has a heartbeat yet (e.g. right after joining).
+  // Fallback to everyone if nobody is ready.
+  const activePlayerUids = (readyAndActiveUids.length ? readyAndActiveUids : readyUids.length ? readyUids : allPlayerUids).slice(0, 64);
   
   // Pictionary rounds should scale with player count so everyone gets a fair turn:
   // - <3 players: each draws 3x

@@ -206,7 +206,7 @@ export default function MiniGamesTVHub(props: {
     if (!isController) return;
     if (!sessionId) return;
     if (!currentSession) return;
-    const idleMs = 90_000;
+    const idleMs = 45_000;
     const id = setInterval(() => {
       const now = Date.now();
       const drawerUid = currentSession.drawerUid ?? null;
@@ -393,8 +393,14 @@ export default function MiniGamesTVHub(props: {
     confirmStart && typeof document !== 'undefined'
       ? (() => {
           const now = Date.now();
-          const thresholdMs = 90_000; // "present" = active in last 90s
-          const { present, missing } = presenceStatus(players, now, thresholdMs);
+          const thresholdMs = 45_000; // "present" = active in last 45s (phones heartbeat every 15s)
+          const readyPlayers = players.filter((p: any) => Boolean((p as any)?.ready));
+          const readyPresent = readyPlayers.filter((p: any) => {
+            const last = Number((p as any)?.lastActiveAt ?? 0);
+            return last > 0 && now - last <= thresholdMs;
+          });
+          const readyMissing = readyPlayers.filter((p: any) => !readyPresent.some((pp: any) => pp.uid === p.uid));
+          const notReady = players.filter((p: any) => !Boolean((p as any)?.ready));
 
           const title =
             confirmStart.kind === 'race'
@@ -406,13 +412,13 @@ export default function MiniGamesTVHub(props: {
               : `Start ${gameLabel(confirmStart.gameId)}?`;
 
           const subtitle =
-            missing.length === 0
+            readyMissing.length === 0
               ? lang === 'cs'
-                ? 'Všichni hráči vypadají aktivní.'
-                : 'All players look active.'
+                ? 'Všichni připravení hráči vypadají aktivní.'
+                : 'All ready players look active.'
               : lang === 'cs'
-              ? `Chybí ${missing.length}/${players.length} hráčů (neaktivní posledních ${Math.round(thresholdMs / 1000)}s).`
-              : `${missing.length}/${players.length} players may be away (inactive for ${Math.round(thresholdMs / 1000)}s).`;
+              ? `Chybí ${readyMissing.length}/${readyPlayers.length} připravených hráčů (neaktivní posledních ${Math.round(thresholdMs / 1000)}s).`
+              : `${readyMissing.length}/${readyPlayers.length} ready players may be away (inactive for ${Math.round(thresholdMs / 1000)}s).`;
 
           const proceed = async () => {
             if (busy) return;
@@ -469,16 +475,16 @@ export default function MiniGamesTVHub(props: {
                   </button>
                 </div>
 
-                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <div className="text-xs font-black text-white/60 mb-2">
-                      {lang === 'cs' ? 'Přítomní' : 'Present'} ({present.length}/{players.length})
+                      {lang === 'cs' ? 'Přítomní (Ready + aktivní)' : 'Present (Ready + active)'} ({readyPresent.length}/{readyPlayers.length})
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {present.length === 0 ? (
+                      {readyPresent.length === 0 ? (
                         <span className="text-sm text-white/60">—</span>
                       ) : (
-                        present.map((p) => (
+                        readyPresent.map((p: any) => (
                           <span key={p.uid} className="text-sm rounded-full bg-white/10 border border-white/15 px-3 py-1">
                             <span className="mr-2">{p.avatar}</span>
                             {p.name}
@@ -490,13 +496,31 @@ export default function MiniGamesTVHub(props: {
 
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <div className="text-xs font-black text-white/60 mb-2">
-                      {lang === 'cs' ? 'Chybí / neaktivní' : 'Missing / inactive'} ({missing.length}/{players.length})
+                      {lang === 'cs' ? 'Chybí / neaktivní (Ready)' : 'Missing / inactive (Ready)'} ({readyMissing.length}/{readyPlayers.length})
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {missing.length === 0 ? (
+                      {readyMissing.length === 0 ? (
                         <span className="text-sm text-white/60">—</span>
                       ) : (
-                        missing.map((p) => (
+                        readyMissing.map((p: any) => (
+                          <span key={p.uid} className="text-sm rounded-full bg-white/10 border border-white/15 px-3 py-1">
+                            <span className="mr-2">{p.avatar}</span>
+                            {p.name}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="text-xs font-black text-white/60 mb-2">
+                      {lang === 'cs' ? 'Nepřipravení' : 'Not ready'} ({notReady.length}/{players.length})
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {notReady.length === 0 ? (
+                        <span className="text-sm text-white/60">—</span>
+                      ) : (
+                        notReady.map((p: any) => (
                           <span key={p.uid} className="text-sm rounded-full bg-white/10 border border-white/15 px-3 py-1">
                             <span className="mr-2">{p.avatar}</span>
                             {p.name}

@@ -719,7 +719,7 @@ export default function TVPage() {
               </div>
               <div className="space-y-3">
                 {sortedPlayers.map((p: any) => {
-                  const thresholdMs = 90_000;
+                  const thresholdMs = 45_000;
                   const last = Number(p.lastActiveAt ?? 0);
                   const isActive = last > 0 && now - last <= thresholdMs;
                   const displayName = getPlayerDisplayName({

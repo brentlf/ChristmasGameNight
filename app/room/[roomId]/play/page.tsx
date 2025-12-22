@@ -74,7 +74,7 @@ export default function PlayPage() {
     const ping = (force: boolean) => {
       if (!force && document.visibilityState !== 'visible') return;
       const now = Date.now();
-      if (!force && now - lastHeartbeatAtRef.current < 20_000) return;
+      if (!force && now - lastHeartbeatAtRef.current < 10_000) return;
       lastHeartbeatAtRef.current = now;
       updateDoc(playerRef, { lastActiveAt: now } as any).catch(() => {});
     };
@@ -85,7 +85,7 @@ export default function PlayPage() {
     document.addEventListener('visibilitychange', onVis);
 
     ping(true);
-    const id = setInterval(() => ping(false), 25_000);
+    const id = setInterval(() => ping(false), 15_000);
     return () => {
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
