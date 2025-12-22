@@ -210,8 +210,14 @@ export default function MiniGamesTVHub(props: {
     const id = setInterval(() => {
       const now = Date.now();
       const drawerUid = currentSession.drawerUid ?? null;
+      // Important: once a player has answered the current question, never auto-drop them.
+      // Otherwise we can get into a Firestore write loop where the "include answered" effect
+      // re-adds them and this anti-stall interval removes them again (especially if lastActiveAt
+      // isn't being updated reliably on phones).
+      const answeredUids = new Set(answersForQuestion.map((a) => a.uid));
       const filtered = activeUids.filter((uid) => {
         if (drawerUid && uid === drawerUid) return true;
+        if (answeredUids.has(uid)) return true;
         const p = players.find((pp) => pp.uid === uid) as any;
         const last = Number(p?.lastActiveAt ?? 0);
         return last > 0 && now - last <= idleMs;
@@ -222,7 +228,7 @@ export default function MiniGamesTVHub(props: {
       } as any).catch(() => {});
     }, 2000);
     return () => clearInterval(id);
-  }, [activeUids, currentSession, isController, players, roomId, sessionId]);
+  }, [activeUids, answersForQuestion, currentSession, isController, players, roomId, sessionId]);
 
   const content = useGameContent(gameId || null, questionIndex, selectedIds, roomId, sessionId);
 
