@@ -36,7 +36,7 @@ export default function TriviaPage() {
 
   if (!room || !player) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="min-h-[var(--app-height)] min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -58,8 +58,8 @@ export default function TriviaPage() {
 
   if (isCompleted) {
     return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
-        <div className="max-w-xl mx-auto">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+        <div className="max-w-xl mx-auto w-full flex-1 min-h-0 flex flex-col">
           <div className="card text-center">
             <div className="text-5xl md:text-6xl mb-3 md:mb-4">🎉</div>
             <h1 className="game-show-title mb-2 md:mb-3 break-words">{t('trivia.completed', lang)}</h1>
@@ -84,7 +84,7 @@ export default function TriviaPage() {
 
   if (currentIndex >= selectedIds.length) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="min-h-[var(--app-height)] min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -95,7 +95,7 @@ export default function TriviaPage() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="min-h-[var(--app-height)] min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -103,7 +103,7 @@ export default function TriviaPage() {
 
   if (!question) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="min-h-[var(--app-height)] min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.error', lang)}</div>
       </div>
     );
@@ -180,8 +180,8 @@ function TriviaQuestion({
   };
 
   return (
-    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
-      <div className="max-w-xl mx-auto">
+    <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+      <div className="max-w-xl mx-auto w-full flex-1 min-h-0 flex flex-col">
         <div className="card mb-3 md:mb-4 cgn-animate-in">
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-lg md:text-xl font-bold break-words truncate flex-1">{t('trivia.title', lang)}</h1>

@@ -1386,6 +1386,11 @@ export async function claimBingo(params: {
     if (currentSession.status === 'claiming') {
       return { valid: false, error: 'Another player is claiming bingo' };
     }
+    // Keep client + rules aligned: claims are only accepted during active play.
+    // If the TV temporarily transitions status (e.g. reveal/round_reveal), the client shouldn't attempt writes.
+    if (currentSession.status !== 'in_game') {
+      return { valid: false, error: 'Bingo is not accepting claims right now' };
+    }
     
     // Get player's card
     const cardRef = doc(firestoreDb, 'rooms', roomId, 'sessions', sessionId, 'cards', uid);
@@ -1447,7 +1452,12 @@ export async function claimBingo(params: {
       
       return { valid: true, pattern: validation.pattern };
     } else {
-      return { valid: false, error: 'Invalid bingo pattern' };
+      return {
+        valid: false,
+        // More helpful message: most "I swear it's bingo" reports come from marking undrawn numbers
+        // or racing a last-second mark that hasn't synced yet.
+        error: 'Invalid bingo pattern (only mark numbers that have been drawn)',
+      };
     }
   });
 }

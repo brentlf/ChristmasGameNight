@@ -234,7 +234,35 @@ export default function PlayPage() {
   const roomMode = room.roomMode || 'amazing_race';
   
   if (roomMode === 'amazing_race') {
-    return <RacePlay roomId={roomId} room={room} player={player as Player} lang={lang} />;
+    return (
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+        <div className="max-w-xl mx-auto w-full flex-1 min-h-0 flex flex-col gap-4">
+          <div className="card">
+            <div className="flex items-start gap-3">
+              <div className="text-3xl">🏁</div>
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold mb-1">
+                  {lang === 'cs' ? 'Amazing Race – instrukce' : 'Amazing Race – intro'}
+                </h1>
+                <p className="text-white/70 text-sm">
+                  {lang === 'cs'
+                    ? 'Sleduj TV pro úkoly. Tvůj postup se ukládá automaticky.'
+                    : 'Watch the TV for tasks. Your progress saves automatically.'}
+                </p>
+                <ul className="list-disc list-inside text-xs text-white/70 mt-2 space-y-1">
+                  <li>{lang === 'cs' ? 'Tapni Ready, než závod začne.' : 'Tap Ready before the race starts.'}</li>
+                  <li>{lang === 'cs' ? 'Plň úkoly na telefonu.' : 'Complete tasks on your phone.'}</li>
+                  <li>{lang === 'cs' ? 'Na TV vidíš pořadí a cílovou pásku.' : 'Track rankings on the TV.'}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0">
+            <RacePlay roomId={roomId} room={room} player={player as Player} lang={lang} />
+          </div>
+        </div>
+      </main>
+    );
   }
 
   if (roomMode === 'mini_games') {
@@ -486,8 +514,8 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
   }
 
   return (
-    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
-      <div className="max-w-xl mx-auto">
+    <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+      <div className="max-w-xl mx-auto w-full flex-1 min-h-0 flex flex-col">
         <div className="card mb-3 md:mb-4">
           <div className="flex items-start justify-between gap-3 md:gap-4">
             <div className="min-w-0 flex-1">

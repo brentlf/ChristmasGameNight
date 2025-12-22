@@ -287,6 +287,10 @@ export default function TVPage() {
 
     let cancelled = false;
 
+    // Immediate fallback so QR shows right away.
+    const fallback = `${window.location.origin}/join?code=${room.code}`;
+    setJoinUrl(fallback);
+
     (async () => {
       let origin = window.location.origin;
 
@@ -297,15 +301,15 @@ export default function TVPage() {
           const data = (await res.json()) as { ip?: string | null };
           if (data?.ip) {
             const port = window.location.port ? `:${window.location.port}` : '';
-            origin = `http://${data.ip}${port}`;
+            origin = `${window.location.protocol}//${data.ip}${port}`;
           }
         } catch {
-          // If we can't detect LAN IP, fall back to localhost origin.
+          // If we can't detect LAN IP, fall back to original origin.
         }
       }
 
       if (!cancelled) {
-        setJoinUrl(`${origin}/join?code=${room.code}`);
+        setJoinUrl(`${origin}/join?code=${room.code}` || fallback);
       }
     })();
 
@@ -347,6 +351,8 @@ export default function TVPage() {
   const isController = Boolean(viewerUid && room?.controllerUid === viewerUid);
   const track = room?.roomMode === 'amazing_race' ? getRaceTrack(room.raceTrackId) : null;
   const totalStages = track?.stages.length ?? 0;
+
+  const qrValue = joinUrl || (room?.code ? `/join?code=${room.code}` : '');
 
   const sortedPlayers = [...players].sort((a: any, b: any) => {
     const aStage = a.stageIndex ?? 0;
@@ -446,7 +452,7 @@ export default function TVPage() {
           });
 
     return (
-      <main className="min-h-dvh flex flex-col px-4 py-4 md:py-6 overflow-x-hidden">
+      <main className="min-h-[var(--app-height)] min-h-dvh flex flex-col px-4 py-4 md:py-6 overflow-x-hidden">
         <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 flex flex-col gap-4 md:gap-5">
           {/* Header */}
           <div className="card relative overflow-hidden">
@@ -480,7 +486,7 @@ export default function TVPage() {
               </div>
               <div className="flex flex-col items-center md:items-end gap-2 shrink-0">
                 <div className="inline-flex items-center justify-center rounded-2xl md:rounded-3xl border border-white/20 bg-white/5 p-3 md:p-4 backdrop-blur-md">
-                  <ExpandableQRCode value={joinUrl} smallSize={120} />
+                  <ExpandableQRCode value={qrValue} smallSize={120} />
                 </div>
                 <p className="text-xs md:text-sm text-white/70 text-center md:text-right">{t('tv.scanToJoin', lang)}</p>
               </div>
@@ -488,9 +494,9 @@ export default function TVPage() {
           </div>
 
           {/* 3-pillar layout: Players | Lobby/Game Select | Leaderboard */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-5 flex-1 min-h-0">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-5 flex-1 min-h-0">
             {/* Players (left) */}
-            <div className="card xl:col-span-2 flex flex-col gap-2 min-h-0">
+            <div className="card lg:col-span-2 flex flex-col gap-2 min-h-0">
               <div className="flex flex-col gap-1.5">
                 <h2 className="text-lg md:text-xl font-bold break-words">
                   {t('tv.players', lang)} ({players.length}/{room.maxPlayers})
@@ -533,12 +539,12 @@ export default function TVPage() {
             </div>
 
             {/* Lobby / Game Select (middle) */}
-            <div className="xl:col-span-8 min-h-0 flex flex-col">
+            <div className="lg:col-span-8 min-h-0 flex flex-col">
               <MiniGamesTVHub roomId={roomId} room={room} players={players} lang={lang} isController={isController} />
             </div>
 
             {/* Leaderboard (right) */}
-            <div className="card xl:col-span-2 flex flex-col gap-2 min-h-0">
+            <div className="card lg:col-span-2 flex flex-col gap-2 min-h-0">
               <div className="flex flex-col gap-1.5">
                 <h2 className="text-lg md:text-xl font-bold break-words">{t('common.leaderboard', lang)}</h2>
                 <div className="text-xs text-white/60 break-words">{lang === 'cs' ? 'Celkem' : 'Overall'}</div>
@@ -636,7 +642,7 @@ export default function TVPage() {
     };
 
     return (
-      <main className="flex flex-col px-4 py-6 md:py-8">
+      <main className="min-h-[var(--app-height)] min-h-dvh flex flex-col px-4 py-6 md:py-8">
         <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 flex flex-col">
           {/* Header */}
           <div className="card mb-6 relative overflow-hidden">
@@ -677,22 +683,9 @@ export default function TVPage() {
                       {lang === 'cs' ? 'Zpět do lobby' : 'Back to lobby'}
                     </button>
                   )}
-                  {hasActiveSession ? (
-                    <div className="max-w-[320px] rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
-                      <div className="text-sm font-semibold text-white/90">
-                        {lang === 'cs' ? 'Hra právě běží' : 'Game in progress'}
-                      </div>
-                      <div className="text-xs text-white/70 mt-1 whitespace-normal break-words">
-                        {lang === 'cs'
-                          ? 'Chceš přidat hráče? Vrať se do lobby.'
-                          : 'Want to add more players? Go back to the lobby.'}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="inline-flex items-center justify-center rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
-                      <ExpandableQRCode value={joinUrl} smallSize={160} />
-                    </div>
-                  )}
+                  <div className="inline-flex items-center justify-center rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
+                    <ExpandableQRCode value={qrValue} smallSize={160} />
+                  </div>
                 </div>
                 <p className="text-sm mt-3 text-white/70">
                   {hasActiveSession
@@ -706,9 +699,9 @@ export default function TVPage() {
           </div>
 
           {/* 3-pillar layout: Players | Game Stage | Leaderboard */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1 min-h-0">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
             {/* Players (left) */}
-            <div className="card xl:col-span-2">
+            <div className="card lg:col-span-2">
               <div className="mb-4">
                 <h2 className="text-2xl font-bold">
                   {t('tv.players', lang)} ({players.length}/{room.maxPlayers})
@@ -751,12 +744,12 @@ export default function TVPage() {
             </div>
 
             {/* Game Stage (middle) */}
-            <div className="xl:col-span-8 flex flex-col min-h-0">
+            <div className="lg:col-span-8 flex flex-col min-h-0">
               <MiniGamesTVHub roomId={roomId} room={room} players={players} lang={lang} isController={isController} />
             </div>
 
             {/* Leaderboard (right) */}
-            <div className="card xl:col-span-2">
+            <div className="card lg:col-span-2">
               <div className="mb-4">
                 <h2 className="text-2xl font-bold">{t('common.leaderboard', lang)}</h2>
                 <div className="text-xs text-white/60 whitespace-normal break-words max-w-full">
@@ -832,7 +825,7 @@ export default function TVPage() {
   };
 
   return (
-    <main className="min-h-dvh flex flex-col px-4 py-4 md:py-6">
+    <main className="min-h-[var(--app-height)] min-h-dvh flex flex-col px-4 py-4 md:py-6">
       <div className="max-w-7xl mx-auto w-full flex-1 min-h-0 flex flex-col">
         {/* Header */}
         <div className="card mb-6 relative overflow-hidden">
@@ -868,9 +861,10 @@ export default function TVPage() {
               </div>
             </div>
 
-            <div className="shrink-0">
+              <div className="shrink-0 flex flex-col items-center md:items-end gap-2">
+            <div className="shrink-0 flex flex-col items-center md:items-end gap-2">
               <div className="flex items-center justify-end gap-3">
-                 {isController && (room.status as string) !== 'lobby' && (
+                {isController && (room.status as string) !== 'lobby' && (
                   <button
                     type="button"
                     className="btn-secondary"
@@ -893,25 +887,18 @@ export default function TVPage() {
                   </button>
                 )}
 
-                {(room.status as string) === 'lobby' ? (
-                  <div className="inline-flex items-center justify-center rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
-                    <ExpandableQRCode value={joinUrl} smallSize={160} />
-                  </div>
+              <div className="inline-flex items-center justify-center rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md min-w-[120px] min-h-[120px]">
+                {qrValue ? (
+                  <ExpandableQRCode value={qrValue} smallSize={160} />
                 ) : (
-                  <div className="max-w-[320px] rounded-3xl border border-white/20 bg-white/5 p-4 backdrop-blur-md">
-                    <div className="text-sm font-semibold text-white/90">
-                      {lang === 'cs' ? 'Hra právě běží' : 'Game in progress'}
-                    </div>
-                    <div className="text-xs text-white/70 mt-1 whitespace-normal break-words">
-                      {lang === 'cs'
-                        ? 'Chceš přidat hráče? Vrať se do lobby.'
-                        : 'Want to add more players? Go back to the lobby.'}
-                    </div>
+                  <div className="text-xs text-white/60 text-center leading-tight">
+                    {t('tv.scanToJoin', lang)}
+                    {room.code && <div className="mt-1 animate-pulse text-white/50">{room.code}</div>}
                   </div>
                 )}
               </div>
-
-              <p className="text-sm mt-3 text-white/70">
+              </div>
+              <p className="text-sm text-white/70 text-center md:text-right">
                 {room.status === 'lobby'
                   ? t('tv.scanToJoin', lang)
                   : lang === 'cs'
@@ -919,11 +906,64 @@ export default function TVPage() {
                   : 'To add players, return to the lobby.'}
               </p>
             </div>
+            </div>
           </div>
         </div>
 
+        {/* Amazing Race intro/help block */}
+        {room.roomMode === 'amazing_race' && room.status === 'lobby' && (
+          <div className="card mb-4 md:mb-6">
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 items-start">
+              <div className="flex-1">
+                <h2 className="text-2xl md:text-3xl font-black mb-2">
+                  {lang === 'cs' ? '🏁 Amazing Race – instrukce' : '🏁 Amazing Race – intro'}
+                </h2>
+                <p className="text-white/70 mb-3">
+                  {lang === 'cs'
+                    ? 'Připravte telefony, hráči budou běhat po úkolech na trase.'
+                    : 'Get phones ready—players will progress through stages on the track.'}
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-sm text-white/75">
+                  <li>{lang === 'cs' ? 'Otevřete /play na telefonech a tapněte Ready.' : 'Open /play on phones and tap Ready.'}</li>
+                  <li>{lang === 'cs' ? 'TV ukazuje trať, pořadí a události.' : 'TV shows the track, order, and events.'}</li>
+                  <li>{lang === 'cs' ? 'Host spustí závod na TV a může jej kdykoli ukončit.' : 'Host starts the race on TV and can end it anytime.'}</li>
+                </ul>
+              </div>
+              <div className="shrink-0 flex flex-col gap-2 w-full lg:w-auto">
+                {isController ? (
+                  <>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await updateRoom({
+                            status: 'running',
+                            ...(room.roomMode === 'amazing_race' && { raceStartedAt: Date.now() }),
+                          });
+                        } catch (e: any) {
+                          console.error('Failed to start:', e);
+                          toast.error(e?.message || 'Failed to start');
+                        }
+                      }}
+                      className="btn-primary w-full"
+                    >
+                      {t('controller.startRace', lang)}
+                    </button>
+                    <p className="text-xs text-white/60 text-center">
+                      {lang === 'cs' ? 'Spusťte, až všichni jsou připraveni.' : 'Start when everyone is ready.'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-white/70 text-center">
+                    {lang === 'cs' ? 'Čekej na start od hosta.' : 'Waiting for host to start.'}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 3-pillar layout: Players | Track | Leaderboard */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1 min-h-0">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
           {/* Players (left) */}
           <div className="card xl:col-span-2 h-full">
             <div className="mb-4">

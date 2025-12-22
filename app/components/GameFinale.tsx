@@ -56,7 +56,10 @@ export default function GameFinale({
   }, [playSound]);
 
   return (
-    <div className="relative rounded-3xl border border-white/10 bg-gradient-to-br from-black/90 via-black/80 to-black/90 overflow-hidden" style={{ minHeight: '600px' }}>
+    <div
+      className="relative rounded-3xl border border-white/10 bg-gradient-to-br from-black/90 via-black/80 to-black/90 overflow-hidden flex flex-col"
+      style={{ minHeight: '70vh' }}
+    >
       {/* Confetti effect */}
       {confettiActive && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -81,7 +84,7 @@ export default function GameFinale({
       <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-christmas-gold/20 blur-3xl animate-pulse-slow" />
       <div className="absolute -left-32 -bottom-32 h-96 w-96 rounded-full bg-christmas-green/20 blur-3xl animate-pulse-slow" />
 
-      <div className="relative flex flex-col h-full p-6 md:p-10">
+      <div className="relative flex flex-col h-full p-6 md:p-10 overflow-auto">
         {/* Header */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 text-sm text-white/80 backdrop-blur-md mb-4">

@@ -360,15 +360,15 @@ export default function TraditionsPage() {
 
   if (loading) {
     return (
-      <div className="h-dvh flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-4xl">{t('common.loading', lang)}</div>
       </div>
     );
   }
 
   return (
-    <main className="h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col overflow-hidden">
-      <div className="mx-auto max-w-6xl w-full flex-1 min-h-0 flex flex-col">
+    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+      <div className="mx-auto max-w-6xl w-full flex-1 min-h-0 flex flex-col overflow-visible">
         <div className="mb-3 md:mb-4 text-center shrink-0">
           <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-white/10 border border-white/20 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-white/80 backdrop-blur-md">
             <span>🎡</span>

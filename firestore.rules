@@ -13,6 +13,11 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/rooms/$(roomId)).data.controllerUid == request.auth.uid;
       }
 
+      function isRoomPlayer() {
+        return isAuthed()
+          && exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(request.auth.uid));
+      }
+
       // Single-family / simple mode:
       // - Any authenticated user can read rooms (enables join-by-code queries).
       allow read: if isAuthed();
@@ -31,6 +36,24 @@ service cloud.firestore {
         || request.resource.data.diff(resource.data).changedKeys().hasOnly(['identityMap'])
         || request.resource.data.diff(resource.data).changedKeys().hasOnly(['scoreboard'])
         || request.resource.data.diff(resource.data).changedKeys().hasOnly(['scoreboard', 'identityMap'])
+        || (
+          // Allow Family Feud submissions from players:
+          // phone clients submit answers by updating currentSession fields on the room doc.
+          // Keep this narrow to prevent arbitrary room mutation.
+          isRoomPlayer()
+          && resource.data.currentSession != null
+          && resource.data.currentSession.gameId == 'family_feud'
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['currentSession'])
+          && request.resource.data.currentSession != null
+          && request.resource.data.currentSession.gameId == 'family_feud'
+          && request.resource.data.currentSession.diff(resource.data.currentSession).changedKeys().hasOnly([
+            'revealedAnswerIds',
+            'teamScores',
+            'strikes',
+            'status',
+            'activeTeam'
+          ])
+        )
         || (
           // Allow bingo claiming: players can update currentSession when claiming bingo
           // IMPORTANT: keep this narrow: only allow changing the top-level `currentSession` field.
@@ -166,6 +189,16 @@ service cloud.firestore {
             request.auth.uid == uid
             || isRoomController()
           );
+          allow delete: if isRoomController();
+        }
+
+        // Bingo claims (optional fallback path when direct transaction update is not allowed)
+        // rooms/{roomId}/sessions/{sessionId}/claims/{uid}
+        match /claims/{uid} {
+          allow read: if isAuthed() && (isRoomController() || request.auth.uid == uid);
+          // Players can create/update their own claim doc.
+          allow create, update: if isAuthed() && request.auth.uid == uid;
+          // Controller can update/delete any claim doc (processing).
           allow delete: if isRoomController();
         }
       }

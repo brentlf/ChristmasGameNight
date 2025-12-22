@@ -167,8 +167,8 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   // Lobby / between sessions
   if (!currentSession || !sessionId || !gameId || status === 'between' || room.status === 'between_sessions') {
     return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
-        <div className="mx-auto max-w-xl">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+        <div className="mx-auto max-w-xl w-full flex-1 min-h-0 flex flex-col">
           <div className="card text-center relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
             <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-christmas-green/15 blur-3xl" />
@@ -201,7 +201,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   // Team setup for Family Feud
   if (status === 'team_setup') {
     return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
         <div className="mx-auto max-w-3xl">
           <div className="card text-center">
             <div className="text-5xl mb-4">🎯</div>
@@ -223,7 +223,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   // Intro (players can locally dismiss; controller can skip globally)
   if (status === 'intro' && localIntroDismissedSessionId !== sessionId) {
     return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
         <div className="mx-auto max-w-3xl">
           <GameIntro
             gameId={gameId}
@@ -308,7 +308,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
     }
 
     return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
         <div className="max-w-xl mx-auto space-y-3 md:space-y-4">
           <div className="card">
             <div className="flex items-start justify-between gap-3 md:gap-4">
@@ -447,7 +447,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
       const userTeam = teamMapping[player.uid];
       
       return (
-        <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+        <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
           <div className="max-w-xl mx-auto">
             <div className="card text-center">
               <div className="text-5xl md:text-6xl mb-3 md:mb-4">🎯</div>
@@ -494,7 +494,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
     const myScore = scoreMap.get(player.uid) ?? 0;
 
     return (
-      <main className="min-h-dvh px-4 py-10">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-4 py-10 flex flex-col">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
             {gameId === 'pictionary' ? (
@@ -577,7 +577,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
     const isWinner = myRank === 0;
 
     return (
-      <main className="min-h-dvh px-4 py-10">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-4 py-10 flex flex-col">
         <div className="max-w-xl mx-auto">
           <div className="card text-center relative overflow-hidden">
             {/* Celebration background */}
@@ -650,7 +650,7 @@ export default function MiniGamesPhoneClient(props: { roomId: string; room: Room
   }
 
   return (
-    <main className="min-h-dvh flex items-center justify-center">
+    <main className="min-h-[var(--app-height)] min-h-dvh flex items-center justify-center">
       <div className="text-white/70">{t('common.loading', lang)}</div>
     </main>
   );
@@ -775,7 +775,7 @@ function PictionaryDrawerPhone(props: {
   }, [canvasEl, roundIndex]);
 
   return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
       <div className="max-w-xl mx-auto space-y-4">
         <div className="card">
           <div className="flex items-start justify-between gap-4">
@@ -935,7 +935,7 @@ function PictionaryGuesserPhone(props: {
   }, [live?.seq, live?.events, live?.round, roundIndex]);
 
   return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
       <div className="max-w-xl mx-auto space-y-4">
         <div className="card">
           <div className="flex items-start justify-between gap-4">
@@ -1219,7 +1219,7 @@ function FamilyFeudPhoneRound(props: {
 
   if (!question) {
     return (
-      <main className="min-h-dvh px-4 py-10">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-4 py-10 flex flex-col">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
             <p className="text-white/70">{lang === 'cs' ? 'Načítání...' : 'Loading...'}</p>
@@ -1231,7 +1231,7 @@ function FamilyFeudPhoneRound(props: {
 
   if (!userTeam) {
     return (
-      <main className="min-h-dvh px-4 py-10">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-4 py-10 flex flex-col">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
             <p className="text-white/70 mb-4">
@@ -1247,7 +1247,7 @@ function FamilyFeudPhoneRound(props: {
   }
 
   return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
       <div className="max-w-xl mx-auto space-y-4">
         <div className="card">
           <div className="flex items-start justify-between gap-4">
@@ -1411,6 +1411,9 @@ function BingoPhoneCard(props: {
   const [bingoWinners, setBingoWinners] = useState<string[]>([]);
   const [claiming, setClaiming] = useState(false);
   const [sessionStatus, setSessionStatus] = useState<string>('in_game');
+  const lastCardWriteAtRef = useRef<number>(0);
+  const cardWritePromiseRef = useRef<Promise<unknown> | null>(null);
+  const [pendingHostClaim, setPendingHostClaim] = useState(false);
 
   // Load card
   useEffect(() => {
@@ -1455,6 +1458,50 @@ function BingoPhoneCard(props: {
     if (sessionStatus !== 'claiming') setClaiming(false);
   }, [sessionStatus]);
 
+  // If we had to fall back to "host verification", watch the claim doc so the player gets feedback.
+  useEffect(() => {
+    if (!pendingHostClaim) return;
+    if (hasClaimed) {
+      setPendingHostClaim(false);
+      return;
+    }
+    const claimRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'claims', player.uid);
+    const unsubscribe = onSnapshot(
+      claimRef,
+      (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data() as any;
+        const status = String(data?.status || '');
+        if (status === 'processed') {
+          const result = data?.result;
+          if (result?.valid) {
+            // Room listener will also flip UI, but give immediate feedback.
+            playSound('bingo.bingo', { device: 'phone', gain: 0.5 });
+            vibrate([10, 20, 10], { device: 'phone' });
+            toast.success(lang === 'cs' ? 'Bingo ověřeno! ✅' : 'Bingo verified! ✅');
+          } else {
+            playSound('bingo.ball_pop', { device: 'phone', gain: 0.25 });
+            vibrate([25, 30, 25], { device: 'phone' });
+            toast.error(
+              (result?.error as string) ||
+                (lang === 'cs' ? 'Neplatný vzor' : 'Invalid pattern')
+            );
+          }
+          setPendingHostClaim(false);
+        } else if (status === 'error') {
+          playSound('ui.error', { device: 'phone' });
+          toast.error((data?.error as string) || (lang === 'cs' ? 'Chyba ověření' : 'Verification error'));
+          setPendingHostClaim(false);
+        }
+      },
+      () => {
+        // Ignore listener errors; player can still watch the TV/room update.
+      }
+    );
+    return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingHostClaim, roomId, sessionId, player.uid, hasClaimed]);
+
 
   const handleToggleCell = async (row: number, col: number) => {
     if (!card || sessionStatus !== 'in_game') return;
@@ -1467,7 +1514,10 @@ function BingoPhoneCard(props: {
     try {
       playSound('ui.click', 0.05);
       const cardRef = doc(db, 'rooms', roomId, 'sessions', sessionId, 'cards', player.uid);
-      await updateDoc(cardRef, { marked: newMarked } as any);
+      lastCardWriteAtRef.current = Date.now();
+      const p = updateDoc(cardRef, { marked: newMarked } as any);
+      cardWritePromiseRef.current = p;
+      await p;
       setCard({ ...card, marked: newMarked });
     } catch (error: any) {
       toast.error(error.message || 'Failed to update card');
@@ -1480,6 +1530,22 @@ function BingoPhoneCard(props: {
     if (hasClaimed) return;
     setClaiming(true);
     try {
+      // If the player just tapped a cell, give Firestore a moment to sync the card update
+      // before we validate the claim in a server transaction.
+      const msSinceWrite = Date.now() - (lastCardWriteAtRef.current || 0);
+      if (msSinceWrite >= 0 && msSinceWrite < 450) {
+        await new Promise((r) => setTimeout(r, 450 - msSinceWrite));
+      }
+      if (cardWritePromiseRef.current) {
+        try {
+          await cardWritePromiseRef.current;
+        } catch {
+          // ignore; claim will fail with a clearer error toast below
+        } finally {
+          cardWritePromiseRef.current = null;
+        }
+      }
+
       playSound('ui.lock_in', { device: 'phone' });
       vibrate(10, { device: 'phone' });
       
@@ -1492,7 +1558,8 @@ function BingoPhoneCard(props: {
         vibrate([10, 20, 10], { device: 'phone' });
         toast.success(lang === 'cs' ? 'Bingo! Čekáme na ověření...' : 'Bingo! Waiting for verification...');
       } else {
-        playSound('game.wrong', { device: 'phone', gain: 0.35 });
+        // Don't use the buzzer here; make this a softer "nope" so it doesn't feel like a wrong-answer strike.
+        playSound('bingo.ball_pop', { device: 'phone', gain: 0.25 });
         vibrate([25, 30, 25], { device: 'phone' });
         toast.error(result.error || (lang === 'cs' ? 'Neplatný vzor' : 'Invalid pattern'));
         setClaiming(false);
@@ -1508,6 +1575,7 @@ function BingoPhoneCard(props: {
             { merge: true }
           );
           toast.success(lang === 'cs' ? 'Bingo odesláno hostiteli ke kontrole.' : 'Bingo sent to host for verification.');
+          setPendingHostClaim(true);
         } catch (claimError: any) {
           toast.error(claimError?.message || message || 'Failed to claim bingo');
         } finally {
@@ -1517,14 +1585,15 @@ function BingoPhoneCard(props: {
         toast.error(message || 'Failed to claim bingo');
         setClaiming(false);
       }
-      playSound('ui.error');
+      // Permission fallback is not a "failure" for the player; it's just queued for the TV host.
+      playSound(isPermission ? 'ui.success' : 'ui.error', { device: 'phone' });
       vibrate([20, 30, 20], { device: 'phone' });
     }
   };
 
   if (!card) {
     return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
         <div className="max-w-xl mx-auto">
           <div className="card text-center">
             <div className="text-2xl">{lang === 'cs' ? 'Načítání...' : 'Loading...'}</div>
@@ -1537,8 +1606,8 @@ function BingoPhoneCard(props: {
   const currentBall = drawnBalls.length > 0 ? drawnBalls[drawnBalls.length - 1] : null;
 
   return (
-    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
-      <div className="max-w-xl mx-auto space-y-4">
+    <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+      <div className="max-w-xl mx-auto w-full flex-1 min-h-0 flex flex-col space-y-4">
         <div className="card text-center">
           <h1 className="text-2xl font-black mb-2">
             {lang === 'cs' ? '🎄 Vánoční Bingo' : '🎄 Christmas Bingo'}

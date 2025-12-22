@@ -88,7 +88,7 @@ export default function ResultsPage() {
 
   if (roomLoading || playersLoading) {
     return (
-      <div className="h-dvh flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-4xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -96,7 +96,7 @@ export default function ResultsPage() {
 
   if (!room || !track) {
     return (
-      <div className="h-dvh flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-4xl">{t('common.error', lang)}</div>
       </div>
     );
@@ -150,11 +150,11 @@ export default function ResultsPage() {
   };
 
   return (
-    <main className="h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col overflow-hidden">
-      <div className="max-w-6xl mx-auto w-full flex-1 min-h-0 flex flex-col">
+    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+      <div className="max-w-6xl mx-auto w-full flex-1 min-h-0 flex flex-col gap-4 md:gap-6">
         {/* Overall Scoring Info */}
         {overallScoring && overallScoring.length > 0 && (
-          <div className="card mb-4 md:mb-6 shrink-0">
+          <div className="card shrink-0">
             <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-center break-words">{t('results.overallScoring', lang)}</h2>
             <p className="text-center text-white/70 mb-3 md:mb-4 text-sm md:text-base break-words">
               {room?.overallScoringMode === 'placements' && t('scoring.placements', lang)}
@@ -165,7 +165,8 @@ export default function ResultsPage() {
         )}
 
         {/* Game Finale Component */}
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-auto rounded-3xl border border-white/10 bg-white/5">
+          <div className="p-3 md:p-5">
           <GameFinale
             ranked={rankedFiltered}
             gameTitle={lang === 'cs' ? '🏁 Amazing Race' : '🏁 Amazing Race'}
@@ -174,10 +175,11 @@ export default function ResultsPage() {
             scoreLabel={scoreLabel}
             showBackButton={false}
           />
+          </div>
         </div>
 
         {/* Actions */}
-        <div className="flex justify-center gap-3 md:gap-4 mt-4 md:mt-6 shrink-0">
+        <div className="flex justify-center gap-3 md:gap-4 shrink-0 pb-2">
           {isController ? (
             <button type="button" className="btn-primary text-sm md:text-base break-words" onClick={nextGame}>
               {lang === 'cs' ? 'Další hra' : 'Next game'}

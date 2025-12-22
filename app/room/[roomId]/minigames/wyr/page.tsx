@@ -36,7 +36,7 @@ export default function WYRPage() {
 
   if (!room || !player) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="min-h-[var(--app-height)] min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -58,8 +58,8 @@ export default function WYRPage() {
 
   if (isCompleted) {
     return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
-        <div className="max-w-xl mx-auto">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+        <div className="max-w-xl mx-auto w-full flex-1 min-h-0 flex flex-col">
           <div className="card text-center">
             <div className="text-6xl mb-4">🎉</div>
             <h1 className="game-show-title mb-3">{t('wyr.completed', lang)}</h1>
@@ -84,7 +84,7 @@ export default function WYRPage() {
 
   if (currentIndex >= selectedIds.length) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="min-h-[var(--app-height)] min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -95,7 +95,7 @@ export default function WYRPage() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="min-h-[var(--app-height)] min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -103,7 +103,7 @@ export default function WYRPage() {
 
   if (!item) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="min-h-[var(--app-height)] min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.error', lang)}</div>
       </div>
     );
@@ -172,8 +172,8 @@ function WYRQuestion({
   };
 
   return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
-      <div className="max-w-xl mx-auto">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+      <div className="max-w-xl mx-auto w-full flex-1 min-h-0 flex flex-col">
         <div className="card mb-4 cgn-animate-in">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold">{t('wyr.title', lang)}</h1>

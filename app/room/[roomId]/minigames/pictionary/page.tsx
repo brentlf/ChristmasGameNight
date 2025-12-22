@@ -40,7 +40,7 @@ export default function PictionaryPage() {
 
   if (!room) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
+      <div className="min-h-[var(--app-height)] min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -102,8 +102,8 @@ export default function PictionaryPage() {
   // Game completed
   if (gameState.status === 'completed') {
     return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
-        <div className="max-w-xl mx-auto">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+        <div className="max-w-xl mx-auto w-full flex-1 min-h-0 flex flex-col">
           <div className="card text-center">
             <div className="text-6xl mb-4">🎉</div>
             <h1 className="game-show-title mb-3">Game Complete!</h1>
@@ -536,8 +536,8 @@ function PictionaryDrawer({
 
   // Normal view
   return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
-      <div className="max-w-xl mx-auto">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+      <div className="max-w-xl mx-auto w-full flex-1 min-h-0 flex flex-col">
         <div className="card mb-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold">🎨 You're Drawing!</h1>
@@ -695,8 +695,8 @@ function PictionaryGuesser({
   };
 
   return (
-      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
-      <div className="max-w-xl mx-auto">
+      <main className="min-h-[var(--app-height)] min-h-dvh px-3 md:px-4 py-4 md:py-6 flex flex-col">
+      <div className="max-w-xl mx-auto w-full flex-1 min-h-0 flex flex-col">
         <div className="card mb-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold">🎨 Guess the Drawing!</h1>

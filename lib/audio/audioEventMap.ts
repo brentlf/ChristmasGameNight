@@ -99,7 +99,8 @@ export const AUDIO_EVENT_MAP: Record<AudioEventName, AudioEventDef> = {
   'ui.error': {
     group: 'sfx',
     // Avoid 404 spam by only listing files that exist in /public/audio.
-    src: ['/audio/game/wrong_buzz.mp3', '/audio/ding.ogg'],
+    // Keep this *soft* (UI errors happen a lot and shouldn't sound like a game show buzzer).
+    src: ['/audio/game/wrong_soft.ogg', '/audio/ding.ogg', '/audio/game/wrong_buzz.mp3'],
     cooldownMs: 500,
     gain: 0.35,
     allow: ['tv', 'phone'],

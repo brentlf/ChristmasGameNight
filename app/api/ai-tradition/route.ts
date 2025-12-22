@@ -36,7 +36,8 @@ export async function POST(_request: NextRequest) {
 
     const systemPrompt =
       'You generate ONE brand-new Christmas tradition idea for families. ' +
-      'It must be practical, safe, positive, and not identical to any banned items. ' +
+      'Constraints: must be practical, safe, positive, doable INDOORS at home with everyday household items (paper, pens, cups, blankets, chairs, etc.), no special gear, no outdoors, no cooking/food/alcohol. ' +
+      'Not identical to any banned items. ' +
       'Return ONLY valid JSON with keys: id, en, cs (no markdown, no extra text).';
 
     const userPrompt =
@@ -48,6 +49,7 @@ export async function POST(_request: NextRequest) {
       `- en: one short actionable sentence (max 90 chars)\n` +
       `- cs: Czech translation (max 110 chars)\n` +
       `- id: snake_case, MUST start with "ai_" and be unique vs BANNED_IDS\n` +
+      `- Must be indoors and feasible with common household items (paper, pens, cups, blankets, chairs, tape, string, etc.). No special equipment, no outdoors, no cooking/food/alcohol.\n` +
       `Output JSON only.`;
 
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
