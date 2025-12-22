@@ -247,6 +247,13 @@ export async function startMiniGameSession(params: {
   if (gameId === 'bingo') {
     currentSessionData.drawnBalls = [];
     currentSessionData.startedAt = Date.now();
+    // Default Bingo to "Top 3" so play can continue after the first winner.
+    // (In first-winner mode, the game stays in `claiming` until the host manually continues,
+    // which makes it feel like players are "stuck" when trying to play for 2nd/3rd.)
+    currentSessionData.bingoMode = 'top3';
+    currentSessionData.bingoWinners = [];
+    currentSessionData.bingoLastWinnerUid = null;
+    currentSessionData.bingoWinnerUid = null;
     // Generate bingo cards for all active players
     await generateBingoCards(roomId, sessionId, activePlayerUids);
   }
