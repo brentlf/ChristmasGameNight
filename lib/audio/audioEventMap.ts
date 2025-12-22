@@ -123,7 +123,7 @@ export const AUDIO_EVENT_MAP: Record<AudioEventName, AudioEventDef> = {
   },
   'game.wrong': {
     group: 'sfx',
-    src: ['/audio/game/wrong_buzz.mp3', '/audio/game/wrong_buzz.wav', '/audio/ding.ogg'],
+    src: ['/audio/game/wrong_soft.ogg', '/audio/game/wrong_buzz.mp3', '/audio/game/wrong_buzz.wav', '/audio/ding.ogg'],
     cooldownMs: 500,
     gain: 0.9,
     allow: ['tv', 'phone'],

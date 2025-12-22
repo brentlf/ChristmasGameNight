@@ -91,7 +91,7 @@ export default function PlayPage() {
 
   if (roomLoading || playerLoading) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.loading', lang)}</div>
       </div>
     );
@@ -99,7 +99,7 @@ export default function PlayPage() {
 
   if (!room) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-2xl">{t('common.error', lang)}</div>
       </div>
     );
@@ -107,7 +107,7 @@ export default function PlayPage() {
 
   if (!player) {
     return (
-      <main className="px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-lg">
           <div className="card relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
@@ -243,7 +243,7 @@ export default function PlayPage() {
 
   if (roomMode === 'leaderboard') {
     return (
-      <main className="px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-4xl">
           <div className="card">
             <h1 className="game-show-title mb-3 md:mb-4 text-center break-words">🏆 Leaderboard</h1>
@@ -262,7 +262,7 @@ export default function PlayPage() {
   }
 
   return (
-      <main className="px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-xl">
           <div className="card text-center">
             <p className="text-white/70 text-sm md:text-base break-words">Unknown room mode</p>
@@ -280,7 +280,7 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
   // Safety check for trackId
   if (!trackId) {
     return (
-      <main className="px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-xl">
           <div className="card text-center">
             <p className="text-white/70 text-sm md:text-base break-words">{t('common.error', lang)}: Missing race track</p>
@@ -363,7 +363,7 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
     const isWinner = myRank === 0;
 
     return (
-      <main className="px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="max-w-xl mx-auto">
           <div className="card text-center relative overflow-hidden">
             {/* Celebration background */}
@@ -443,7 +443,7 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
 
   if (room.status === 'lobby') {
     return (
-      <main className="px-4 py-10 md:py-16">
+      <main className="min-h-dvh px-4 py-10 md:py-16">
         <div className="mx-auto max-w-2xl">
           <div className="card text-center relative overflow-hidden">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-christmas-gold/15 blur-3xl" />
@@ -472,7 +472,7 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
 
   if (!stage) {
     return (
-      <main className="px-3 md:px-4 py-4 md:py-6">
+      <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
         <div className="mx-auto max-w-xl">
           <div className="card text-center">
             <p className="text-white/70 mb-3 md:mb-4 text-sm md:text-base break-words">{t('common.loading', lang)}</p>
@@ -486,7 +486,7 @@ function RacePlay(props: { roomId: string; room: Room; player: Player; lang: 'en
   }
 
   return (
-    <main className="px-3 md:px-4 py-4 md:py-6">
+    <main className="min-h-dvh px-3 md:px-4 py-4 md:py-6">
       <div className="max-w-xl mx-auto">
         <div className="card mb-3 md:mb-4">
           <div className="flex items-start justify-between gap-3 md:gap-4">

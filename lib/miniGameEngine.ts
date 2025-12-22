@@ -299,7 +299,16 @@ export async function startPictionaryRound(roomId: string): Promise<void> {
     }
 
     // Get drawer for this round
-    const drawerIndex = (nextRound - 1) % gameState.drawerOrder.length;
+    // Rotate drawer each round; if something re-triggers the same round, force-advance
+    // to the next player so we don't get stuck on one drawer.
+    let drawerIndex = (nextRound - 1) % gameState.drawerOrder.length;
+    const prevDrawerUid = gameState.currentDrawerUid;
+    if (gameState.drawerOrder.length > 1 && prevDrawerUid) {
+      const prevIndex = gameState.drawerOrder.indexOf(prevDrawerUid);
+      if (prevIndex >= 0 && drawerIndex === prevIndex) {
+        drawerIndex = (prevIndex + 1) % gameState.drawerOrder.length;
+      }
+    }
     const drawerUid = gameState.drawerOrder[drawerIndex];
 
     // Pick prompt for this round from the pre-generated deck.

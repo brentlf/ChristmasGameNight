@@ -329,7 +329,7 @@ export default function MiniGamesTVHub(props: {
         aiDifficulty: aiDifficulty || 'easy',
       });
       // Stay in intro; controller can skip or let it play.
-      playSound('jingle', 0.18);
+      playSound('sleighbells', 0.22);
       return sid;
     } finally {
       setBusy(false);

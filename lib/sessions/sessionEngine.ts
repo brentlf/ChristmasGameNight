@@ -332,7 +332,19 @@ export async function controllerStartPictionaryRound(params: {
   const room = { id: roomSnap.id, ...(roomSnap.data() as any) } as Room;
 
   const active = room.currentSession?.activePlayerUids ?? [];
-  const drawerUid = active.length ? active[roundIndex % active.length] : null;
+
+  // Ensure the drawer rotates each round; if we somehow re-trigger the same round index,
+  // bump to the next player so we don't get stuck on the same drawer.
+  let drawerIndex = active.length ? roundIndex % active.length : -1;
+  const prevDrawerUid = room.currentSession?.drawerUid ?? null;
+  if (drawerIndex >= 0 && active.length > 1 && prevDrawerUid) {
+    const prevIndex = active.indexOf(prevDrawerUid);
+    if (prevIndex >= 0 && drawerIndex === prevIndex) {
+      drawerIndex = (prevIndex + 1) % active.length;
+    }
+  }
+
+  const drawerUid = drawerIndex >= 0 ? active[drawerIndex] : null;
 
   const startedAt = Date.now();
   const endsAt = startedAt + Math.max(10, secondsPerRound) * 1000;
