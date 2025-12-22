@@ -2062,36 +2062,43 @@ function BingoTVRound(props: {
   useEffect(() => {
     if (!isController) return;
     const claimsRef = collection(db, 'rooms', roomId, 'sessions', sessionId, 'claims');
-    const unsubscribe = onSnapshot(claimsRef, (snap) => {
-      snap.docChanges().forEach((change) => {
-        const data = change.doc.data() as any;
-        const status = data?.status || 'pending';
-        const uid = data?.uid || change.doc.id;
-        if (status !== 'pending' || !uid) return;
-        if (processingClaimsRef.current.has(change.doc.id)) return;
-        processingClaimsRef.current.add(change.doc.id);
+    const unsubscribe = onSnapshot(
+      claimsRef,
+      (snap) => {
+        snap.docChanges().forEach((change) => {
+          const data = change.doc.data() as any;
+          const status = data?.status || 'pending';
+          const uid = data?.uid || change.doc.id;
+          if (status !== 'pending' || !uid) return;
+          if (processingClaimsRef.current.has(change.doc.id)) return;
+          processingClaimsRef.current.add(change.doc.id);
 
-        claimBingo({ roomId, sessionId, uid })
-          .then((res) =>
-            setDoc(
-              change.doc.ref,
-              { status: 'processed', result: res, processedAt: Date.now() },
-              { merge: true }
+          claimBingo({ roomId, sessionId, uid })
+            .then((res) =>
+              setDoc(
+                change.doc.ref,
+                { status: 'processed', result: res, processedAt: Date.now() },
+                { merge: true }
+              )
             )
-          )
-          .catch((err: any) => {
-            setDoc(
-              change.doc.ref,
-              { status: 'error', error: err?.message || 'Failed', processedAt: Date.now() },
-              { merge: true }
-            ).catch(() => {});
-            toast.error(err?.message || 'Failed to process bingo claim');
-          })
-          .finally(() => {
-            processingClaimsRef.current.delete(change.doc.id);
-          });
-      });
-    });
+            .catch((err: any) => {
+              setDoc(
+                change.doc.ref,
+                { status: 'error', error: err?.message || 'Failed', processedAt: Date.now() },
+                { merge: true }
+              ).catch(() => {});
+              toast.error(err?.message || 'Failed to process bingo claim');
+            })
+            .finally(() => {
+              processingClaimsRef.current.delete(change.doc.id);
+            });
+        });
+      },
+      (error) => {
+        console.error('[BingoTV] Claims listener error', error);
+        toast.error(error?.message || 'Bingo claims listener error');
+      }
+    );
     return () => unsubscribe();
   }, [isController, roomId, sessionId]);
 
