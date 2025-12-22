@@ -1554,7 +1554,6 @@ function BingoPhoneCard(props: {
               const value = card.cells[idx];
               const isMarked = Boolean(card.marked[idx]);
               const isFree = value === 'FREE';
-              const isHighlighted = currentBall === value;
 
               return (
                 <button
@@ -1570,7 +1569,6 @@ function BingoPhoneCard(props: {
                         : isMarked
                         ? 'bg-christmas-green/40 border-christmas-green text-white'
                         : 'bg-white/10 border-white/20 text-white/70'}
-                      ${isHighlighted ? 'ring-4 ring-christmas-gold animate-pulse' : ''}
                       ${sessionStatus !== 'in_game' ? 'opacity-60' : 'hover:scale-105'}
                     `}
                 >
